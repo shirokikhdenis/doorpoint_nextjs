@@ -8,8 +8,8 @@ const { withTransaction } = require("./postgres");
  *   attribute_definitions
  *                      — словарь характеристик с inline-options (JSONB) и scope
  *                        (product/variant) вместо четырёх булевых флагов.
- *   products           — карточка модели (одна цветовая вариация). attrs — JSONB.
- *                        model_key группирует цветовые варианты одной модели.
+ *   products           — карточка модели (одна комбинация цвет/стекло и т.п.). attrs — JSONB.
+ *                        model_key группирует варианты одной модели (переключатели цвета и стекла).
  *   product_images     — единственный источник изображений (product.image_url нет).
  *   product_variants   — размер/открывание; attrs — JSONB.
  *
@@ -210,6 +210,15 @@ const seedAttributes = async (client) => {
       options: ["Белый", "Чёрный", "Серый", "Графит", "Орех"],
     },
     {
+      code: "glass",
+      name: "Стекло",
+      type: "option",
+      unit: null,
+      scope: "product",
+      isFilterable: true,
+      options: ["Прозрачное", "Матовое", "Без вставки"],
+    },
+    {
       code: "fill",
       name: "Наполнение",
       type: "option",
@@ -297,7 +306,7 @@ const seedCatalogPages = async (client) => {
       slug: "interior-doors",
       name: "Межкомнатные двери",
       categories: ["interior-doors"],
-      filters: ["color", "width", "height", "manufacturer"],
+      filters: ["color", "glass", "width", "height", "manufacturer"],
     },
     {
       slug: "fittings",
@@ -368,11 +377,36 @@ const seedDemoProducts = async (client, { rootIds, childIds }) => {
       categoryId: childIds["interior-classic"],
       modelKey: "bravo-classic-01",
       price: 18900,
-      attrs: { color: "Белый", width: 700, height: 2000, manufacturer: "Браво" },
+      attrs: {
+        color: "Белый",
+        glass: "Прозрачное",
+        width: 700,
+        height: 2000,
+        manufacturer: "Браво",
+      },
       images: ["https://picsum.photos/seed/bravo-classic-01-white/600/800"],
       variants: [
         { sku: "BRAVO-CLASSIC-01-WHITE-700", attrs: { size: "700x2000", opening: "Левое" } },
         { sku: "BRAVO-CLASSIC-01-WHITE-800", attrs: { size: "800x2000", opening: "Левое" } },
+      ],
+    },
+    {
+      sku: "BRAVO-CLASSIC-01-WHITE-MATTE",
+      name: "Браво Classic 01",
+      categoryId: childIds["interior-classic"],
+      modelKey: "bravo-classic-01",
+      price: 19200,
+      attrs: {
+        color: "Белый",
+        glass: "Матовое",
+        width: 700,
+        height: 2000,
+        manufacturer: "Браво",
+      },
+      images: ["https://picsum.photos/seed/bravo-classic-01-white-matte/600/800"],
+      variants: [
+        { sku: "BRAVO-CLASSIC-01-WHITE-MATTE-700", attrs: { size: "700x2000", opening: "Левое" } },
+        { sku: "BRAVO-CLASSIC-01-WHITE-MATTE-800", attrs: { size: "800x2000", opening: "Левое" } },
       ],
     },
     {

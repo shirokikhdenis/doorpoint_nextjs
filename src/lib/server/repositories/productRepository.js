@@ -5,8 +5,10 @@ const attributeRepository = require("./attributeRepository");
  * Репозиторий товаров на новой схеме (JSONB attrs + единое дерево categories).
  * Публичная поверхность совместима со старой: те же функции, те же поля в ответе.
  *
- * Карточка товара = «модель + цвет». Размер/открывание лежат в product_variants.
- * Цветовые соседи группируются через products.model_key.
+ * Карточка товара = «модель + цвет» (и при необходимости «модель + стекло»).
+ * Размер/открывание лежат в product_variants.
+ * Соседи по цвету и по стеклу группируются через products.model_key + name
+ * (атрибуты product-scope `color` и `glass`).
  */
 
 const sortMap = {
@@ -221,6 +223,27 @@ const listProducts = async (filters) => {
       p.name,
       p.price,
       p.attrs->>'color' AS color,
+      (
+        SELECT COALESCE(
+          json_agg(json_build_object('id', x.pid, 'label', x.gl) ORDER BY x.gl),
+          '[]'::json
+        )
+        FROM (
+          SELECT MIN(sib.id) AS pid, NULLIF(TRIM(sib.attrs->>'glass'), '') AS gl
+          FROM products sib
+          WHERE p.model_key IS NOT NULL
+            AND sib.model_key = p.model_key
+            AND sib.name = p.name
+            AND sib.is_active = TRUE
+            AND NULLIF(TRIM(sib.attrs->>'glass'), '') IS NOT NULL
+            AND (
+              NULLIF(TRIM(p.attrs->>'color'), '') IS NULL
+              OR NULLIF(TRIM(sib.attrs->>'color'), '') = NULLIF(TRIM(p.attrs->>'color'), '')
+            )
+          GROUP BY NULLIF(TRIM(sib.attrs->>'glass'), '')
+        ) x
+        WHERE x.gl IS NOT NULL
+      ) AS "glassOptions",
       ${productImageSubquery} AS image,
       ${hoverImageSubquery} AS "hoverImage",
       ${taxonomySelect}
@@ -240,6 +263,23 @@ const listProducts = async (filters) => {
       sku: row.sku,
       name: row.name,
       color: row.color || null,
+      glassOptions: (() => {
+        let raw = row.glassOptions;
+        if (raw && typeof raw === "string") {
+          try {
+            raw = JSON.parse(raw);
+          } catch {
+            raw = [];
+          }
+        }
+        const arr = Array.isArray(raw) ? raw : [];
+        return arr
+          .map((o) => ({
+            id: Number(o.id),
+            label: String(o.label || "").trim(),
+          }))
+          .filter((o) => Number.isInteger(o.id) && o.id > 0 && o.label);
+      })(),
       price: Number(row.price),
       image: row.image || "",
       hoverImage: row.hoverImage || null,
@@ -613,7 +653,14 @@ const getProductById = async (id) => {
     })
     .filter(Boolean);
 
-  // Соседние цветовые варианты (по model_key + name).
+  const attrGlass = String(productAttrs.glass ?? "").trim();
+  const attrColor = String(productAttrs.color ?? "").trim();
+  const colorGlassDb = attrGlass === "" ? null : attrGlass;
+  const glassColorDb = attrColor === "" ? null : attrColor;
+
+  // Соседи по цвету: та же модель (model_key + name), при заполненном стекле у текущей
+  // карточки — только карточки с тем же стеклом; при пустом стекле — только карточки
+  // без стекла (чтобы не смешивать «Орех без вставки» с «Белый + стекло»).
   let colorVariants = [];
   if (row.modelKey) {
     const colorRes = await query(
@@ -626,9 +673,13 @@ const getProductById = async (id) => {
       WHERE p.model_key = $1
         AND p.name = $2
         AND p.is_active = TRUE
+        AND (
+          ($3::text IS NULL AND COALESCE(NULLIF(TRIM(p.attrs->>'glass'), ''), '') = '')
+          OR ($3::text IS NOT NULL AND COALESCE(NULLIF(TRIM(p.attrs->>'glass'), ''), '') = $3::text)
+        )
       ORDER BY p.id
       `,
-      [row.modelKey, row.name],
+      [row.modelKey, row.name, colorGlassDb],
     );
     colorVariants = colorRes.rows.map((r) => ({
       id: Number(r.id),
@@ -636,6 +687,57 @@ const getProductById = async (id) => {
       image: r.image || "",
       isCurrent: Number(r.id) === numericId,
     }));
+    const byColor = new Map();
+    for (const entry of colorVariants) {
+      const key = entry.color.trim() || `__id_${entry.id}`;
+      const existing = byColor.get(key);
+      if (!existing || entry.isCurrent) {
+        byColor.set(key, entry);
+      }
+    }
+    colorVariants = Array.from(byColor.values()).sort((a, b) => a.id - b.id);
+  }
+
+  // Соседи по стеклу: та же модель, при заполненном цвете — только тот же цвет.
+  let glassVariants = [];
+  if (row.modelKey) {
+    const glassRes = await query(
+      `
+      SELECT
+        p.id,
+        p.attrs->>'glass' AS glass,
+        ${productImageSubquery} AS image
+      FROM products p
+      WHERE p.model_key = $1
+        AND p.name = $2
+        AND p.is_active = TRUE
+        AND (
+          ($3::text IS NULL AND COALESCE(NULLIF(TRIM(p.attrs->>'color'), ''), '') = '')
+          OR ($3::text IS NOT NULL AND COALESCE(NULLIF(TRIM(p.attrs->>'color'), ''), '') = $3::text)
+        )
+      ORDER BY p.id
+      `,
+      [row.modelKey, row.name, glassColorDb],
+    );
+    const rawGlass = glassRes.rows.map((r) => ({
+      id: Number(r.id),
+      glass: String(r.glass || "").trim(),
+      image: r.image || "",
+      isCurrent: Number(r.id) === numericId,
+    }));
+    const distinctGlass = new Set(rawGlass.map((r) => r.glass).filter(Boolean));
+    if (distinctGlass.size > 1) {
+      glassVariants = rawGlass;
+      const byGlass = new Map();
+      for (const entry of glassVariants) {
+        const key = entry.glass.trim() || `__id_${entry.id}`;
+        const existing = byGlass.get(key);
+        if (!existing || entry.isCurrent) {
+          byGlass.set(key, entry);
+        }
+      }
+      glassVariants = Array.from(byGlass.values()).sort((a, b) => a.id - b.id);
+    }
   }
 
   // Варианты + variant-scope selectors.
@@ -694,6 +796,7 @@ const getProductById = async (id) => {
     variants,
     variantSelectors,
     colorVariants,
+    glassVariants,
   };
 };
 

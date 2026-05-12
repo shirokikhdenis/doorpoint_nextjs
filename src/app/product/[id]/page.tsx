@@ -127,6 +127,54 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
               </div>
             </div>
           ) : null}
+          {product.glassVariants.length > 1 ? (
+            <div className="space-y-2">
+              <span className="text-sm text-zinc-600">Стекло</span>
+              <div className="flex flex-wrap gap-2">
+                {product.glassVariants.map((entry) => {
+                  const label = entry.glass || "—";
+                  const baseClass =
+                    "flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs transition";
+                  if (entry.isCurrent) {
+                    return (
+                      <span
+                        key={entry.id}
+                        className={`${baseClass} border-zinc-900 bg-zinc-900 text-white`}
+                        aria-current="true"
+                      >
+                        {entry.image ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={entry.image}
+                            alt=""
+                            className="h-5 w-5 rounded-full border border-white/30 object-cover"
+                          />
+                        ) : null}
+                        {label}
+                      </span>
+                    );
+                  }
+                  return (
+                    <Link
+                      key={entry.id}
+                      href={`/product/${entry.id}`}
+                      className={`${baseClass} border-zinc-200 bg-white text-zinc-700 hover:border-zinc-400 hover:bg-zinc-50`}
+                    >
+                      {entry.image ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={entry.image}
+                          alt=""
+                          className="h-5 w-5 rounded-full border border-zinc-200 object-cover"
+                        />
+                      ) : null}
+                      {label}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
           {product.variants.length > 0 && (
             <label className="block space-y-1">
               <span className="text-sm text-zinc-600">Вариант</span>

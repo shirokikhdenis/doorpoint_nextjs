@@ -20,14 +20,16 @@ type ImportResult = {
   errors: string[];
 };
 
-const SAMPLE_CSV = `sku,name,category,price,imageUrl,model_key,attr:color,attr:thickness,attr:manufacturer,variant_attr:size,variant_attr:opening
-ENTRY-BRAVO-01,Браво Сталь 01,Входные двери>>>Премиум,79900,https://picsum.photos/seed/entry-1a/600/800,,Чёрный,80,Браво,860x2050,Левое
-ENTRY-BRAVO-01,Браво Сталь 01,Входные двери>>>Премиум,79900,https://picsum.photos/seed/entry-1a/600/800,,,,,860x2050,Правое
-ENTRY-BRAVO-01,Браво Сталь 01,Входные двери>>>Премиум,79900,https://picsum.photos/seed/entry-1a/600/800,,,,,960x2050,Левое
-INT-CLASSIC-WHITE,Classic 01 Белый,Межкомнатные двери>>>Classic,18900,https://picsum.photos/seed/int-1w/600/800,classic-01,Белый,,,800x2000,
-INT-CLASSIC-WHITE,Classic 01 Белый,Межкомнатные двери>>>Classic,18900,https://picsum.photos/seed/int-1w/600/800,classic-01,,,,900x2000,
-INT-CLASSIC-OAK,Classic 01 Дуб,Межкомнатные двери>>>Classic,19500,https://picsum.photos/seed/int-1o/600/800,classic-01,Дуб,,,800x2000,
-INT-CLASSIC-OAK,Classic 01 Дуб,Межкомнатные двери>>>Classic,19500,https://picsum.photos/seed/int-1o/600/800,classic-01,,,,900x2000,
+const SAMPLE_CSV = `sku,name,category,price,imageUrl,model_key,attr:color,attr:glass,attr:thickness,attr:manufacturer,variant_attr:size,variant_attr:opening
+ENTRY-BRAVO-01,Браво Сталь 01,Входные двери>>>Премиум,79900,https://picsum.photos/seed/entry-1a/600/800,,Чёрный,,80,Браво,860x2050,Левое
+ENTRY-BRAVO-01,Браво Сталь 01,Входные двери>>>Премиум,79900,https://picsum.photos/seed/entry-1a/600/800,,,,,,860x2050,Правое
+ENTRY-BRAVO-01,Браво Сталь 01,Входные двери>>>Премиум,79900,https://picsum.photos/seed/entry-1a/600/800,,,,,,960x2050,Левое
+INT-CLASSIC-WHITE,Classic 01 Белый,Межкомнатные двери>>>Classic,18900,https://picsum.photos/seed/int-1w/600/800,classic-01,Белый,Прозрачное,,,800x2000,
+INT-CLASSIC-WHITE,Classic 01 Белый,Межкомнатные двери>>>Classic,18900,https://picsum.photos/seed/int-1w/600/800,classic-01,,,,,900x2000,
+INT-CLASSIC-WHITE-MAT,Classic 01 Белый,Межкомнатные двери>>>Classic,19200,https://picsum.photos/seed/int-1wm/600/800,classic-01,Белый,Матовое,,,800x2000,
+INT-CLASSIC-WHITE-MAT,Classic 01 Белый,Межкомнатные двери>>>Classic,19200,https://picsum.photos/seed/int-1wm/600/800,classic-01,,,,,900x2000,
+INT-CLASSIC-OAK,Classic 01 Дуб,Межкомнатные двери>>>Classic,19500,https://picsum.photos/seed/int-1o/600/800,classic-01,Дуб,,,,800x2000,
+INT-CLASSIC-OAK,Classic 01 Дуб,Межкомнатные двери>>>Classic,19500,https://picsum.photos/seed/int-1o/600/800,classic-01,,,,,900x2000,
 `;
 
 export default function AdminImportPage() {

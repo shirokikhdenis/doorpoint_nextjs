@@ -272,6 +272,37 @@ export default function CatalogPage() {
                   <h3 className="font-normal">{item.color ? `${item.name} ${item.color}` : item.name}</h3>
                   <p className="mt-2 text-sm text-zinc-600">{formatPrice(item.price)}</p>
                 </Link>
+                {item.glassOptions && item.glassOptions.length > 1 ? (
+                  <div className="mt-2 space-y-1">
+                    <span className="text-xs text-zinc-500">Стекло</span>
+                    <div className="flex flex-wrap gap-1">
+                      {item.glassOptions.map((opt) => {
+                        const active = opt.id === item.id;
+                        const chipClass =
+                          "rounded-full border px-2 py-0.5 text-[11px] leading-tight transition";
+                        if (active) {
+                          return (
+                            <span
+                              key={opt.id}
+                              className={`${chipClass} border-zinc-900 bg-zinc-900 text-white`}
+                            >
+                              {opt.label}
+                            </span>
+                          );
+                        }
+                        return (
+                          <Link
+                            key={opt.id}
+                            href={`/product/${opt.id}`}
+                            className={`${chipClass} border-zinc-200 bg-white text-zinc-700 hover:border-zinc-400`}
+                          >
+                            {opt.label}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
               </article>
             ))}
           </div>

@@ -14,7 +14,16 @@ export type CatalogMeta = {
   attributeFilters: CatalogAttributeFilter[];
   price: { min: number; max: number };
 };
-export type ProductCard = { id: number; name: string; color?: string; image?: string; price: number };
+export type ProductGlassOption = { id: number; label: string };
+export type ProductCard = {
+  id: number;
+  name: string;
+  color?: string;
+  image?: string;
+  price: number;
+  /** Варианты стекла той же модели (тот же model_key + name, тот же color); для чипов в выдаче. */
+  glassOptions?: ProductGlassOption[];
+};
 export type VariantAttribute = {
   code: string;
   name: string;
@@ -34,6 +43,12 @@ export type ColorVariant = {
   image: string;
   isCurrent: boolean;
 };
+export type GlassVariant = {
+  id: number;
+  glass: string;
+  image: string;
+  isCurrent: boolean;
+};
 export type ProductData = {
   id: number;
   name: string;
@@ -45,6 +60,7 @@ export type ProductData = {
   attributes: Array<{ code: string; name: string; value: string }>;
   variants: Variant[];
   colorVariants: ColorVariant[];
+  glassVariants: GlassVariant[];
 };
 
 export type AdminCatalogPage = {
@@ -99,9 +115,38 @@ export const normalizeCatalogMeta = (value: unknown): CatalogMeta => {
   };
 };
 
+const parseGlassOptions = (raw: unknown): ProductGlassOption[] => {
+  let arr: unknown[] = [];
+  if (Array.isArray(raw)) arr = raw;
+  else if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      arr = Array.isArray(parsed) ? parsed : [];
+    } catch {
+      arr = [];
+    }
+  }
+  return arr
+    .map((entry) => {
+      const o = entry && typeof entry === "object" ? (entry as Record<string, unknown>) : {};
+      const id = Number(o.id);
+      const label = String(o.label || "");
+      if (!Number.isInteger(id) || id <= 0 || !label.trim()) return null;
+      return { id, label: label.trim() };
+    })
+    .filter(Boolean) as ProductGlassOption[];
+};
+
 export const normalizeProductsResponse = (value: unknown): ProductCard[] => {
   const source = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
-  return asArray<ProductCard>(source.items);
+  return asArray<Record<string, unknown>>(source.items).map((item) => ({
+    id: Number(item.id) || 0,
+    name: String(item.name || ""),
+    color: item.color ? String(item.color) : undefined,
+    image: item.image ? String(item.image) : undefined,
+    price: Number(item.price) || 0,
+    glassOptions: parseGlassOptions(item.glassOptions),
+  }));
 };
 
 export const normalizeProductData = (value: unknown): ProductData => {
@@ -124,6 +169,12 @@ export const normalizeProductData = (value: unknown): ProductData => {
     colorVariants: asArray<Record<string, unknown>>(source.colorVariants).map((entry) => ({
       id: Number(entry.id) || 0,
       color: String(entry.color || ""),
+      image: String(entry.image || ""),
+      isCurrent: Boolean(entry.isCurrent),
+    })),
+    glassVariants: asArray<Record<string, unknown>>(source.glassVariants || []).map((entry) => ({
+      id: Number(entry.id) || 0,
+      glass: String(entry.glass || ""),
       image: String(entry.image || ""),
       isCurrent: Boolean(entry.isCurrent),
     })),

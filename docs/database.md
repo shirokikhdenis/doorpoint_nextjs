@@ -72,7 +72,7 @@
 | `category_id` | `bigint` | FK `categories(id)`. Может ссылаться на корень или на лист (подкатегорию) |
 | `sku` | `text` | UNIQUE |
 | `name` | `text` | |
-| `model_key` | `text` | Группирует цветовые варианты одной модели (replacement скрытого «path») |
+| `model_key` | `text` | Связывает карточки одной модели для переключателей **цвета** и **стекла** в UI (replacement скрытого «path») |
 | `price` | `int` | Базовая цена |
 | `attrs` | `jsonb` | `{ color: "Белый", thickness: 80, manufacturer: "Браво" … }`. GIN-индекс `jsonb_path_ops` |
 | `is_active` | `bool` | Soft-hide в каталоге |
@@ -160,7 +160,8 @@ product_variants.product_id      ───▶  products.id                  (CAS
 2. **5 подкатегорий**: «Премиум»/«Стандарт», «Classic»/«Modern», «Ручки».
 3. **9 атрибутов**: `thickness`, `width`, `height` (number, product), `color`, `fill` (option, product), `glazing` (boolean, product), `manufacturer` (text, product), `size`, `opening` (option, variant).
 4. **5 витрин**: `all`, `entry-doors`, `thermal-break-doors`, `interior-doors`, `fittings`; у каждой свой набор `category_slugs` и `filter_codes`.
-5. **6 демо-товаров** с вариантами, в т.ч. две карточки `BRAVO-CLASSIC-01-*` с одинаковым `model_key` — чтобы показать цветовые варианты.
+5. **7 демо-товаров** с вариантами, в т.ч. три карточки `BRAVO-CLASSIC-01-*` с одинаковым `model_key`
+   (два варианта стекла у белого + орех) — чтобы показать `colorVariants` / `glassVariants` и чипы в каталоге.
 
 Сид идемпотентен через `DROP … CASCADE` в начале: повторный запуск очищает БД.
 
@@ -183,7 +184,11 @@ product_variants.product_id      ───▶  products.id                  (CAS
 - product-scope атрибуты — итерируем все строки `attribute_definitions` со `scope='product'`, берём из `p.attrs[code]`, рендерим с unit;
 - варианты — все `product_variants`, у каждого свой `attrs`;
 - `variantSelectors` — пробегаем `attrs` всех вариантов, собираем уникальные значения по каждому variant-scope коду;
-- `colorVariants` — если у товара выставлен `model_key`, запрос `WHERE model_key = ? AND name = ?` достаёт «соседей»-цветов.
+- `colorVariants` — если у товара выставлен `model_key`, подбираются соседи с тем же `name`;
+  при непустом `attrs.glass` в списке цветов остаются только карточки с **тем же стеклом**.
+- `glassVariants` — при нескольких значениях `attrs.glass` среди соседей с **тем же цветом**
+  отдаётся набор для переключателя «Стекло» на карточке.
+- В списке каталога к каждой позиции добавляется `glassOptions` (чипы стекла в выдаче).
 
 ### `/catalog` сайдбар → `GET /api/products/meta?catalogPage=…`
 `productRepository.listFilterMeta(constraints)` отдаёт фильтр-UI: список категорий/подкатегорий в скоупе, диапазон цены, и атрибут-фильтры:

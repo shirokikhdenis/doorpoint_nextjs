@@ -29,7 +29,7 @@ const BASE_OPTIONS: TargetOption[] = [
   { value: "subcategory", label: "subcategory — подкатегория" },
   { value: "price", label: "price — цена" },
   { value: "imageUrl", label: "imageUrl — ссылки на картинки (через пробел)" },
-  { value: "model_key", label: "model_key — группировка цветов одной модели" },
+  { value: "model_key", label: "model_key — одна модель: цвет, стекло, размеры в вариантах" },
 ];
 
 const VARIANT_OPTIONS: TargetOption[] = [
@@ -110,6 +110,8 @@ const ALIASES: Record<string, string> = {
   photo: "imageUrl",
   картинка: "imageUrl",
   фото: "imageUrl",
+  glass: "attr:glass",
+  стекло: "attr:glass",
   modelkey: "model_key",
   модель: "model_key",
   variantsku: "variantSku",
