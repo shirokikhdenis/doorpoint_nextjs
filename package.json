@@ -6,10 +6,15 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "node --test",
+    "db:init": "node src/scripts/dbInit.js",
+    "db:seed": "node src/scripts/dbInit.js"
   },
   "dependencies": {
+    "dotenv": "^17.4.2",
     "next": "16.2.6",
+    "pg": "^8.20.0",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },

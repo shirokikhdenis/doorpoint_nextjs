@@ -1,0 +1,1346 @@
+const { query, withTransaction } = require("../db/postgres");
+const attributeRepository = require("./attributeRepository");
+
+/**
+ * Репозиторий товаров на новой схеме (JSONB attrs + единое дерево categories).
+ * Публичная поверхность совместима со старой: те же функции, те же поля в ответе.
+ *
+ * Карточка товара = «модель + цвет». Размер/открывание лежат в product_variants.
+ * Цветовые соседи группируются через products.model_key.
+ */
+
+const sortMap = {
+  "alphabet-asc": "p.name ASC",
+  "alphabet-desc": "p.name DESC",
+  "price-asc": "p.price ASC",
+  "price-desc": "p.price DESC",
+};
+
+const isPlainObject = (value) =>
+  Object.prototype.toString.call(value) === "[object Object]";
+
+const ensureAttrs = (raw) => {
+  if (isPlainObject(raw)) return raw;
+  if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw);
+      if (isPlainObject(parsed)) return parsed;
+    } catch {
+      /* ignore */
+    }
+  }
+  return {};
+};
+
+const productImageSubquery = `
+  COALESCE(
+    (SELECT image_url FROM product_images WHERE product_id = p.id ORDER BY sort_order, id LIMIT 1),
+    ''
+  )
+`;
+
+const hoverImageSubquery = `
+  (SELECT image_url FROM product_images WHERE product_id = p.id ORDER BY sort_order, id OFFSET 1 LIMIT 1)
+`;
+
+const splitTaxonomy = (row) => {
+  // row.parentName/parentSlug — это корень, row.categoryName/categorySlug — лист (потенциально подкатегория)
+  if (row.parentSlug) {
+    return {
+      category: row.parentName,
+      categorySlug: row.parentSlug,
+      subcategory: row.categoryName,
+      subcategorySlug: row.categorySlug,
+    };
+  }
+  return {
+    category: row.categoryName,
+    categorySlug: row.categorySlug,
+    subcategory: null,
+    subcategorySlug: null,
+  };
+};
+
+/** Соединение product → category → parent category. */
+const taxonomyJoin = `
+  JOIN categories c ON c.id = p.category_id
+  LEFT JOIN categories parent ON parent.id = c.parent_id
+`;
+
+const taxonomySelect = `
+  c.name AS "categoryName",
+  c.slug AS "categorySlug",
+  parent.name AS "parentName",
+  parent.slug AS "parentSlug"
+`;
+
+const buildScopeWhere = (filters, addParam) => {
+  const where = ["p.is_active = TRUE"];
+  const scopeCats = Array.isArray(filters.scopeCategories) ? filters.scopeCategories : [];
+  const scopeSubs = Array.isArray(filters.scopeSubcategories) ? filters.scopeSubcategories : [];
+  const scopeOr = filters.scopeOr === true;
+  const userCats = Array.isArray(filters.categories) ? filters.categories : [];
+  const userSubs = Array.isArray(filters.subcategories) ? filters.subcategories : [];
+
+  if (filters.search) {
+    where.push(`p.name ILIKE ${addParam(`%${filters.search}%`)}`);
+  }
+
+  // scope от страницы каталога
+  if (scopeOr && scopeCats.length > 0 && scopeSubs.length > 0) {
+    where.push(
+      `(COALESCE(parent.slug, c.slug) = ANY(${addParam(scopeCats)})
+        OR c.slug = ANY(${addParam(scopeSubs)}))`,
+    );
+  } else {
+    if (scopeCats.length > 0) {
+      where.push(`COALESCE(parent.slug, c.slug) = ANY(${addParam(scopeCats)})`);
+    }
+    if (scopeSubs.length > 0) {
+      where.push(`c.slug = ANY(${addParam(scopeSubs)})`);
+    }
+  }
+
+  // выбор пользователя поверх scope
+  if (userCats.length > 0) {
+    where.push(`COALESCE(parent.slug, c.slug) = ANY(${addParam(userCats)})`);
+  }
+  if (userSubs.length > 0) {
+    where.push(`c.slug = ANY(${addParam(userSubs)})`);
+  }
+
+  if (filters.minPrice !== null && filters.minPrice !== undefined) {
+    where.push(`p.price >= ${addParam(filters.minPrice)}`);
+  }
+  if (filters.maxPrice !== null && filters.maxPrice !== undefined) {
+    where.push(`p.price <= ${addParam(filters.maxPrice)}`);
+  }
+
+  return where;
+};
+
+const parseFilterValues = (raw) => {
+  if (Array.isArray(raw)) {
+    return raw.map((item) => String(item || "").trim()).filter(Boolean);
+  }
+  const value = String(raw || "").trim();
+  if (!value) return [];
+  if (value.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) {
+        return parsed.map((item) => String(item || "").trim()).filter(Boolean);
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  if (value.includes("||")) {
+    return value.split("||").map((item) => item.trim()).filter(Boolean);
+  }
+  return [
+    value,
+    ...value.split(",").map((item) => item.trim()).filter(Boolean),
+  ].filter((entry, index, arr) => arr.indexOf(entry) === index);
+};
+
+const applyAttributeFilters = (filters, addParam, where, attrDefByCode) => {
+  Object.entries(filters.attributeFilters || {}).forEach(([rawCode, rawValue]) => {
+    // Числовые диапазоны: attr_<code>_min/_max
+    if (rawCode.endsWith("_min")) {
+      const code = rawCode.replace(/_min$/, "");
+      const num = Number(String(rawValue ?? "").trim());
+      if (!Number.isFinite(num)) return;
+      where.push(`(p.attrs->>${addParam(code)})::numeric >= ${addParam(num)}`);
+      return;
+    }
+    if (rawCode.endsWith("_max")) {
+      const code = rawCode.replace(/_max$/, "");
+      const num = Number(String(rawValue ?? "").trim());
+      if (!Number.isFinite(num) || num <= 0) return;
+      where.push(`(p.attrs->>${addParam(code)})::numeric <= ${addParam(num)}`);
+      return;
+    }
+
+    const values = parseFilterValues(rawValue);
+    if (values.length === 0) return;
+
+    const def = attrDefByCode.get(rawCode);
+    if (def && def.scope === "variant") {
+      where.push(`
+        EXISTS (
+          SELECT 1 FROM product_variants pvf
+          WHERE pvf.product_id = p.id
+            AND pvf.attrs->>${addParam(rawCode)} = ANY(${addParam(values)})
+        )
+      `);
+      return;
+    }
+
+    where.push(`p.attrs->>${addParam(rawCode)} = ANY(${addParam(values)})`);
+  });
+};
+
+const loadAttributeDefMap = async () => {
+  const defs = await attributeRepository.listAttributes();
+  return new Map(defs.map((def) => [def.code, def]));
+};
+
+const listProducts = async (filters) => {
+  const params = [];
+  const addParam = (value) => {
+    params.push(value);
+    return `$${params.length}`;
+  };
+
+  const attrDefByCode = await loadAttributeDefMap();
+  const where = buildScopeWhere(filters, addParam);
+  applyAttributeFilters(filters, addParam, where, attrDefByCode);
+
+  const whereSql = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
+  const sortSql = sortMap[filters.sort] || sortMap["alphabet-asc"];
+
+  const countRes = await query(
+    `
+    SELECT COUNT(DISTINCT p.id)::int AS total
+    FROM products p
+    ${taxonomyJoin}
+    ${whereSql}
+    `,
+    params,
+  );
+
+  const limitParam = addParam(filters.limit);
+  const offsetParam = addParam(filters.offset);
+
+  const itemsRes = await query(
+    `
+    SELECT
+      p.id,
+      p.sku,
+      p.name,
+      p.price,
+      p.attrs->>'color' AS color,
+      ${productImageSubquery} AS image,
+      ${hoverImageSubquery} AS "hoverImage",
+      ${taxonomySelect}
+    FROM products p
+    ${taxonomyJoin}
+    ${whereSql}
+    ORDER BY ${sortSql}
+    LIMIT ${limitParam} OFFSET ${offsetParam}
+    `,
+    params,
+  );
+
+  const items = itemsRes.rows.map((row) => {
+    const taxonomy = splitTaxonomy(row);
+    return {
+      id: Number(row.id),
+      sku: row.sku,
+      name: row.name,
+      color: row.color || null,
+      price: Number(row.price),
+      image: row.image || "",
+      hoverImage: row.hoverImage || null,
+      category: taxonomy.category,
+      categorySlug: taxonomy.categorySlug,
+      subcategory: taxonomy.subcategory,
+      subcategorySlug: taxonomy.subcategorySlug,
+    };
+  });
+
+  return { total: countRes.rows[0].total, items };
+};
+
+const buildMetaScope = (constraints) => {
+  const pageCats = Array.isArray(constraints.scopeCategories) && constraints.scopeCategories.length > 0
+    ? constraints.scopeCategories
+    : Array.isArray(constraints.categories)
+      ? constraints.categories
+      : [];
+  const pageSubs = Array.isArray(constraints.scopeSubcategories) && constraints.scopeSubcategories.length > 0
+    ? constraints.scopeSubcategories
+    : Array.isArray(constraints.subcategorySlugs)
+      ? constraints.subcategorySlugs
+      : [];
+  const scopeOr = constraints.scopeOr === true;
+  if (scopeOr && pageCats.length > 0 && pageSubs.length > 0) return { mode: "or", pageCats, pageSubs };
+  if (pageCats.length > 0) return { mode: "categories", pageCats, pageSubs: [] };
+  if (pageSubs.length > 0) return { mode: "subcategories", pageCats: [], pageSubs };
+  return { mode: "none", pageCats: [], pageSubs: [] };
+};
+
+/**
+ * Каждый SQL ниже исполняется со своим собственным набором bind-параметров —
+ * иначе при параллельном вызове query() через Promise.all() Postgres получит
+ * больше/меньше плейсхолдеров, чем нужно (и выдаст «передано неверное число параметров»).
+ */
+const makeBindings = () => {
+  const params = [];
+  const addParam = (value) => {
+    params.push(value);
+    return `$${params.length}`;
+  };
+  return { params, addParam };
+};
+
+const buildMetaScopeSql = (mode, pageCats, pageSubs, addParam) => {
+  if (mode === "categories") {
+    const pageCatParam = addParam(pageCats);
+    return {
+      pageCatParam,
+      pageSubParam: null,
+      productScopeCondition: `AND COALESCE(parent.slug, c.slug) = ANY(${pageCatParam}::text[])`,
+    };
+  }
+  if (mode === "subcategories") {
+    const pageSubParam = addParam(pageSubs);
+    return {
+      pageCatParam: null,
+      pageSubParam,
+      productScopeCondition: `AND c.slug = ANY(${pageSubParam}::text[])`,
+    };
+  }
+  if (mode === "or") {
+    const pageCatParam = addParam(pageCats);
+    const pageSubParam = addParam(pageSubs);
+    return {
+      pageCatParam,
+      pageSubParam,
+      productScopeCondition: `AND (COALESCE(parent.slug, c.slug) = ANY(${pageCatParam}::text[])
+        OR c.slug = ANY(${pageSubParam}::text[]))`,
+    };
+  }
+  return { pageCatParam: null, pageSubParam: null, productScopeCondition: "" };
+};
+
+const listFilterMeta = async (constraints = {}) => {
+  const { mode, pageCats, pageSubs } = buildMetaScope(constraints);
+
+  const restrictAttrIds =
+    Array.isArray(constraints.allowedAttributeIds) && constraints.allowedAttributeIds.length > 0
+      ? constraints.allowedAttributeIds.map(Number).filter((n) => Number.isInteger(n) && n > 0)
+      : null;
+
+  // Каждый из этих четырёх запросов получает свой params/addParam, чтобы pg не путал биндинги.
+  const categoriesBind = makeBindings();
+  const categoriesScope = buildMetaScopeSql(mode, pageCats, pageSubs, categoriesBind.addParam);
+  const categoriesSql = mode === "categories"
+    ? `SELECT id, name, slug, sort_order AS "sortOrder"
+       FROM categories
+       WHERE parent_id IS NULL AND slug = ANY(${categoriesScope.pageCatParam}::text[])
+       ORDER BY sort_order, name`
+    : mode === "subcategories"
+      ? `SELECT DISTINCT c.id, c.name, c.slug, c.sort_order AS "sortOrder"
+         FROM categories c
+         JOIN categories s ON s.parent_id = c.id
+         WHERE c.parent_id IS NULL AND s.slug = ANY(${categoriesScope.pageSubParam}::text[])
+         ORDER BY c.sort_order, c.name`
+      : mode === "or"
+        ? `SELECT DISTINCT c.id, c.name, c.slug, c.sort_order AS "sortOrder"
+           FROM categories c
+           WHERE c.parent_id IS NULL
+             AND (c.slug = ANY(${categoriesScope.pageCatParam}::text[])
+               OR c.id IN (SELECT s.parent_id FROM categories s WHERE s.parent_id IS NOT NULL AND s.slug = ANY(${categoriesScope.pageSubParam}::text[])))
+           ORDER BY c.sort_order, c.name`
+        : `SELECT id, name, slug, sort_order AS "sortOrder"
+           FROM categories
+           WHERE parent_id IS NULL
+           ORDER BY sort_order, name`;
+
+  const subcategoriesBind = makeBindings();
+  const subcategoriesScope = buildMetaScopeSql(mode, pageCats, pageSubs, subcategoriesBind.addParam);
+  const subcategoriesSql = mode === "categories"
+    ? `SELECT s.id, s.name, s.slug, c.slug AS "categorySlug"
+       FROM categories s
+       JOIN categories c ON c.id = s.parent_id
+       WHERE s.parent_id IS NOT NULL AND c.slug = ANY(${subcategoriesScope.pageCatParam}::text[])
+       ORDER BY c.sort_order, s.sort_order, s.name`
+    : mode === "subcategories"
+      ? `SELECT s.id, s.name, s.slug, c.slug AS "categorySlug"
+         FROM categories s
+         JOIN categories c ON c.id = s.parent_id
+         WHERE s.parent_id IS NOT NULL AND s.slug = ANY(${subcategoriesScope.pageSubParam}::text[])
+         ORDER BY c.sort_order, s.sort_order, s.name`
+      : mode === "or"
+        ? `SELECT DISTINCT s.id, s.name, s.slug, c.slug AS "categorySlug"
+           FROM categories s
+           JOIN categories c ON c.id = s.parent_id
+           WHERE s.parent_id IS NOT NULL
+             AND (c.slug = ANY(${subcategoriesScope.pageCatParam}::text[]) OR s.slug = ANY(${subcategoriesScope.pageSubParam}::text[]))
+           ORDER BY c.sort_order, s.sort_order, s.name`
+        : `SELECT s.id, s.name, s.slug, c.slug AS "categorySlug"
+           FROM categories s
+           JOIN categories c ON c.id = s.parent_id
+           WHERE s.parent_id IS NOT NULL
+           ORDER BY c.sort_order, s.sort_order, s.name`;
+
+  const priceBind = makeBindings();
+  const priceScope = buildMetaScopeSql(mode, pageCats, pageSubs, priceBind.addParam);
+  const priceSql = `
+    SELECT MIN(p.price)::int AS min, MAX(p.price)::int AS max
+    FROM products p
+    ${taxonomyJoin}
+    WHERE p.is_active = TRUE
+      ${priceScope.productScopeCondition}
+  `;
+
+  const filterableBind = makeBindings();
+  const filterableSql = restrictAttrIds && restrictAttrIds.length > 0
+    ? `SELECT id, code, name, type, unit, options, scope
+       FROM attribute_definitions
+       WHERE id = ANY(${filterableBind.addParam(restrictAttrIds)}::bigint[])
+       ORDER BY sort_order ASC, id ASC`
+    : `SELECT id, code, name, type, unit, options, scope
+       FROM attribute_definitions
+       WHERE is_filterable = TRUE
+       ORDER BY sort_order ASC, id ASC`;
+
+  const [categoriesRes, subcategoriesRes, priceRes, filterableRes] = await Promise.all([
+    query(categoriesSql, categoriesBind.params),
+    query(subcategoriesSql, subcategoriesBind.params),
+    query(priceSql, priceBind.params),
+    query(filterableSql, filterableBind.params),
+  ]);
+
+  // Числовые диапазоны (только product-scope; для variant-scope min/max не нужен — переключаем UI на список значений).
+  const filterable = filterableRes.rows;
+  const productAttrs = filterable.filter((a) => a.scope === "product");
+  const variantAttrs = filterable.filter((a) => a.scope === "variant");
+
+  const rangesByCode = new Map();
+  const productNumberAttrs = productAttrs.filter((a) => a.type === "number");
+  if (productNumberAttrs.length > 0) {
+    const codes = productNumberAttrs.map((a) => a.code);
+    const bind = makeBindings();
+    const scope = buildMetaScopeSql(mode, pageCats, pageSubs, bind.addParam);
+    const codesParam = bind.addParam(codes);
+    const rangeRes = await query(
+      `
+      SELECT
+        code,
+        MIN(value)::float8 AS min,
+        MAX(value)::float8 AS max
+      FROM (
+        SELECT
+          unnested.key AS code,
+          (unnested.value #>> '{}')::numeric AS value
+        FROM products p
+        ${taxonomyJoin}
+        CROSS JOIN LATERAL jsonb_each(p.attrs) AS unnested
+        WHERE p.is_active = TRUE
+          AND unnested.key = ANY(${codesParam}::text[])
+          AND jsonb_typeof(unnested.value) IN ('number', 'string')
+          AND (unnested.value #>> '{}') ~ '^-?[0-9]+(\\.[0-9]+)?$'
+          ${scope.productScopeCondition}
+      ) numeric_attrs
+      GROUP BY code
+      `,
+      bind.params,
+    );
+    rangeRes.rows.forEach((row) => {
+      rangesByCode.set(row.code, { min: Number(row.min), max: Number(row.max) });
+    });
+  }
+
+  // Текст/option/boolean ценности по product-scope атрибутам.
+  const productTextOptionAttrs = productAttrs.filter((a) =>
+    ["text", "option", "boolean"].includes(a.type),
+  );
+  const textValuesByCode = new Map();
+  if (productTextOptionAttrs.length > 0) {
+    const codes = productTextOptionAttrs.map((a) => a.code);
+    const bind = makeBindings();
+    const scope = buildMetaScopeSql(mode, pageCats, pageSubs, bind.addParam);
+    const codesParam = bind.addParam(codes);
+    const valuesRes = await query(
+      `
+      SELECT
+        unnested.key AS code,
+        unnested.value #>> '{}' AS value
+      FROM products p
+      ${taxonomyJoin}
+      CROSS JOIN LATERAL jsonb_each(p.attrs) AS unnested
+      WHERE p.is_active = TRUE
+        AND unnested.key = ANY(${codesParam}::text[])
+        AND unnested.value #>> '{}' IS NOT NULL
+        AND unnested.value #>> '{}' <> ''
+        ${scope.productScopeCondition}
+      GROUP BY unnested.key, unnested.value #>> '{}'
+      ORDER BY unnested.key, value
+      `,
+      bind.params,
+    );
+    valuesRes.rows.forEach((row) => {
+      if (!textValuesByCode.has(row.code)) textValuesByCode.set(row.code, []);
+      textValuesByCode.get(row.code).push(row.value);
+    });
+  }
+
+  // Для variant-scope — собираем значения из вариантов.
+  const variantValuesByCode = new Map();
+  if (variantAttrs.length > 0) {
+    const codes = variantAttrs.map((a) => a.code);
+    const bind = makeBindings();
+    const scope = buildMetaScopeSql(mode, pageCats, pageSubs, bind.addParam);
+    const codesParam = bind.addParam(codes);
+    const variantRes = await query(
+      `
+      SELECT
+        unnested.key AS code,
+        unnested.value #>> '{}' AS value
+      FROM products p
+      ${taxonomyJoin}
+      JOIN product_variants pv ON pv.product_id = p.id AND pv.is_active = TRUE
+      CROSS JOIN LATERAL jsonb_each(pv.attrs) AS unnested
+      WHERE p.is_active = TRUE
+        AND unnested.key = ANY(${codesParam}::text[])
+        AND unnested.value #>> '{}' IS NOT NULL
+        AND unnested.value #>> '{}' <> ''
+        ${scope.productScopeCondition}
+      GROUP BY unnested.key, unnested.value #>> '{}'
+      ORDER BY unnested.key, value
+      `,
+      bind.params,
+    );
+    variantRes.rows.forEach((row) => {
+      if (!variantValuesByCode.has(row.code)) variantValuesByCode.set(row.code, []);
+      variantValuesByCode.get(row.code).push(row.value);
+    });
+  }
+
+  const attributeFilters = filterable.map((attr) => {
+    if (attr.type === "number" && attr.scope === "product") {
+      const range = rangesByCode.get(attr.code) || { min: 0, max: 0 };
+      return {
+        code: attr.code,
+        name: attr.name,
+        type: attr.type,
+        unit: attr.unit || null,
+        min: range.min,
+        max: range.max,
+      };
+    }
+    const inlineOptions = Array.isArray(attr.options) ? attr.options : [];
+    const values =
+      attr.scope === "variant"
+        ? variantValuesByCode.get(attr.code) || inlineOptions
+        : textValuesByCode.get(attr.code) || inlineOptions;
+    return {
+      code: attr.code,
+      name: attr.name,
+      type: attr.type,
+      unit: attr.unit || null,
+      values: [...new Set(values)],
+    };
+  });
+
+  const priceMeta = priceRes.rows[0] || { min: 0, max: 0 };
+
+  return {
+    categories: categoriesRes.rows,
+    subcategories: subcategoriesRes.rows,
+    attributeFilters,
+    price: {
+      min: Number(priceMeta.min || 0),
+      max: Number(priceMeta.max || 0),
+    },
+  };
+};
+
+const getProductById = async (id) => {
+  const numericId = Number(id);
+  if (!Number.isInteger(numericId) || numericId <= 0) return null;
+
+  const productRes = await query(
+    `
+    SELECT
+      p.id,
+      p.sku,
+      p.name,
+      p.price,
+      p.model_key AS "modelKey",
+      p.attrs,
+      ${taxonomySelect}
+    FROM products p
+    ${taxonomyJoin}
+    WHERE p.id = $1 AND p.is_active = TRUE
+    LIMIT 1
+    `,
+    [numericId],
+  );
+
+  if (productRes.rows.length === 0) return null;
+  const row = productRes.rows[0];
+  const productAttrs = ensureAttrs(row.attrs);
+  const taxonomy = splitTaxonomy(row);
+
+  const [imagesRes, variantsRes, attrDefs] = await Promise.all([
+    query(
+      `SELECT image_url AS "imageUrl"
+       FROM product_images
+       WHERE product_id = $1
+       ORDER BY sort_order, id`,
+      [numericId],
+    ),
+    query(
+      `
+      SELECT pv.id, pv.sku, pv.price, pv.image_url AS "imageUrl",
+             pv.sort_order AS "sortOrder", pv.is_active AS "isActive", pv.attrs
+      FROM product_variants pv
+      WHERE pv.product_id = $1 AND pv.is_active = TRUE
+      ORDER BY pv.sort_order, pv.id
+      `,
+      [numericId],
+    ),
+    attributeRepository.listAttributes(),
+  ]);
+
+  const images = imagesRes.rows.map((r) => r.imageUrl).filter(Boolean);
+  const primaryImage = images[0] || "";
+
+  const attrDefByCode = new Map(attrDefs.map((def) => [def.code, def]));
+
+  // attributes — характеристики «модели», только product-scope.
+  const attributes = attrDefs
+    .filter((def) => def.scope === "product")
+    .map((def) => {
+      const raw = productAttrs[def.code];
+      if (raw === undefined || raw === null || raw === "") return null;
+      const display = def.unit && String(raw).trim() !== "" ? `${raw} ${def.unit}` : String(raw);
+      return { code: def.code, name: def.name, value: display };
+    })
+    .filter(Boolean);
+
+  // Соседние цветовые варианты (по model_key + name).
+  let colorVariants = [];
+  if (row.modelKey) {
+    const colorRes = await query(
+      `
+      SELECT
+        p.id,
+        p.attrs->>'color' AS color,
+        ${productImageSubquery} AS image
+      FROM products p
+      WHERE p.model_key = $1
+        AND p.name = $2
+        AND p.is_active = TRUE
+      ORDER BY p.id
+      `,
+      [row.modelKey, row.name],
+    );
+    colorVariants = colorRes.rows.map((r) => ({
+      id: Number(r.id),
+      color: r.color || "",
+      image: r.image || "",
+      isCurrent: Number(r.id) === numericId,
+    }));
+  }
+
+  // Варианты + variant-scope selectors.
+  const variantSelectorMap = new Map();
+  const variants = variantsRes.rows.map((variantRow) => {
+    const variantAttrs = ensureAttrs(variantRow.attrs);
+    const variantAttributes = Object.entries(variantAttrs)
+      .map(([code, raw]) => {
+        const def = attrDefByCode.get(code);
+        const name = def ? def.name : code;
+        const unit = def?.unit ? ` ${def.unit}` : "";
+        const isVariantAxis = def?.scope === "variant";
+        if (isVariantAxis) {
+          if (!variantSelectorMap.has(code)) {
+            variantSelectorMap.set(code, { code, name, values: new Set() });
+          }
+          variantSelectorMap.get(code).values.add(String(raw));
+        }
+        return {
+          code,
+          name,
+          value: String(raw).trim() === "" ? null : `${raw}${unit}`,
+          rawValue: String(raw),
+          isVariantAxis,
+        };
+      })
+      .filter((entry) => entry.value !== null);
+    return {
+      id: Number(variantRow.id),
+      sku: variantRow.sku,
+      price: variantRow.price === null ? Number(row.price) : Number(variantRow.price),
+      image: variantRow.imageUrl || primaryImage,
+      sortOrder: Number(variantRow.sortOrder) || 0,
+      attributes: variantAttributes,
+    };
+  });
+
+  const variantSelectors = Array.from(variantSelectorMap.values()).map((entry) => ({
+    code: entry.code,
+    name: entry.name,
+    values: Array.from(entry.values),
+  }));
+
+  return {
+    id: numericId,
+    sku: row.sku,
+    name: row.name,
+    price: Number(row.price),
+    image: primaryImage,
+    images,
+    category: taxonomy.category,
+    categorySlug: taxonomy.categorySlug,
+    subcategory: taxonomy.subcategory,
+    subcategorySlug: taxonomy.subcategorySlug,
+    attributes,
+    variants,
+    variantSelectors,
+    colorVariants,
+  };
+};
+
+/**
+ * Карта category_id → { categoryId (корень), subcategoryId (лист или null) }.
+ * Нужна, чтобы admin-API продолжал работать с двумя FK (categoryId + subcategoryId).
+ */
+const splitCategoryId = async (productCategoryId) => {
+  const res = await query(
+    `
+    SELECT id, parent_id
+    FROM categories
+    WHERE id = $1
+    `,
+    [productCategoryId],
+  );
+  if (!res.rows[0]) return { categoryId: null, subcategoryId: null };
+  const row = res.rows[0];
+  if (row.parent_id === null) {
+    return { categoryId: Number(row.id), subcategoryId: null };
+  }
+  return { categoryId: Number(row.parent_id), subcategoryId: Number(row.id) };
+};
+
+const listAdminProducts = async () => {
+  const res = await query(
+    `
+    SELECT
+      p.id,
+      p.sku,
+      p.name,
+      p.price,
+      p.is_active AS "isActive",
+      p.category_id AS "leafCategoryId",
+      c.parent_id AS "parentCategoryId",
+      ${productImageSubquery} AS "imageUrl",
+      (SELECT COUNT(*)::int FROM product_variants pv WHERE pv.product_id = p.id) AS "variantsCount"
+    FROM products p
+    JOIN categories c ON c.id = p.category_id
+    ORDER BY p.id DESC
+    LIMIT 200
+    `,
+  );
+  return res.rows.map((row) => {
+    const leafId = Number(row.leafCategoryId);
+    const parentId = row.parentCategoryId === null ? null : Number(row.parentCategoryId);
+    return {
+      id: Number(row.id),
+      sku: row.sku,
+      name: row.name,
+      price: Number(row.price),
+      imageUrl: row.imageUrl || "",
+      isActive: row.isActive !== false,
+      categoryId: parentId !== null ? parentId : leafId,
+      subcategoryId: parentId !== null ? leafId : null,
+      variantsCount: Number(row.variantsCount) || 0,
+    };
+  });
+};
+
+const getAdminProductById = async (id) => {
+  const productRes = await query(
+    `
+    SELECT
+      p.id, p.sku, p.name, p.price, p.attrs, p.model_key AS "modelKey",
+      p.is_active AS "isActive",
+      p.category_id AS "leafCategoryId",
+      c.parent_id AS "parentCategoryId",
+      ${productImageSubquery} AS "imageUrl"
+    FROM products p
+    JOIN categories c ON c.id = p.category_id
+    WHERE p.id = $1
+    LIMIT 1
+    `,
+    [id],
+  );
+  if (productRes.rows.length === 0) return null;
+  const row = productRes.rows[0];
+  const productAttrs = ensureAttrs(row.attrs);
+  const leafId = Number(row.leafCategoryId);
+  const parentId = row.parentCategoryId === null ? null : Number(row.parentCategoryId);
+
+  const attrDefs = await attributeRepository.listAttributes();
+  const attrDefByCode = new Map(attrDefs.map((def) => [def.code, def]));
+
+  const productAttributes = Object.entries(productAttrs)
+    .map(([code, value]) => {
+      const def = attrDefByCode.get(code);
+      if (!def) return null;
+      const isNumber = def.type === "number";
+      return {
+        attributeId: def.id,
+        valueText: isNumber ? null : String(value ?? ""),
+        valueNumber: isNumber ? Number(value) : null,
+        valueOptionId: null,
+      };
+    })
+    .filter(Boolean);
+
+  const variantsRes = await query(
+    `
+    SELECT pv.id, pv.sku, pv.price, pv.image_url AS "imageUrl",
+           pv.sort_order AS "sortOrder", pv.is_active AS "isActive", pv.attrs
+    FROM product_variants pv
+    WHERE pv.product_id = $1
+    ORDER BY pv.sort_order, pv.id
+    `,
+    [id],
+  );
+
+  const variants = variantsRes.rows.map((variantRow) => {
+    const attrs = ensureAttrs(variantRow.attrs);
+    return {
+      id: Number(variantRow.id),
+      sku: variantRow.sku,
+      price: variantRow.price === null ? null : Number(variantRow.price),
+      imageUrl: variantRow.imageUrl || "",
+      sortOrder: Number(variantRow.sortOrder) || 0,
+      isActive: variantRow.isActive !== false,
+      attributes: Object.entries(attrs)
+        .map(([code, value]) => {
+          const def = attrDefByCode.get(code);
+          if (!def) return null;
+          const isNumber = def.type === "number";
+          return {
+            attributeId: def.id,
+            valueText: isNumber ? null : String(value ?? ""),
+            valueNumber: isNumber ? Number(value) : null,
+            valueOptionId: null,
+          };
+        })
+        .filter(Boolean),
+    };
+  });
+
+  return {
+    id: Number(row.id),
+    sku: row.sku,
+    name: row.name,
+    price: Number(row.price),
+    imageUrl: row.imageUrl || "",
+    isActive: row.isActive !== false,
+    categoryId: parentId !== null ? parentId : leafId,
+    subcategoryId: parentId !== null ? leafId : null,
+    modelKey: row.modelKey || null,
+    attributes: productAttributes,
+    variants,
+  };
+};
+
+const listProductsTable = async ({
+  page = 1,
+  limit = 100,
+  search = "",
+  categoryId = null,
+  subcategoryId = null,
+  attributeFilters = {},
+}) => {
+  const safePage = Math.max(1, Number(page) || 1);
+  const safeLimit = Math.min(500, Math.max(1, Number(limit) || 100));
+  const offset = (safePage - 1) * safeLimit;
+
+  const params = [];
+  const addParam = (value) => {
+    params.push(value);
+    return `$${params.length}`;
+  };
+  const whereParts = [];
+  if (search.trim()) {
+    whereParts.push(`(p.name ILIKE ${addParam(`%${search.trim()}%`)} OR p.sku ILIKE ${addParam(`%${search.trim()}%`)})`);
+  }
+  if (categoryId) {
+    // categoryId — это либо «корень», либо лист; фильтруем по корню или непосредственно по category_id
+    whereParts.push(`(p.category_id = ${addParam(Number(categoryId))} OR c.parent_id = ${addParam(Number(categoryId))})`);
+  }
+  if (subcategoryId) {
+    whereParts.push(`p.category_id = ${addParam(Number(subcategoryId))}`);
+  }
+
+  Object.entries(attributeFilters).forEach(([code, value]) => {
+    const normalized = String(value || "").trim();
+    if (!normalized) return;
+    whereParts.push(`p.attrs->>${addParam(code)} ILIKE ${addParam(`%${normalized}%`)}`);
+  });
+
+  const whereSql = whereParts.length > 0 ? `WHERE ${whereParts.join(" AND ")}` : "";
+
+  const countRes = await query(
+    `
+    SELECT COUNT(*)::int AS total
+    FROM products p
+    ${taxonomyJoin}
+    ${whereSql}
+    `,
+    params,
+  );
+
+  const limitParam = addParam(safeLimit);
+  const offsetParam = addParam(offset);
+  const rowsRes = await query(
+    `
+    SELECT
+      p.id,
+      p.sku,
+      p.name,
+      p.price,
+      p.attrs,
+      p.model_key AS "modelKey",
+      p.is_active AS "isActive",
+      COALESCE(parent.name, c.name) AS category,
+      COALESCE(parent.name IS NULL, FALSE) AS "categoryIsRoot",
+      CASE WHEN parent.id IS NOT NULL THEN c.name ELSE '' END AS subcategory,
+      (SELECT COUNT(*)::int FROM product_variants pv WHERE pv.product_id = p.id) AS "variantsCount",
+      (SELECT COUNT(*)::int FROM product_images pi WHERE pi.product_id = p.id) AS "imagesCount"
+    FROM products p
+    ${taxonomyJoin}
+    ${whereSql}
+    ORDER BY p.id DESC
+    LIMIT ${limitParam} OFFSET ${offsetParam}
+    `,
+    params,
+  );
+
+  const attributesRes = await query(
+    `
+    SELECT id, code, name, type, options, scope, is_filterable AS "isFilterable", sort_order AS "sortOrder"
+    FROM attribute_definitions
+    ORDER BY sort_order ASC, id ASC
+    `,
+  );
+  const categoriesRes = await query(
+    `SELECT id, name FROM categories WHERE parent_id IS NULL ORDER BY sort_order, name`,
+  );
+  const subcategoriesRes = await query(
+    `SELECT id, parent_id AS "categoryId", name FROM categories WHERE parent_id IS NOT NULL ORDER BY sort_order, name`,
+  );
+
+  return {
+    total: countRes.rows[0].total,
+    page: safePage,
+    limit: safeLimit,
+    totalPages: Math.max(1, Math.ceil(countRes.rows[0].total / safeLimit)),
+    attributes: attributesRes.rows.map((row) => ({
+      id: Number(row.id),
+      code: row.code,
+      name: row.name,
+      type: row.type,
+      isFilterable: row.isFilterable !== false,
+      isVisibleOnProduct: true,
+      isVariantAxis: row.scope === "variant",
+      options: Array.isArray(row.options) ? row.options : [],
+    })),
+    categories: categoriesRes.rows,
+    subcategories: subcategoriesRes.rows,
+    rows: rowsRes.rows.map((row) => ({
+      id: Number(row.id),
+      sku: row.sku,
+      name: row.name,
+      price: Number(row.price),
+      modelKey: row.modelKey || null,
+      category: row.category,
+      subcategory: row.subcategory,
+      isActive: row.isActive !== false,
+      attributes: ensureAttrs(row.attrs),
+      variantsCount: Number(row.variantsCount || 0),
+      imagesCount: Number(row.imagesCount || 0),
+    })),
+  };
+};
+
+const productAttrsFromPayload = (attributes, attrDefById) => {
+  const out = {};
+  for (const entry of attributes || []) {
+    const def = attrDefById.get(Number(entry.attributeId));
+    if (!def) continue;
+    const value = attributeRepository.resolveAttributeValue(def, entry);
+    if (value === null || value === undefined || value === "") continue;
+    out[def.code] = value;
+  }
+  return out;
+};
+
+const partitionAttributesByScope = (attributes, attrDefById) => {
+  const product = [];
+  const variant = [];
+  for (const entry of attributes || []) {
+    const def = attrDefById.get(Number(entry.attributeId));
+    if (!def) continue;
+    if (def.scope === "variant") variant.push(entry);
+    else product.push(entry);
+  }
+  return { product, variant };
+};
+
+const writeProductImages = async (client, productId, images) => {
+  await client.query("DELETE FROM product_images WHERE product_id = $1", [productId]);
+  if (!Array.isArray(images) || images.length === 0) return;
+  let order = 0;
+  for (const url of images) {
+    const cleaned = String(url || "").trim();
+    if (!cleaned) continue;
+    await client.query(
+      `
+      INSERT INTO product_images(product_id, image_url, sort_order)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (product_id, image_url) DO UPDATE SET sort_order = EXCLUDED.sort_order
+      `,
+      [productId, cleaned, order],
+    );
+    order += 10;
+  }
+};
+
+const writeVariants = async (client, productId, variants, attrDefById) => {
+  await client.query("DELETE FROM product_variants WHERE product_id = $1", [productId]);
+  for (const variant of variants) {
+    const variantAttrs = productAttrsFromPayload(variant.attributes || [], attrDefById);
+    await client.query(
+      `
+      INSERT INTO product_variants(product_id, sku, price, image_url, attrs, sort_order, is_active)
+      VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7)
+      `,
+      [
+        productId,
+        variant.sku,
+        variant.price ?? null,
+        variant.imageUrl || null,
+        JSON.stringify(variantAttrs),
+        Number(variant.sortOrder) || 0,
+        variant.isActive !== false,
+      ],
+    );
+  }
+};
+
+/** В API admin-формы categoryId — корень, subcategoryId — лист. Возвращаем итоговый category_id. */
+const resolveTargetCategoryId = (payload) => {
+  if (payload.subcategoryId) return Number(payload.subcategoryId);
+  if (payload.categoryId) return Number(payload.categoryId);
+  return null;
+};
+
+const createProduct = async (payload) =>
+  withTransaction(async (client) => {
+    const attrDefs = await attributeRepository.listAttributes();
+    const attrDefById = new Map(attrDefs.map((def) => [def.id, def]));
+    const partitioned = partitionAttributesByScope(payload.attributes, attrDefById);
+    const productAttrs = productAttrsFromPayload(partitioned.product, attrDefById);
+    const targetCategoryId = resolveTargetCategoryId(payload);
+    if (!targetCategoryId) throw new Error("categoryId is required");
+
+    const inserted = await client.query(
+      `
+      INSERT INTO products(category_id, sku, name, model_key, price, attrs, is_active)
+      VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7)
+      RETURNING id, sku, name, price, model_key AS "modelKey", category_id AS "categoryId",
+                is_active AS "isActive"
+      `,
+      [
+        targetCategoryId,
+        payload.sku,
+        payload.name,
+        payload.modelKey || null,
+        payload.price,
+        JSON.stringify(productAttrs),
+        payload.isActive !== false,
+      ],
+    );
+    const productId = Number(inserted.rows[0].id);
+
+    if (payload.imageUrl) {
+      await writeProductImages(client, productId, [payload.imageUrl]);
+    }
+
+    if (Array.isArray(payload.variants)) {
+      await writeVariants(client, productId, payload.variants, attrDefById);
+    } else {
+      // По умолчанию — один вариант, повторяющий SKU карточки.
+      const fallbackAttrs = productAttrsFromPayload(partitioned.variant, attrDefById);
+      await client.query(
+        `
+        INSERT INTO product_variants(product_id, sku, price, image_url, attrs, sort_order, is_active)
+        VALUES ($1, $2, $3, $4, $5::jsonb, 0, $6)
+        ON CONFLICT (sku) DO NOTHING
+        `,
+        [
+          productId,
+          payload.sku,
+          payload.price,
+          payload.imageUrl || null,
+          JSON.stringify(fallbackAttrs),
+          payload.isActive !== false,
+        ],
+      );
+    }
+
+    return inserted.rows[0];
+  });
+
+const updateProduct = async (id, payload) =>
+  withTransaction(async (client) => {
+    const attrDefs = await attributeRepository.listAttributes();
+    const attrDefById = new Map(attrDefs.map((def) => [def.id, def]));
+    const partitioned = partitionAttributesByScope(payload.attributes, attrDefById);
+    const productAttrs = productAttrsFromPayload(partitioned.product, attrDefById);
+    const targetCategoryId = resolveTargetCategoryId(payload);
+    if (!targetCategoryId) throw new Error("categoryId is required");
+
+    const updated = await client.query(
+      `
+      UPDATE products
+      SET
+        category_id = $2,
+        sku = $3,
+        name = $4,
+        model_key = $5,
+        price = $6,
+        attrs = $7::jsonb,
+        is_active = $8,
+        updated_at = NOW()
+      WHERE id = $1
+      RETURNING id, sku, name, price, model_key AS "modelKey", category_id AS "categoryId",
+                is_active AS "isActive"
+      `,
+      [
+        id,
+        targetCategoryId,
+        payload.sku,
+        payload.name,
+        payload.modelKey || null,
+        payload.price,
+        JSON.stringify(productAttrs),
+        payload.isActive !== false,
+      ],
+    );
+
+    if (payload.imageUrl !== undefined) {
+      await writeProductImages(client, Number(id), payload.imageUrl ? [payload.imageUrl] : []);
+    }
+
+    if (Array.isArray(payload.variants)) {
+      await writeVariants(client, Number(id), payload.variants, attrDefById);
+    }
+
+    return updated.rows[0];
+  });
+
+const DEFAULT_IMPORT_IMAGE = "https://picsum.photos/seed/imported/500/360";
+
+const mergeJsonbAttrs = (existing, incoming) => {
+  const merged = ensureAttrs(existing);
+  for (const [k, v] of Object.entries(incoming || {})) {
+    if (v === null || v === undefined || v === "") continue;
+    merged[k] = v;
+  }
+  return merged;
+};
+
+const upsertProductBySku = async (payload) =>
+  withTransaction(async (client) => {
+    const attrDefs = await attributeRepository.listAttributes();
+    const attrDefById = new Map(attrDefs.map((def) => [def.id, def]));
+    const partitioned = partitionAttributesByScope(payload.attributes, attrDefById);
+    const incomingProductAttrs = productAttrsFromPayload(partitioned.product, attrDefById);
+    // CSV-импорт может класть variant-scope атрибуты в общий список — собираем их вместе
+    // с явными payload.variantAttributes, чтобы не терять данные.
+    const variantPayload = [...(payload.variantAttributes || []), ...partitioned.variant];
+    const incomingVariantAttrs = productAttrsFromPayload(variantPayload, attrDefById);
+
+    const existingRes = await client.query(
+      `
+      SELECT id, sku, name, category_id, price, attrs, is_active, model_key
+      FROM products
+      WHERE sku = $1
+      LIMIT 1
+      `,
+      [payload.sku],
+    );
+    const existing = existingRes.rows[0] || null;
+    const present = payload.present || {};
+    let product;
+
+    const resolvedCategoryId = payload.subcategoryId
+      ? Number(payload.subcategoryId)
+      : payload.categoryId
+        ? Number(payload.categoryId)
+        : null;
+
+    const incomingModelKey =
+      payload.modelKey !== undefined && payload.modelKey !== null
+        ? String(payload.modelKey).trim() || null
+        : null;
+
+    if (existing) {
+      const mergedName = present.name ? payload.name : existing.name;
+      const mergedCategoryId = present.category && resolvedCategoryId ? resolvedCategoryId : existing.category_id;
+      const mergedPrice = present.price ? payload.price : Number(existing.price);
+      const mergedAttrs = mergeJsonbAttrs(existing.attrs, incomingProductAttrs);
+      const mergedIsActive = present.isActive !== undefined ? payload.isActive : existing.is_active;
+      const mergedModelKey = present.modelKey ? incomingModelKey : existing.model_key;
+
+      const updateRes = await client.query(
+        `
+        UPDATE products
+        SET
+          name = $2,
+          category_id = $3,
+          price = $4,
+          attrs = $5::jsonb,
+          is_active = $6,
+          model_key = $7,
+          updated_at = NOW()
+        WHERE sku = $1
+        RETURNING id, sku
+        `,
+        [
+          payload.sku,
+          mergedName,
+          mergedCategoryId,
+          mergedPrice,
+          JSON.stringify(mergedAttrs),
+          mergedIsActive ?? true,
+          mergedModelKey,
+        ],
+      );
+      product = updateRes.rows[0];
+    } else {
+      if (!resolvedCategoryId || !present.category) {
+        throw new Error("category is required for new product");
+      }
+      const insertName = present.name ? payload.name : payload.sku;
+      const insertPrice = present.price ? payload.price : 0;
+      const insertRes = await client.query(
+        `
+        INSERT INTO products(category_id, sku, name, model_key, price, attrs, is_active)
+        VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7)
+        RETURNING id, sku
+        `,
+        [
+          resolvedCategoryId,
+          payload.sku,
+          insertName,
+          incomingModelKey,
+          insertPrice,
+          JSON.stringify(incomingProductAttrs),
+          payload.isActive ?? true,
+        ],
+      );
+      product = insertRes.rows[0];
+    }
+
+    if (present.images && Array.isArray(payload.images) && payload.images.length > 0) {
+      await client.query("DELETE FROM product_images WHERE product_id = $1", [product.id]);
+      for (let index = 0; index < payload.images.length; index += 1) {
+        const imageUrl = String(payload.images[index] || "").trim();
+        if (!imageUrl) continue;
+        await client.query(
+          `
+          INSERT INTO product_images(product_id, image_url, sort_order)
+          VALUES ($1, $2, $3)
+          ON CONFLICT (product_id, image_url) DO UPDATE SET sort_order = EXCLUDED.sort_order
+          `,
+          [product.id, imageUrl, index * 10],
+        );
+      }
+    } else if (!existing && payload.imageUrl) {
+      await client.query(
+        `INSERT INTO product_images(product_id, image_url, sort_order)
+         VALUES ($1, $2, 0)
+         ON CONFLICT (product_id, image_url) DO NOTHING`,
+        [product.id, payload.imageUrl],
+      );
+    } else if (!existing) {
+      await client.query(
+        `INSERT INTO product_images(product_id, image_url, sort_order)
+         VALUES ($1, $2, 0)
+         ON CONFLICT (product_id, image_url) DO NOTHING`,
+        [product.id, DEFAULT_IMPORT_IMAGE],
+      );
+    }
+
+    const applyVariantPatch = payload.applyVariantPatch === true;
+
+    if (applyVariantPatch && payload.variantSku) {
+      const productRow = await client.query(
+        `SELECT price FROM products WHERE id = $1 LIMIT 1`,
+        [product.id],
+      );
+      const productPrice = Number(productRow.rows[0]?.price ?? 0);
+
+      const variantImageUrl = present.variantImageUrl ? payload.variantImageUrl ?? null : null;
+
+      await client.query(
+        `
+        INSERT INTO product_variants(product_id, sku, price, image_url, attrs, sort_order, is_active)
+        VALUES ($1, $2, $3, $4, $5::jsonb, $6, TRUE)
+        ON CONFLICT (sku) DO UPDATE SET
+          product_id = EXCLUDED.product_id,
+          price = COALESCE(EXCLUDED.price, product_variants.price),
+          image_url = COALESCE(EXCLUDED.image_url, product_variants.image_url),
+          attrs = product_variants.attrs || EXCLUDED.attrs,
+          sort_order = EXCLUDED.sort_order,
+          updated_at = NOW()
+        `,
+        [
+          product.id,
+          payload.variantSku,
+          present.variantPrice ? payload.variantPrice : productPrice,
+          variantImageUrl,
+          JSON.stringify(incomingVariantAttrs),
+          Number(payload.variantSortOrder) || 0,
+        ],
+      );
+    } else if (!existing) {
+      const productRow = await client.query(
+        `SELECT price FROM products WHERE id = $1 LIMIT 1`,
+        [product.id],
+      );
+      const productPrice = Number(productRow.rows[0]?.price ?? 0);
+      await client.query(
+        `
+        INSERT INTO product_variants(product_id, sku, price, image_url, attrs, sort_order, is_active)
+        VALUES ($1, $2, $3, $4, '{}'::jsonb, 0, TRUE)
+        ON CONFLICT (sku) DO NOTHING
+        `,
+        [product.id, payload.sku, productPrice, payload.imageUrl || null],
+      );
+    }
+
+    return product;
+  });
+
+const deleteAllProducts = async () => {
+  const result = await query("DELETE FROM products");
+  return Number(result.rowCount ?? 0);
+};
+
+module.exports = {
+  listProducts,
+  listFilterMeta,
+  getProductById,
+  listAdminProducts,
+  getAdminProductById,
+  listProductsTable,
+  createProduct,
+  updateProduct,
+  upsertProductBySku,
+  deleteAllProducts,
+  splitCategoryId,
+};
