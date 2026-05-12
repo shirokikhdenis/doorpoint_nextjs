@@ -244,6 +244,14 @@ const seedAttributes = async (client) => {
       isFilterable: true,
     },
     {
+      code: "pogonazh_id",
+      name: "Идентификатор погонажа",
+      type: "text",
+      unit: null,
+      scope: "product",
+      isFilterable: false,
+    },
+    {
       code: "size",
       name: "Размер",
       type: "option",

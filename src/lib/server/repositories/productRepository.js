@@ -21,6 +21,35 @@ const sortMap = {
 const isPlainObject = (value) =>
   Object.prototype.toString.call(value) === "[object Object]";
 
+/**
+ * Парсит значение `attrs.pogonazh_id` в массив уникальных непустых ID. Поддерживает:
+ *  - одиночную строку («826»);
+ *  - строку со списком, разделённым `,`, `;` или пробелом («826, 871»);
+ *  - массив (если когда-нибудь положат `["826","871"]`).
+ *
+ * Используется и при чтении (поиск аксессуаров), и при CSV-апсерте (слияние
+ * значений у одного SKU из нескольких строк CSV).
+ */
+const parsePogonazhIdList = (raw) => {
+  if (raw === undefined || raw === null) return [];
+  const tokens = [];
+  const visit = (value) => {
+    if (value === undefined || value === null) return;
+    if (Array.isArray(value)) {
+      value.forEach(visit);
+      return;
+    }
+    String(value)
+      .split(/[\s,;]+/)
+      .forEach((piece) => {
+        const trimmed = piece.trim();
+        if (trimmed) tokens.push(trimmed);
+      });
+  };
+  visit(raw);
+  return Array.from(new Set(tokens));
+};
+
 const ensureAttrs = (raw) => {
   if (isPlainObject(raw)) return raw;
   if (typeof raw === "string") {
@@ -602,6 +631,8 @@ const getProductById = async (id) => {
       p.price,
       p.model_key AS "modelKey",
       p.attrs,
+      c.id AS "categoryId",
+      parent.id AS "parentCategoryId",
       ${taxonomySelect}
     FROM products p
     ${taxonomyJoin}
@@ -781,6 +812,83 @@ const getProductById = async (id) => {
     values: Array.from(entry.values),
   }));
 
+  // Аксессуары/погонаж: товары, у которых среди значений `attrs->>'pogonazh_id'`
+  // есть хотя бы один общий ID с текущим товаром. У одного SKU может быть несколько
+  // ID погонажа, накопленных при импорте CSV (см. mergeJsonbAttrs ниже): они хранятся
+  // как строка «826,871», поэтому совпадение ищем как пересечение множеств.
+  // Из выдачи исключаем всю корневую ветку текущего товара — дверь видит только товары
+  // из ДРУГИХ корневых категорий (типичный кейс — отдельная категория «Погонаж»),
+  // и наоборот.
+  const pogonazhIds = parsePogonazhIdList(productAttrs.pogonazh_id);
+  // Корневая категория текущего товара: если у его категории есть родитель — это родитель,
+  // иначе сама категория. Сравниваем по id, чтобы исключить всю ветку (например, всё дерево
+  // «Межкомнатные двери», когда товар лежит в подкатегории «Экошпон»).
+  const currentRootCategoryId =
+    Number(row.parentCategoryId ?? row.categoryId) || null;
+  let accessories = [];
+  if (pogonazhIds.length > 0) {
+    const accRes = await query(
+      `
+      SELECT
+        p.id,
+        p.sku,
+        p.name,
+        p.price,
+        p.attrs,
+        ${productImageSubquery} AS image,
+        c.name AS "categoryName",
+        parent.name AS "parentName",
+        COALESCE(parent.id, c.id) AS "rootCategoryId"
+      FROM products p
+      ${taxonomyJoin}
+      WHERE p.is_active = TRUE
+        AND p.id <> $1
+        AND EXISTS (
+          SELECT 1
+          FROM regexp_split_to_table(
+            COALESCE(NULLIF(TRIM(p.attrs->>'pogonazh_id'), ''), ''),
+            E'[\\\\s,;]+'
+          ) AS token(value)
+          WHERE token.value <> '' AND token.value = ANY($2::text[])
+        )
+        AND ($3::bigint IS NULL OR COALESCE(parent.id, c.id) <> $3::bigint)
+      ORDER BY
+        -- Сначала «Наличники» и «Коробки» (на «Н»/«К»), потом «Доборы» (на «Д»),
+        -- потом всё остальное. Внутри каждой группы — по алфавиту.
+        CASE
+          WHEN LOWER(LEFT(TRIM(p.name), 1)) IN ('н', 'к') THEN 0
+          WHEN LOWER(LEFT(TRIM(p.name), 1)) = 'д' THEN 1
+          ELSE 2
+        END,
+        p.name
+      LIMIT 50
+      `,
+      [numericId, pogonazhIds, currentRootCategoryId],
+    );
+    accessories = accRes.rows.map((accRow) => {
+      const accAttrs = ensureAttrs(accRow.attrs);
+      // Краткий список атрибутов: только product-scope, непустые, без служебного pogonazh_id.
+      const accAttributes = attrDefs
+        .filter((def) => def.scope === "product" && def.code !== "pogonazh_id")
+        .map((def) => {
+          const raw = accAttrs[def.code];
+          if (raw === undefined || raw === null || String(raw).trim() === "") return null;
+          const display = def.unit ? `${raw} ${def.unit}` : String(raw);
+          return { code: def.code, name: def.name, value: display };
+        })
+        .filter(Boolean);
+      return {
+        id: Number(accRow.id),
+        sku: accRow.sku,
+        name: accRow.name,
+        price: Number(accRow.price),
+        image: accRow.image || "",
+        category: accRow.parentName || accRow.categoryName || "",
+        attributes: accAttributes,
+      };
+    });
+  }
+
   return {
     id: numericId,
     sku: row.sku,
@@ -797,6 +905,8 @@ const getProductById = async (id) => {
     variantSelectors,
     colorVariants,
     glassVariants,
+    accessories,
+    pogonazhIds,
   };
 };
 
@@ -1250,6 +1360,15 @@ const mergeJsonbAttrs = (existing, incoming) => {
   const merged = ensureAttrs(existing);
   for (const [k, v] of Object.entries(incoming || {})) {
     if (v === null || v === undefined || v === "") continue;
+    // У одного SKU может быть несколько ID погонажа. При CSV-апсерте копим их,
+    // а не перезаписываем: если в нескольких строках CSV (или в нескольких заливках
+    // подряд) один и тот же SKU встречается с разными `pogonazh_id`, итоговое
+    // значение — объединение всех непустых ID без дубликатов.
+    if (k === "pogonazh_id") {
+      const combined = parsePogonazhIdList([merged[k], v]);
+      merged[k] = combined.length > 0 ? combined.join(",") : merged[k] ?? v;
+      continue;
+    }
     merged[k] = v;
   }
   return merged;
@@ -1434,6 +1553,29 @@ const deleteAllProducts = async () => {
   return Number(result.rowCount ?? 0);
 };
 
+/** Удаление по таксономии админки: подкатегория — только лист; только категория — корень и все дочерние. */
+const deleteProductsByCategoryScope = async ({ categoryId = null, subcategoryId = null }) => {
+  const subId = subcategoryId ? Number(subcategoryId) : null;
+  const catId = categoryId ? Number(categoryId) : null;
+  if (subId) {
+    const result = await query(`DELETE FROM products WHERE category_id = $1`, [subId]);
+    return Number(result.rowCount ?? 0);
+  }
+  if (catId) {
+    const result = await query(
+      `
+      DELETE FROM products p
+      USING categories c
+      WHERE c.id = p.category_id
+        AND (p.category_id = $1 OR c.parent_id = $1)
+      `,
+      [catId],
+    );
+    return Number(result.rowCount ?? 0);
+  }
+  return 0;
+};
+
 module.exports = {
   listProducts,
   listFilterMeta,
@@ -1445,5 +1587,6 @@ module.exports = {
   updateProduct,
   upsertProductBySku,
   deleteAllProducts,
+  deleteProductsByCategoryScope,
   splitCategoryId,
 };

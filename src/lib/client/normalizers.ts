@@ -49,6 +49,15 @@ export type GlassVariant = {
   image: string;
   isCurrent: boolean;
 };
+export type AccessoryItem = {
+  id: number;
+  sku: string;
+  name: string;
+  price: number;
+  image: string;
+  category: string;
+  attributes: Array<{ code: string; name: string; value: string }>;
+};
 export type ProductData = {
   id: number;
   name: string;
@@ -61,6 +70,7 @@ export type ProductData = {
   variants: Variant[];
   colorVariants: ColorVariant[];
   glassVariants: GlassVariant[];
+  accessories: AccessoryItem[];
 };
 
 export type AdminCatalogPage = {
@@ -177,6 +187,19 @@ export const normalizeProductData = (value: unknown): ProductData => {
       glass: String(entry.glass || ""),
       image: String(entry.image || ""),
       isCurrent: Boolean(entry.isCurrent),
+    })),
+    accessories: asArray<Record<string, unknown>>(source.accessories || []).map((entry) => ({
+      id: Number(entry.id) || 0,
+      sku: String(entry.sku || ""),
+      name: String(entry.name || ""),
+      price: Number(entry.price) || 0,
+      image: String(entry.image || ""),
+      category: String(entry.category || ""),
+      attributes: asArray<AccessoryItem["attributes"][number]>(entry.attributes).map((a) => ({
+        code: String(a.code || ""),
+        name: String(a.name || ""),
+        value: String(a.value || ""),
+      })),
     })),
   };
 };

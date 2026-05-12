@@ -124,6 +124,64 @@ export default function AdminProductsPage() {
   const attributes = data?.attributes || [];
   const rows = data?.rows || [];
 
+  const categoryNameById = useMemo(() => {
+    const map = new Map<number, string>();
+    (data?.categories || []).forEach((c) => map.set(c.id, c.name));
+    return map;
+  }, [data?.categories]);
+
+  const subcategoryNameById = useMemo(() => {
+    const map = new Map<number, string>();
+    (data?.subcategories || []).forEach((s) => map.set(s.id, s.name));
+    return map;
+  }, [data?.subcategories]);
+
+  const handleDeleteByCategory = async () => {
+    if (deleting) return;
+    if (!subcategoryId && !categoryId) {
+      setNotice("Выберите категорию или подкатегорию в фильтре.");
+      return;
+    }
+    const subName = subcategoryId ? subcategoryNameById.get(subcategoryId) : "";
+    const catName = categoryId ? categoryNameById.get(categoryId) : "";
+    const scopeText = subcategoryId
+      ? `подкатегории «${subName || `#${subcategoryId}`}»`
+      : `категории «${catName || `#${categoryId}`}» (все подкатегории этой ветки)`;
+    const searchNote =
+      appliedSearch.trim().length > 0
+        ? "\n\nУдаляются все товары в этой области таксономии, не только строки, попавшие под текущий поиск."
+        : "";
+    const first = window.confirm(
+      `Удалить все товары из ${scopeText}?\n\nВместе с ними пропадут варианты и привязки картинок. Действие необратимо.${searchNote}`,
+    );
+    if (!first) return;
+    const phrase = window.prompt(
+      "Чтобы подтвердить, введите слово DELETE заглавными буквами:",
+      "",
+    );
+    if (phrase !== "DELETE") {
+      setNotice("Удаление отменено — подтверждение не совпало.");
+      return;
+    }
+    setDeleting(true);
+    setError("");
+    try {
+      const params = new URLSearchParams();
+      if (subcategoryId) params.set("subcategoryId", String(subcategoryId));
+      else if (categoryId) params.set("categoryId", String(categoryId));
+      const response = await fetch(`/api/admin/products?${params.toString()}`, { method: "DELETE" });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const body = (await response.json()) as { deleted?: number };
+      setNotice(`Удалено товаров: ${Number(body.deleted || 0)}.`);
+      setPage(1);
+      triggerReload();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Ошибка удаления");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const handleDeleteAll = async () => {
     if (deleting) return;
     if (!data || data.total === 0) {
@@ -278,6 +336,15 @@ export default function AdminProductsPage() {
               Всего товаров: <strong className="text-zinc-800">{data.total}</strong>
             </span>
           ) : null}
+          <button
+            type="button"
+            onClick={handleDeleteByCategory}
+            disabled={deleting || (!categoryId && !subcategoryId)}
+            className="rounded border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm text-amber-900 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+            title="Удалить все товары выбранной категории или подкатегории (без учёта поиска)"
+          >
+            {deleting ? "Удаляем…" : "Удалить товары категории"}
+          </button>
           <button
             type="button"
             onClick={handleDeleteAll}

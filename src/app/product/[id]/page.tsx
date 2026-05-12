@@ -3,7 +3,12 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { cartStore } from "@/lib/client/cart-store";
-import { ProductData, Variant, normalizeProductData } from "@/lib/client/normalizers";
+import {
+  AccessoryItem,
+  ProductData,
+  Variant,
+  normalizeProductData,
+} from "@/lib/client/normalizers";
 
 const formatPrice = (price: number) => `${Number(price || 0).toLocaleString("ru-RU")} ₽`;
 
@@ -220,6 +225,133 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
           </div>
         </div>
       </div>
+
+      {product.accessories.length > 0 ? (
+        <section className="mt-10">
+          <h2 className="text-xl font-semibold">Комплектующие в этом цвете</h2>
+          <p className="mt-1 text-sm text-zinc-500">
+            Погонаж (наличники, коробки, доборы) с тем же идентификатором группы — подходит
+            к полотну.
+          </p>
+          <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-200 bg-white">
+            <table className="w-full min-w-[560px] text-sm">
+              <thead className="bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500">
+                <tr>
+                  <th className="px-4 py-2 font-medium">Наименование</th>
+                  <th className="px-4 py-2 font-medium">Цена</th>
+                  <th className="px-4 py-2 font-medium">Кол-во</th>
+                  <th className="w-12 px-4 py-2" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-100">
+                {product.accessories.map((item) => (
+                  <AccessoryRow
+                    key={item.id}
+                    item={item}
+                    onAdded={() => {
+                      setNotice("Комплектующее добавлено в корзину");
+                      setTimeout(() => setNotice(""), 1200);
+                    }}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
     </main>
+  );
+}
+
+type AccessoryRowProps = {
+  item: AccessoryItem;
+  onAdded: () => void;
+};
+
+/**
+ * Одна строка таблицы комплектующих: название (+ SKU), цена, степпер количества
+ * и иконка-кнопка «в корзину». Количество хранится локально внутри строки,
+ * добавляется в `cartStore` одной порцией, после чего сбрасывается обратно к 1.
+ */
+function AccessoryRow({ item, onAdded }: AccessoryRowProps) {
+  const [qty, setQty] = useState<number>(1);
+  const clampQty = (value: number) => Math.max(1, Math.min(999, Math.floor(value) || 1));
+  const dec = () => setQty((prev) => clampQty(prev - 1));
+  const inc = () => setQty((prev) => clampQty(prev + 1));
+
+  const handleAdd = () => {
+    cartStore.addItem({
+      id: item.id,
+      name: item.name,
+      image: item.image,
+      price: item.price,
+      quantity: qty,
+    });
+    onAdded();
+    setQty(1);
+  };
+
+  return (
+    <tr className="hover:bg-zinc-50/60">
+      <td className="px-4 py-2 align-middle font-medium leading-snug text-zinc-900">
+        {item.name}
+      </td>
+      <td className="whitespace-nowrap px-4 py-2 align-middle font-medium">
+        {formatPrice(item.price)}
+      </td>
+      <td className="px-4 py-2 align-middle">
+        <div className="inline-flex items-center overflow-hidden rounded border border-zinc-300">
+          <button
+            type="button"
+            onClick={dec}
+            className="px-2 py-1 text-sm hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={qty <= 1}
+            aria-label="Уменьшить количество"
+          >
+            −
+          </button>
+          <input
+            type="number"
+            inputMode="numeric"
+            value={qty}
+            onChange={(event) => setQty(clampQty(Number(event.target.value)))}
+            className="w-12 border-x border-zinc-300 px-1 py-1 text-center text-sm outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+          />
+          <button
+            type="button"
+            onClick={inc}
+            className="px-2 py-1 text-sm hover:bg-zinc-100"
+            aria-label="Увеличить количество"
+          >
+            +
+          </button>
+        </div>
+      </td>
+      <td className="px-4 py-2 align-middle">
+        <button
+          type="button"
+          onClick={handleAdd}
+          aria-label={`Добавить «${item.name}» в корзину`}
+          title="Добавить в корзину"
+          className="inline-flex h-9 w-9 items-center justify-center rounded text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="h-5 w-5"
+            aria-hidden="true"
+          >
+            <path d="M3 4h2l2.4 11.2a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6" />
+            <circle cx="9" cy="20" r="1.4" />
+            <circle cx="17" cy="20" r="1.4" />
+          </svg>
+        </button>
+      </td>
+    </tr>
   );
 }

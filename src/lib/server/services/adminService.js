@@ -189,6 +189,12 @@ const getProductForEdit = async (id) => productRepository.getAdminProductById(Nu
 
 const deleteAllProducts = async () => productRepository.deleteAllProducts();
 
+const deleteProductsByCategoryScope = async (query) =>
+  productRepository.deleteProductsByCategoryScope({
+    categoryId: query.categoryId ? Number(query.categoryId) : null,
+    subcategoryId: query.subcategoryId ? Number(query.subcategoryId) : null,
+  });
+
 const getProductsTable = async (query) =>
   productRepository.listProductsTable({
     page: Number(query.page) || 1,
@@ -221,5 +227,6 @@ module.exports = {
   updateProduct,
   getProductForEdit,
   deleteAllProducts,
+  deleteProductsByCategoryScope,
   getProductsTable
 };

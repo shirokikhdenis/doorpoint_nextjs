@@ -70,7 +70,23 @@ const handle = async (request, context) =>
     if (match(path, method, "POST", "attribute-options")) return json(await adminService.createAttributeOption(body), 201);
 
     if (match(path, method, "POST", "products")) return json(await adminService.createProduct(body), 201);
-    if (match(path, method, "DELETE", "products")) return json({ deleted: await adminService.deleteAllProducts() });
+    if (match(path, method, "DELETE", "products")) {
+      const rawSub = query.subcategoryId;
+      const rawCat = query.categoryId;
+      const subStr = rawSub !== undefined && rawSub !== null ? String(rawSub).trim() : "";
+      const catStr = rawCat !== undefined && rawCat !== null ? String(rawCat).trim() : "";
+      const hasScopeQuery = subStr !== "" || catStr !== "";
+      if (hasScopeQuery) {
+        const subNum = subStr !== "" ? Number(subStr) : null;
+        const catNum = catStr !== "" ? Number(catStr) : null;
+        const scopedOk =
+          (subNum != null && Number.isFinite(subNum) && subNum > 0) ||
+          (catNum != null && Number.isFinite(catNum) && catNum > 0);
+        if (!scopedOk) return json({ message: "Некорректный categoryId или subcategoryId" }, 400);
+        return json({ deleted: await adminService.deleteProductsByCategoryScope(query) });
+      }
+      return json({ deleted: await adminService.deleteAllProducts() });
+    }
     if (path[0] === "products" && path.length === 2 && method === "PUT") return json(await adminService.updateProduct(Number(path[1]), body));
     if (path[0] === "products" && path.length === 2 && method === "GET") {
       const product = await adminService.getProductForEdit(Number(path[1]));
