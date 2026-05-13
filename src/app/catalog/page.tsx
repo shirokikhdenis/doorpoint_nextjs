@@ -13,6 +13,7 @@ import {
   normalizeCatalogPages,
   normalizeProductsResponse,
 } from "@/lib/client/normalizers";
+import { MeasureLeadForm } from "@/features/store/measure-lead-form";
 
 const formatPrice = (price: number) => `${Number(price || 0).toLocaleString("ru-RU")} ₽`;
 
@@ -661,6 +662,7 @@ export default function CatalogPage() {
           </section>
         </div>
       </main>
+      <MeasureLeadForm />
     </>
   );
 }

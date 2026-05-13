@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type AttributeDef = {
   id: number;
@@ -519,14 +519,12 @@ function DisplayOrderInput({
   displayOrder: number;
   onSaved: () => void;
 }) {
-  const [value, setValue] = useState(String(displayOrder));
-
-  useEffect(() => {
-    setValue(String(displayOrder));
-  }, [productId, displayOrder]);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const commit = async () => {
-    const n = Number(value);
+    const el = inputRef.current;
+    if (!el) return;
+    const n = Number(el.value);
     const safe = Number.isFinite(n) ? Math.trunc(n) : 0;
     if (safe === displayOrder) return;
     try {
@@ -541,16 +539,17 @@ function DisplayOrderInput({
       }
       onSaved();
     } catch {
-      setValue(String(displayOrder));
+      el.value = String(displayOrder);
     }
   };
 
   return (
     <input
+      ref={inputRef}
+      key={`${productId}-${displayOrder}`}
       type="number"
+      defaultValue={String(displayOrder)}
       className="w-14 rounded border border-zinc-200 px-1 py-0.5 text-right font-mono text-[11px]"
-      value={value}
-      onChange={(e) => setValue(e.target.value)}
       onBlur={() => void commit()}
       onKeyDown={(e) => {
         if (e.key === "Enter") (e.target as HTMLInputElement).blur();

@@ -9,6 +9,7 @@ import {
   Variant,
   normalizeProductData,
 } from "@/lib/client/normalizers";
+import { MeasureLeadForm } from "@/features/store/measure-lead-form";
 
 const formatPrice = (price: number) => `${Number(price || 0).toLocaleString("ru-RU")} ₽`;
 
@@ -258,7 +259,8 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
   const backHref = buildCatalogBackHref();
 
   return (
-    <main className="mx-auto w-full max-w-5xl p-6">
+    <>
+      <main className="mx-auto w-full max-w-5xl p-6">
       <Link href={backHref} className="text-sm underline">
         Назад в каталог
       </Link>
@@ -411,7 +413,9 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
           </div>
         </section>
       ) : null}
-    </main>
+      </main>
+      <MeasureLeadForm />
+    </>
   );
 }
 
