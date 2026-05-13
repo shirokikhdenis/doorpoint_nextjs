@@ -30,7 +30,7 @@ const mapDefinitionRow = (row) => ({
   unit: row.unit || null,
   isFilterable: row.isFilterable !== false,
   isRequired: false,
-  isVisibleOnProduct: true,
+  isVisibleOnProduct: row.isVisibleOnProduct !== false,
   isVariantAxis: row.scope === "variant",
   sortOrder: Number(row.sortOrder) || 0,
   scope: row.scope,
@@ -49,6 +49,7 @@ const listAttributes = async () => {
       options,
       scope,
       is_filterable AS "isFilterable",
+      is_visible_on_product AS "isVisibleOnProduct",
       sort_order AS "sortOrder"
     FROM attribute_definitions
     ORDER BY sort_order ASC, id ASC
@@ -84,6 +85,7 @@ const findAttributeById = async (id) => {
       options,
       scope,
       is_filterable AS "isFilterable",
+      is_visible_on_product AS "isVisibleOnProduct",
       sort_order AS "sortOrder"
     FROM attribute_definitions
     WHERE id = $1
@@ -105,6 +107,7 @@ const findAttributeByCode = async (code) => {
       options,
       scope,
       is_filterable AS "isFilterable",
+      is_visible_on_product AS "isVisibleOnProduct",
       sort_order AS "sortOrder"
     FROM attribute_definitions
     WHERE code = $1
@@ -125,8 +128,10 @@ const createAttribute = async (payload) => {
   const scope = payload.isVariantAxis === true ? "variant" : "product";
   const res = await query(
     `
-    INSERT INTO attribute_definitions(code, name, type, unit, options, scope, is_filterable, sort_order)
-    VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8)
+    INSERT INTO attribute_definitions(
+      code, name, type, unit, options, scope, is_filterable, is_visible_on_product, sort_order
+    )
+    VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9)
     RETURNING
       id,
       code,
@@ -136,6 +141,7 @@ const createAttribute = async (payload) => {
       options,
       scope,
       is_filterable AS "isFilterable",
+      is_visible_on_product AS "isVisibleOnProduct",
       sort_order AS "sortOrder"
     `,
     [
@@ -146,6 +152,7 @@ const createAttribute = async (payload) => {
       JSON.stringify(Array.isArray(payload.options) ? payload.options : []),
       scope,
       payload.isFilterable !== false,
+      payload.isVisibleOnProduct !== false,
       Number.isFinite(sortOrder) ? sortOrder : 0,
     ],
   );
@@ -153,7 +160,27 @@ const createAttribute = async (payload) => {
 };
 
 const updateAttribute = async (id, payload) => {
-  const scope = payload.isVariantAxis === true ? "variant" : "product";
+  const existing = await findAttributeById(id);
+  if (!existing) return null;
+
+  const isVariantAxis =
+    payload.isVariantAxis !== undefined ? payload.isVariantAxis === true : existing.isVariantAxis;
+  const scope = isVariantAxis ? "variant" : "product";
+  const code = payload.code !== undefined ? payload.code : existing.code;
+  const name = payload.name !== undefined ? payload.name : existing.name;
+  const type = payload.type !== undefined ? payload.type : existing.type;
+  const unit = payload.unit !== undefined ? payload.unit || null : existing.unit;
+  const isFilterable =
+    payload.isFilterable !== undefined ? payload.isFilterable !== false : existing.isFilterable;
+  const isVisibleOnProduct =
+    payload.isVisibleOnProduct !== undefined
+      ? payload.isVisibleOnProduct !== false
+      : existing.isVisibleOnProduct;
+  const sortOrder =
+    payload.sortOrder !== undefined && payload.sortOrder !== null
+      ? Number(payload.sortOrder)
+      : existing.sortOrder;
+
   const res = await query(
     `
     UPDATE attribute_definitions
@@ -164,7 +191,8 @@ const updateAttribute = async (id, payload) => {
       unit = $5,
       scope = $6,
       is_filterable = $7,
-      sort_order = COALESCE($8, sort_order)
+      is_visible_on_product = $8,
+      sort_order = $9
     WHERE id = $1
     RETURNING
       id,
@@ -175,20 +203,10 @@ const updateAttribute = async (id, payload) => {
       options,
       scope,
       is_filterable AS "isFilterable",
+      is_visible_on_product AS "isVisibleOnProduct",
       sort_order AS "sortOrder"
     `,
-    [
-      id,
-      payload.code,
-      payload.name,
-      payload.type,
-      payload.unit || null,
-      scope,
-      payload.isFilterable !== false,
-      payload.sortOrder !== undefined && payload.sortOrder !== null
-        ? Number(payload.sortOrder)
-        : null,
-    ],
+    [id, code, name, type, unit, scope, isFilterable, isVisibleOnProduct, sortOrder],
   );
   return res.rows[0] ? mapDefinitionRow(res.rows[0]) : null;
 };
@@ -207,6 +225,7 @@ const findAttributeByName = async (name) => {
       options,
       scope,
       is_filterable AS "isFilterable",
+      is_visible_on_product AS "isVisibleOnProduct",
       sort_order AS "sortOrder"
     FROM attribute_definitions
     WHERE

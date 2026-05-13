@@ -4,6 +4,7 @@ import "./globals.css";
 import { geometria } from "@/fonts/geometria-font";
 import { AppTopBar } from "@/features/navigation/app-top-bar";
 import { AppNav } from "@/features/navigation/app-nav";
+import { AppCatalogNav } from "@/features/navigation/app-catalog-nav";
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
@@ -28,6 +29,7 @@ export default function RootLayout({
       <body className="min-h-full bg-zinc-50 font-sans text-zinc-900">
         <AppTopBar />
         <AppNav />
+        <AppCatalogNav />
         {children}
       </body>
     </html>

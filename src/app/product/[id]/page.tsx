@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cartStore } from "@/lib/client/cart-store";
 import {
   AccessoryItem,
@@ -25,47 +25,241 @@ const variantCartSuffix = (variant: Variant): string => {
   return axes.map((attribute) => attribute.value).join(", ");
 };
 
+/**
+ * Куда возвращает кнопка «Назад в каталог». Берём slug витрины, который каталог
+ * последним записал в sessionStorage; если его нет (пришли по прямой ссылке),
+ * возвращаем просто `/catalog` — каталог сам подхватит дефолтную витрину.
+ */
+const buildCatalogBackHref = (): string => {
+  if (typeof window === "undefined") return "/catalog";
+  const slug = window.sessionStorage.getItem("lastCatalogPage");
+  return slug ? `/catalog?catalogPage=${encodeURIComponent(slug)}` : "/catalog";
+};
+
+/**
+ * Сериализуем оси варианта (size/opening/...) в стабильный ключ, чтобы при
+ * переключении цвета сохранить выбранный размер: ищем в новом товаре вариант
+ * с тем же набором значений по тем же осям.
+ */
+const serializeVariantAxes = (variant: Variant | null | undefined): string => {
+  if (!variant) return "";
+  return variant.attributes
+    .filter((attribute) => attribute.isVariantAxis)
+    .map((attribute) => `${attribute.code}=${attribute.value}`)
+    .sort()
+    .join("|");
+};
+
 export default function ProductPage({ params }: { params: Promise<{ id: string }> }) {
+  // selectedId — «что показываем сейчас». Меняется на клик по чипу цвета/стекла
+  // без навигации Next, только через history.replaceState (см. ниже).
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [product, setProduct] = useState<ProductData | null>(null);
   const [variantSku, setVariantSku] = useState("");
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  // Видимое фото: при смене цвета прогреваем новый url через off-screen `Image()`
+  // и подменяем `src` только когда ресурс уже в кэше — без «пустого» кадра.
+  const [displayedImage, setDisplayedImage] = useState("");
+
+  // Кэш загруженных карточек по id и список «уже летящих» запросов — чтобы при
+  // повторном клике/наведении не дёргать API.
+  const cacheRef = useRef<Map<string, ProductData>>(new Map());
+  const inFlightRef = useRef<Set<string>>(new Set());
+
+  // Свежие значения product/variantSku нужны внутри async-fetch, чтобы корректно
+  // подобрать SKU варианта в новой карточке. Через refs читаем последнее значение,
+  // не пересоздавая эффект.
+  const productRef = useRef<ProductData | null>(null);
+  const variantSkuRef = useRef("");
+  useEffect(() => { productRef.current = product; }, [product]);
+  useEffect(() => { variantSkuRef.current = variantSku; }, [variantSku]);
 
   useEffect(() => {
-    const run = async () => {
+    let cancelled = false;
+    (async () => {
       const { id } = await params;
-      const response = await fetch(`/api/products/${id}`);
-      if (!response.ok) {
-        setError("Товар не найден");
-        setLoading(false);
-        return;
-      }
-      const data = normalizeProductData(await response.json());
-      setProduct(data);
-      if (data.variants.length > 0) setVariantSku(data.variants[0].sku);
-      setLoading(false);
-    };
-    run().catch(() => {
-      setError("Ошибка загрузки товара");
-      setLoading(false);
-    });
+      if (cancelled) return;
+      setSelectedId((prev) => prev ?? id);
+    })();
+    return () => { cancelled = true; };
   }, [params]);
+
+  const applyProduct = useCallback((data: ProductData) => {
+    const prev = productRef.current;
+    const prevSku = variantSkuRef.current;
+    let nextSku = data.variants[0]?.sku || "";
+    if (prev && prevSku) {
+      const prevAxes = serializeVariantAxes(prev.variants.find((v) => v.sku === prevSku));
+      if (prevAxes) {
+        const match = data.variants.find((v) => serializeVariantAxes(v) === prevAxes);
+        if (match) nextSku = match.sku;
+      }
+    }
+    setProduct(data);
+    setVariantSku(nextSku);
+    setLoading(false);
+    setError("");
+  }, []);
+
+  useEffect(() => {
+    if (!selectedId) return;
+    const cached = cacheRef.current.get(selectedId);
+    if (cached) {
+      applyProduct(cached);
+      return;
+    }
+    const controller = new AbortController();
+    (async () => {
+      try {
+        const response = await fetch(`/api/products/${selectedId}`, {
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          setError("Товар не найден");
+          setLoading(false);
+          return;
+        }
+        const data = normalizeProductData(await response.json());
+        cacheRef.current.set(selectedId, data);
+        applyProduct(data);
+      } catch (err) {
+        if ((err as { name?: string })?.name === "AbortError") return;
+        setError("Ошибка загрузки товара");
+        setLoading(false);
+      }
+    })();
+    return () => controller.abort();
+  }, [selectedId, applyProduct]);
+
+  // Синхронизация URL без участия Next router: меняем только адресную строку,
+  // никаких ре-рендеров слоёв layout/segment не происходит, скролл не сбрасывается.
+  useEffect(() => {
+    if (!selectedId || typeof window === "undefined") return;
+    const target = `/product/${selectedId}`;
+    if (window.location.pathname !== target) {
+      window.history.replaceState(null, "", target);
+    }
+  }, [selectedId]);
+
+  const prefetchProduct = useCallback((id: number) => {
+    const idStr = String(id);
+    if (cacheRef.current.has(idStr) || inFlightRef.current.has(idStr)) return;
+    inFlightRef.current.add(idStr);
+    fetch(`/api/products/${idStr}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (j) cacheRef.current.set(idStr, normalizeProductData(j)); })
+      .catch(() => {})
+      .finally(() => inFlightRef.current.delete(idStr));
+  }, []);
+
+  const switchToId = useCallback((id: number) => {
+    const idStr = String(id);
+    setSelectedId((prev) => (prev === idStr ? prev : idStr));
+  }, []);
 
   const selectedVariant = useMemo(
     () => product?.variants.find((item) => item.sku === variantSku) || null,
     [product?.variants, variantSku],
   );
 
+  // Список осей варианта (size, opening и т.п.) с уникальными значениями. Порядок
+  // осей — по первой встрече в `variants`, чтобы UI был стабилен между загрузками.
+  const variantAxes = useMemo(() => {
+    if (!product) return [] as Array<{ code: string; name: string; options: string[] }>;
+    const order: string[] = [];
+    const byCode = new Map<string, { code: string; name: string; options: string[] }>();
+    for (const variant of product.variants) {
+      for (const attribute of variant.attributes) {
+        if (!attribute.isVariantAxis) continue;
+        let axis = byCode.get(attribute.code);
+        if (!axis) {
+          axis = { code: attribute.code, name: attribute.name, options: [] };
+          byCode.set(attribute.code, axis);
+          order.push(attribute.code);
+        }
+        if (!axis.options.includes(attribute.value)) axis.options.push(attribute.value);
+      }
+    }
+    return order.map((code) => byCode.get(code)!).filter((axis) => axis.options.length > 0);
+  }, [product]);
+
+  // Какое значение каждой оси соответствует сейчас выбранному варианту — отсюда
+  // подсвечиваем активную «кнопку» в каждой группе.
+  const currentAxisValues = useMemo<Record<string, string>>(() => {
+    const out: Record<string, string> = {};
+    if (!selectedVariant) return out;
+    for (const attribute of selectedVariant.attributes) {
+      if (attribute.isVariantAxis) out[attribute.code] = attribute.value;
+    }
+    return out;
+  }, [selectedVariant]);
+
+  /** Цвет открытой карточки (чип или атрибут) — в корзину для дверей и погонажа. */
+  const cartColorLabel = useMemo(() => {
+    if (!product || selectedId == null) return "";
+    const sid = Number(selectedId);
+    if (!Number.isFinite(sid)) return "";
+    const fromChip = product.colorVariants.find((e) => e.id === sid);
+    if (fromChip?.color?.trim()) return fromChip.color.trim();
+    const fromAttr = product.attributes.find((a) => a.code === "color")?.value;
+    return fromAttr?.trim() || "";
+  }, [product, selectedId]);
+
+  // Клик по «кнопке» оси: пытаемся найти вариант, где совпали ВСЕ оси с новым
+  // выбором; если такого нет (комбинация не существует) — берём первый вариант
+  // с этим значением оси, остальные оси «подскочат» к его значениям.
+  const selectAxisValue = useCallback(
+    (code: string, value: string) => {
+      if (!product) return;
+      const desired = { ...currentAxisValues, [code]: value };
+      const matchesAll = (variant: Variant) =>
+        variant.attributes.every(
+          (attribute) => !attribute.isVariantAxis || desired[attribute.code] === attribute.value,
+        );
+      const exact = product.variants.find(matchesAll);
+      const fallback =
+        exact ||
+        product.variants.find((variant) =>
+          variant.attributes.some(
+            (attribute) =>
+              attribute.isVariantAxis && attribute.code === code && attribute.value === value,
+          ),
+        );
+      if (fallback) setVariantSku(fallback.sku);
+    },
+    [product, currentAxisValues],
+  );
+
+  const targetImage =
+    selectedVariant?.image || product?.images[0] || product?.image || "";
+
+  useEffect(() => {
+    if (!targetImage) return;
+    if (!displayedImage) {
+      setDisplayedImage(targetImage);
+      return;
+    }
+    if (targetImage === displayedImage) return;
+    const preload = new window.Image();
+    const swap = () => setDisplayedImage(targetImage);
+    preload.onload = swap;
+    preload.onerror = swap;
+    preload.src = targetImage;
+  }, [targetImage, displayedImage]);
+
   if (loading) return <main className="mx-auto w-full max-w-5xl p-6">Загрузка...</main>;
   if (!product) return <main className="mx-auto w-full max-w-5xl p-6">{error || "Товар не найден"}</main>;
 
-  const image = selectedVariant?.image || product.images[0] || product.image || "";
+  const image = displayedImage || targetImage;
   const price = selectedVariant?.price ?? product.price;
+  const selectedNumericId = Number(selectedId);
+  const backHref = buildCatalogBackHref();
 
   return (
     <main className="mx-auto w-full max-w-5xl p-6">
-      <Link href="/catalog" className="text-sm underline">
+      <Link href={backHref} className="text-sm underline">
         Назад в каталог
       </Link>
       <div className="mt-4 grid gap-6 md:grid-cols-2">
@@ -88,47 +282,16 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
             <div className="space-y-2">
               <span className="text-sm text-zinc-600">Цвет</span>
               <div className="flex flex-wrap gap-2">
-                {product.colorVariants.map((entry) => {
-                  const label = entry.color || "—";
-                  const baseClass =
-                    "flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs transition";
-                  if (entry.isCurrent) {
-                    return (
-                      <span
-                        key={entry.id}
-                        className={`${baseClass} border-zinc-900 bg-zinc-900 text-white`}
-                        aria-current="true"
-                      >
-                        {entry.image ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={entry.image}
-                            alt=""
-                            className="h-5 w-5 rounded-full border border-white/30 object-cover"
-                          />
-                        ) : null}
-                        {label}
-                      </span>
-                    );
-                  }
-                  return (
-                    <Link
-                      key={entry.id}
-                      href={`/product/${entry.id}`}
-                      className={`${baseClass} border-zinc-200 bg-white text-zinc-700 hover:border-zinc-400 hover:bg-zinc-50`}
-                    >
-                      {entry.image ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={entry.image}
-                          alt=""
-                          className="h-5 w-5 rounded-full border border-zinc-200 object-cover"
-                        />
-                      ) : null}
-                      {label}
-                    </Link>
-                  );
-                })}
+                {product.colorVariants.map((entry) => (
+                  <VariantChip
+                    key={entry.id}
+                    label={entry.color || "—"}
+                    image={entry.image}
+                    isCurrent={entry.id === selectedNumericId}
+                    onSelect={() => switchToId(entry.id)}
+                    onHoverPrefetch={() => prefetchProduct(entry.id)}
+                  />
+                ))}
               </div>
             </div>
           ) : null}
@@ -136,68 +299,55 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
             <div className="space-y-2">
               <span className="text-sm text-zinc-600">Стекло</span>
               <div className="flex flex-wrap gap-2">
-                {product.glassVariants.map((entry) => {
-                  const label = entry.glass || "—";
-                  const baseClass =
-                    "flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs transition";
-                  if (entry.isCurrent) {
-                    return (
-                      <span
-                        key={entry.id}
-                        className={`${baseClass} border-zinc-900 bg-zinc-900 text-white`}
-                        aria-current="true"
-                      >
-                        {entry.image ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={entry.image}
-                            alt=""
-                            className="h-5 w-5 rounded-full border border-white/30 object-cover"
-                          />
-                        ) : null}
-                        {label}
-                      </span>
-                    );
-                  }
-                  return (
-                    <Link
-                      key={entry.id}
-                      href={`/product/${entry.id}`}
-                      className={`${baseClass} border-zinc-200 bg-white text-zinc-700 hover:border-zinc-400 hover:bg-zinc-50`}
-                    >
-                      {entry.image ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={entry.image}
-                          alt=""
-                          className="h-5 w-5 rounded-full border border-zinc-200 object-cover"
-                        />
-                      ) : null}
-                      {label}
-                    </Link>
-                  );
-                })}
+                {product.glassVariants.map((entry) => (
+                  <VariantChip
+                    key={entry.id}
+                    label={entry.glass || "—"}
+                    image={entry.image}
+                    isCurrent={entry.id === selectedNumericId}
+                    onSelect={() => switchToId(entry.id)}
+                    onHoverPrefetch={() => prefetchProduct(entry.id)}
+                  />
+                ))}
               </div>
             </div>
           ) : null}
-          {product.variants.length > 0 && (
-            <label className="block space-y-1">
-              <span className="text-sm text-zinc-600">Вариант</span>
-              <select
-                className="w-full rounded border px-3 py-2"
-                value={variantSku}
-                onChange={(event) => setVariantSku(event.target.value)}
-              >
-                {product.variants.map((variant) => (
-                  <option key={variant.sku} value={variant.sku}>
-                    {variantAxesLabel(variant)} — {formatPrice(variant.price)}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
+          {variantAxes.length > 0
+            ? variantAxes.map((axis) => (
+                <div key={axis.code} className="space-y-2">
+                  <span className="text-sm text-zinc-600">{axis.name}</span>
+                  <div className="flex flex-wrap gap-2">
+                    {axis.options.map((value) => (
+                      <VariantChip
+                        key={value}
+                        label={value}
+                        image=""
+                        isCurrent={currentAxisValues[axis.code] === value}
+                        onSelect={() => selectAxisValue(axis.code, value)}
+                        onHoverPrefetch={() => {}}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))
+            : product.variants.length > 0 && (
+                <label className="block space-y-1">
+                  <span className="text-sm text-zinc-600">Вариант</span>
+                  <select
+                    className="w-full rounded border px-3 py-2"
+                    value={variantSku}
+                    onChange={(event) => setVariantSku(event.target.value)}
+                  >
+                    {product.variants.map((variant) => (
+                      <option key={variant.sku} value={variant.sku}>
+                        {variantAxesLabel(variant)} — {formatPrice(variant.price)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
           <button
-            className="rounded bg-black px-4 py-2 text-white"
+            className="rounded bg-[#2C2CB7] px-4 py-2 text-white transition-colors hover:bg-[#252599]"
             onClick={() => {
               cartStore.addItem({
                 id: product.id,
@@ -207,6 +357,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
                 image,
                 price,
                 quantity: 1,
+                ...(cartColorLabel ? { color: cartColorLabel } : {}),
               });
               setNotice("Товар добавлен в корзину");
               setTimeout(() => setNotice(""), 1200);
@@ -248,6 +399,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
                   <AccessoryRow
                     key={item.id}
                     item={item}
+                    doorColor={cartColorLabel}
                     onAdded={() => {
                       setNotice("Комплектующее добавлено в корзину");
                       setTimeout(() => setNotice(""), 1200);
@@ -263,17 +415,64 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
   );
 }
 
+type VariantChipProps = {
+  label: string;
+  image: string;
+  isCurrent: boolean;
+  onSelect: () => void;
+  onHoverPrefetch: () => void;
+};
+
+/**
+ * Чип переключателя варианта (цвет/стекло). Это `<button>`, а не ссылка: смена
+ * цвета — клиентский switch внутри одной и той же страницы, без навигации Next.
+ * `aria-pressed` явно говорит a11y-стеку, что это переключатель состояния.
+ * Hover/focus вызывают `onHoverPrefetch`, чтобы данные нового товара уже лежали
+ * в кэше к моменту клика.
+ */
+function VariantChip({ label, image, isCurrent, onSelect, onHoverPrefetch }: VariantChipProps) {
+  const baseClass =
+    "flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs transition";
+  const stateClass = isCurrent
+    ? "border-[#2C2CB7] bg-[#2C2CB7] text-white"
+    : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-400 hover:bg-zinc-50";
+  const thumbBorder = isCurrent ? "border-white/30" : "border-zinc-200";
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      onMouseEnter={onHoverPrefetch}
+      onFocus={onHoverPrefetch}
+      aria-pressed={isCurrent}
+      disabled={isCurrent}
+      className={`${baseClass} ${stateClass} disabled:cursor-default`}
+    >
+      {image ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={image}
+          alt=""
+          className={`h-5 w-5 rounded-full border object-cover ${thumbBorder}`}
+        />
+      ) : null}
+      {label}
+    </button>
+  );
+}
+
 type AccessoryRowProps = {
   item: AccessoryItem;
+  /** Цвет полотна на карточке — для строки в корзине. */
+  doorColor: string;
   onAdded: () => void;
 };
 
 /**
  * Одна строка таблицы комплектующих: название (+ SKU), цена, степпер количества
- * и иконка-кнопка «в корзину». Количество хранится локально внутри строки,
- * добавляется в `cartStore` одной порцией, после чего сбрасывается обратно к 1.
+ * и иконка-кнопка «в корзину». После добавления поле количества не сбрасывается —
+ * остаётся выбранное значение (то же число, что ушло в корзину).
  */
-function AccessoryRow({ item, onAdded }: AccessoryRowProps) {
+function AccessoryRow({ item, doorColor, onAdded }: AccessoryRowProps) {
   const [qty, setQty] = useState<number>(1);
   const clampQty = (value: number) => Math.max(1, Math.min(999, Math.floor(value) || 1));
   const dec = () => setQty((prev) => clampQty(prev - 1));
@@ -283,12 +482,13 @@ function AccessoryRow({ item, onAdded }: AccessoryRowProps) {
     cartStore.addItem({
       id: item.id,
       name: item.name,
-      image: item.image,
+      image: "",
       price: item.price,
       quantity: qty,
+      ...(doorColor.trim() ? { color: doorColor.trim() } : {}),
+      hideCartImage: true,
     });
     onAdded();
-    setQty(1);
   };
 
   return (

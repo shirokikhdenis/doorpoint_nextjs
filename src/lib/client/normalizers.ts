@@ -8,11 +8,20 @@ export type CatalogAttributeFilter = {
   min?: number;
   max?: number;
 };
+export type CatalogLabelFilter = { code: string; value: string };
+export type CatalogLabel = {
+  id: number;
+  title: string;
+  imageUrl: string | null;
+  sortOrder: number;
+  filters: CatalogLabelFilter[];
+};
 export type CatalogMeta = {
   categories: Array<{ slug: string; name: string }>;
   subcategories: Array<{ slug: string; name: string; categorySlug: string }>;
   attributeFilters: CatalogAttributeFilter[];
   price: { min: number; max: number };
+  labels: CatalogLabel[];
 };
 export type ProductGlassOption = { id: number; label: string };
 export type ProductCard = {
@@ -122,6 +131,18 @@ export const normalizeCatalogMeta = (value: unknown): CatalogMeta => {
       min: Number(price.min) || 0,
       max: Number(price.max) || 0,
     },
+    labels: asArray<Record<string, unknown>>(source.labels).map((entry) => ({
+      id: Number(entry.id) || 0,
+      title: String(entry.title || ""),
+      imageUrl: entry.imageUrl != null && entry.imageUrl !== "" ? String(entry.imageUrl) : null,
+      sortOrder: Number(entry.sortOrder) || 0,
+      filters: asArray<Record<string, unknown>>(entry.filters)
+        .map((f) => ({
+          code: String(f.code || "").trim(),
+          value: String(f.value || "").trim(),
+        }))
+        .filter((f) => f.code && f.value),
+    })),
   };
 };
 

@@ -24,6 +24,7 @@ DROP TABLE IF EXISTS
   product_images,
   product_variants,
   products,
+  catalog_page_labels,
   catalog_page_filter_attributes,
   catalog_page_subcategories,
   catalog_page_categories,
@@ -60,6 +61,17 @@ CREATE TABLE catalog_pages (
 
 CREATE INDEX idx_catalog_pages_category_slugs ON catalog_pages USING gin (category_slugs);
 
+CREATE TABLE catalog_page_labels (
+  id BIGSERIAL PRIMARY KEY,
+  catalog_page_id BIGINT NOT NULL REFERENCES catalog_pages(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  image_url TEXT,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  filters JSONB NOT NULL DEFAULT '[]'::jsonb
+);
+
+CREATE INDEX idx_catalog_page_labels_catalog_page_id ON catalog_page_labels(catalog_page_id);
+
 CREATE TABLE attribute_definitions (
   id BIGSERIAL PRIMARY KEY,
   code TEXT NOT NULL UNIQUE,
@@ -69,6 +81,7 @@ CREATE TABLE attribute_definitions (
   options JSONB NOT NULL DEFAULT '[]'::jsonb,
   scope TEXT NOT NULL DEFAULT 'product' CHECK (scope IN ('product', 'variant')),
   is_filterable BOOLEAN NOT NULL DEFAULT TRUE,
+  is_visible_on_product BOOLEAN NOT NULL DEFAULT TRUE,
   sort_order INTEGER NOT NULL DEFAULT 0
 );
 

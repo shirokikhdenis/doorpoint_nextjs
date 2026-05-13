@@ -11,7 +11,18 @@ const attributeRepository = require("./attributeRepository");
  * (атрибуты product-scope `color` и `glass`).
  */
 
+/** Популярность: `attrs.sort_order`, пусто/нечисло → 0; больше — выше в списке. */
+const displayOrderExpr = `(CASE
+  WHEN NULLIF(BTRIM(COALESCE(p.attrs->>'sort_order', '')), '') IS NULL THEN 0
+  WHEN BTRIM(COALESCE(p.attrs->>'sort_order', '')) ~ '^-?[0-9]+$'
+    THEN BTRIM(COALESCE(p.attrs->>'sort_order', ''))::bigint
+  ELSE 0
+END)`;
+
+const popularitySortSql = `${displayOrderExpr} DESC, p.name ASC`;
+
 const sortMap = {
+  popularity: popularitySortSql,
   "alphabet-asc": "p.name ASC",
   "alphabet-desc": "p.name DESC",
   "price-asc": "p.price ASC",
@@ -114,7 +125,11 @@ const buildScopeWhere = (filters, addParam) => {
   const userSubs = Array.isArray(filters.subcategories) ? filters.subcategories : [];
 
   if (filters.search) {
-    where.push(`p.name ILIKE ${addParam(`%${filters.search}%`)}`);
+    // На витрине показывается «название + цвет» одной строкой, поэтому поиск
+    // ищет и в `p.name`, и в `attrs->>'color'`. Параметр биндим один раз и
+    // переиспользуем — иначе для одного поискового слова было бы два плейсхолдера.
+    const searchParam = addParam(`%${filters.search}%`);
+    where.push(`(p.name ILIKE ${searchParam} OR COALESCE(p.attrs->>'color', '') ILIKE ${searchParam})`);
   }
 
   // scope от страницы каталога
@@ -229,7 +244,7 @@ const listProducts = async (filters) => {
   applyAttributeFilters(filters, addParam, where, attrDefByCode);
 
   const whereSql = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
-  const sortSql = sortMap[filters.sort] || sortMap["alphabet-asc"];
+  const sortSql = sortMap[filters.sort] || sortMap.popularity;
 
   const countRes = await query(
     `
@@ -673,9 +688,9 @@ const getProductById = async (id) => {
 
   const attrDefByCode = new Map(attrDefs.map((def) => [def.code, def]));
 
-  // attributes — характеристики «модели», только product-scope.
+  // attributes — характеристики «модели», только product-scope и с флагом «на карточке».
   const attributes = attrDefs
-    .filter((def) => def.scope === "product")
+    .filter((def) => def.scope === "product" && def.isVisibleOnProduct !== false)
     .map((def) => {
       const raw = productAttrs[def.code];
       if (raw === undefined || raw === null || raw === "") return null;
@@ -1064,48 +1079,91 @@ const listProductsTable = async ({
   categoryId = null,
   subcategoryId = null,
   attributeFilters = {},
+  manufacturer = null,
 }) => {
   const safePage = Math.max(1, Number(page) || 1);
   const safeLimit = Math.min(500, Math.max(1, Number(limit) || 100));
   const offset = (safePage - 1) * safeLimit;
 
-  const params = [];
-  const addParam = (value) => {
-    params.push(value);
-    return `$${params.length}`;
+  const manufacturerTrimmed =
+    manufacturer !== undefined && manufacturer !== null && String(manufacturer).trim()
+      ? String(manufacturer).trim()
+      : null;
+
+  const buildWhere = (includeManufacturer) => {
+    const params = [];
+    const addParam = (value) => {
+      params.push(value);
+      return `$${params.length}`;
+    };
+    const whereParts = [];
+    if (String(search || "").trim()) {
+      const t = String(search).trim();
+      whereParts.push(`(p.name ILIKE ${addParam(`%${t}%`)} OR p.sku ILIKE ${addParam(`%${t}%`)})`);
+    }
+    if (categoryId) {
+      whereParts.push(
+        `(p.category_id = ${addParam(Number(categoryId))} OR c.parent_id = ${addParam(Number(categoryId))})`,
+      );
+    }
+    if (subcategoryId) {
+      whereParts.push(`p.category_id = ${addParam(Number(subcategoryId))}`);
+    }
+
+    Object.entries(attributeFilters || {}).forEach(([code, value]) => {
+      const normalized = String(value || "").trim();
+      if (!normalized) return;
+      whereParts.push(`p.attrs->>${addParam(code)} ILIKE ${addParam(`%${normalized}%`)}`);
+    });
+
+    if (includeManufacturer && manufacturerTrimmed) {
+      whereParts.push(
+        `LOWER(TRIM(COALESCE(p.attrs->>'manufacturer', ''))) = LOWER(${addParam(manufacturerTrimmed)})`,
+      );
+    }
+
+    const whereSql = whereParts.length > 0 ? `WHERE ${whereParts.join(" AND ")}` : "";
+    return { whereSql, params };
   };
-  const whereParts = [];
-  if (search.trim()) {
-    whereParts.push(`(p.name ILIKE ${addParam(`%${search.trim()}%`)} OR p.sku ILIKE ${addParam(`%${search.trim()}%`)})`);
-  }
-  if (categoryId) {
-    // categoryId — это либо «корень», либо лист; фильтруем по корню или непосредственно по category_id
-    whereParts.push(`(p.category_id = ${addParam(Number(categoryId))} OR c.parent_id = ${addParam(Number(categoryId))})`);
-  }
-  if (subcategoryId) {
-    whereParts.push(`p.category_id = ${addParam(Number(subcategoryId))}`);
-  }
 
-  Object.entries(attributeFilters).forEach(([code, value]) => {
-    const normalized = String(value || "").trim();
-    if (!normalized) return;
-    whereParts.push(`p.attrs->>${addParam(code)} ILIKE ${addParam(`%${normalized}%`)}`);
-  });
+  const baseWhere = buildWhere(false);
+  const fullWhere = buildWhere(true);
 
-  const whereSql = whereParts.length > 0 ? `WHERE ${whereParts.join(" AND ")}` : "";
+  const manufacturerNonEmpty = `TRIM(COALESCE(p.attrs->>'manufacturer', '')) <> ''`;
+  const manufacturersWhereSql = baseWhere.whereSql
+    ? `${baseWhere.whereSql} AND ${manufacturerNonEmpty}`
+    : `WHERE ${manufacturerNonEmpty}`;
+
+  const manufacturersRes = await query(
+    `
+    SELECT DISTINCT TRIM(p.attrs->>'manufacturer') AS name
+    FROM products p
+    ${taxonomyJoin}
+    ${manufacturersWhereSql}
+    ORDER BY name
+    `,
+    baseWhere.params,
+  );
+  const manufacturers = manufacturersRes.rows.map((r) => String(r.name || "").trim()).filter(Boolean);
 
   const countRes = await query(
     `
     SELECT COUNT(*)::int AS total
     FROM products p
     ${taxonomyJoin}
-    ${whereSql}
+    ${fullWhere.whereSql}
     `,
-    params,
+    fullWhere.params,
   );
 
-  const limitParam = addParam(safeLimit);
-  const offsetParam = addParam(offset);
+  const listParams = [...fullWhere.params];
+  const addListParam = (value) => {
+    listParams.push(value);
+    return `$${listParams.length}`;
+  };
+  const limitParam = addListParam(safeLimit);
+  const offsetParam = addListParam(offset);
+
   const rowsRes = await query(
     `
     SELECT
@@ -1120,19 +1178,23 @@ const listProductsTable = async ({
       COALESCE(parent.name IS NULL, FALSE) AS "categoryIsRoot",
       CASE WHEN parent.id IS NOT NULL THEN c.name ELSE '' END AS subcategory,
       (SELECT COUNT(*)::int FROM product_variants pv WHERE pv.product_id = p.id) AS "variantsCount",
-      (SELECT COUNT(*)::int FROM product_images pi WHERE pi.product_id = p.id) AS "imagesCount"
+      (SELECT COUNT(*)::int FROM product_images pi WHERE pi.product_id = p.id) AS "imagesCount",
+      ${displayOrderExpr} AS "displayOrder"
     FROM products p
     ${taxonomyJoin}
-    ${whereSql}
-    ORDER BY p.id DESC
+    ${fullWhere.whereSql}
+    ORDER BY ${displayOrderExpr} DESC, p.id DESC
     LIMIT ${limitParam} OFFSET ${offsetParam}
     `,
-    params,
+    listParams,
   );
 
   const attributesRes = await query(
     `
-    SELECT id, code, name, type, options, scope, is_filterable AS "isFilterable", sort_order AS "sortOrder"
+    SELECT id, code, name, type, options, scope,
+           is_filterable AS "isFilterable",
+           is_visible_on_product AS "isVisibleOnProduct",
+           sort_order AS "sortOrder"
     FROM attribute_definitions
     ORDER BY sort_order ASC, id ASC
     `,
@@ -1149,13 +1211,14 @@ const listProductsTable = async ({
     page: safePage,
     limit: safeLimit,
     totalPages: Math.max(1, Math.ceil(countRes.rows[0].total / safeLimit)),
+    manufacturers,
     attributes: attributesRes.rows.map((row) => ({
       id: Number(row.id),
       code: row.code,
       name: row.name,
       type: row.type,
       isFilterable: row.isFilterable !== false,
-      isVisibleOnProduct: true,
+      isVisibleOnProduct: row.isVisibleOnProduct !== false,
       isVariantAxis: row.scope === "variant",
       options: Array.isArray(row.options) ? row.options : [],
     })),
@@ -1170,6 +1233,7 @@ const listProductsTable = async ({
       category: row.category,
       subcategory: row.subcategory,
       isActive: row.isActive !== false,
+      displayOrder: Number(row.displayOrder) || 0,
       attributes: ensureAttrs(row.attrs),
       variantsCount: Number(row.variantsCount || 0),
       imagesCount: Number(row.imagesCount || 0),
@@ -1356,6 +1420,16 @@ const updateProduct = async (id, payload) =>
 
 const DEFAULT_IMPORT_IMAGE = "https://picsum.photos/seed/imported/500/360";
 
+/** Категория комплектующего / погонажа — без автоматической заглушки при импорте без фото. */
+const isPogonazhCategory = (slug, name) => {
+  const s = String(slug || "").toLowerCase();
+  const n = String(name || "").trim().toLowerCase();
+  if (n.includes("погонаж")) return true;
+  if (s.includes("погонаж")) return true;
+  if (s.includes("pogonazh") || s.includes("molding") || s.includes("trim")) return true;
+  return false;
+};
+
 const mergeJsonbAttrs = (existing, incoming) => {
   const merged = ensureAttrs(existing);
   for (const [k, v] of Object.entries(incoming || {})) {
@@ -1489,12 +1563,19 @@ const upsertProductBySku = async (payload) =>
         [product.id, payload.imageUrl],
       );
     } else if (!existing) {
-      await client.query(
-        `INSERT INTO product_images(product_id, image_url, sort_order)
-         VALUES ($1, $2, 0)
-         ON CONFLICT (product_id, image_url) DO NOTHING`,
-        [product.id, DEFAULT_IMPORT_IMAGE],
+      const catRes = await client.query(
+        `SELECT slug, name FROM categories WHERE id = $1 LIMIT 1`,
+        [resolvedCategoryId],
       );
+      const cat = catRes.rows[0];
+      if (!isPogonazhCategory(cat?.slug, cat?.name)) {
+        await client.query(
+          `INSERT INTO product_images(product_id, image_url, sort_order)
+           VALUES ($1, $2, 0)
+           ON CONFLICT (product_id, image_url) DO NOTHING`,
+          [product.id, DEFAULT_IMPORT_IMAGE],
+        );
+      }
     }
 
     const applyVariantPatch = payload.applyVariantPatch === true;
@@ -1548,6 +1629,33 @@ const upsertProductBySku = async (payload) =>
     return product;
   });
 
+/** Порядок выдачи в каталоге: `attrs.sort_order` (число; больше — выше при сортировке «по популярности»). */
+const patchProductDisplayOrder = async (id, rawOrder) => {
+  const numericId = Number(id);
+  if (!Number.isInteger(numericId) || numericId <= 0) return null;
+  const n = Math.trunc(Number(rawOrder));
+  const order = Number.isFinite(n) ? n : 0;
+  const res = await query(
+    `
+    UPDATE products
+    SET
+      attrs = jsonb_set(COALESCE(attrs, '{}'::jsonb), '{sort_order}', to_jsonb($2::text), true),
+      updated_at = NOW()
+    WHERE id = $1
+    RETURNING id,
+      (CASE
+        WHEN NULLIF(BTRIM(COALESCE(attrs->>'sort_order', '')), '') IS NULL THEN 0
+        WHEN BTRIM(COALESCE(attrs->>'sort_order', '')) ~ '^-?[0-9]+$'
+          THEN BTRIM(COALESCE(attrs->>'sort_order', ''))::bigint
+        ELSE 0
+      END) AS "displayOrder"
+    `,
+    [numericId, String(order)],
+  );
+  if (!res.rows[0]) return null;
+  return { id: Number(res.rows[0].id), displayOrder: Number(res.rows[0].displayOrder) || 0 };
+};
+
 const deleteAllProducts = async () => {
   const result = await query("DELETE FROM products");
   return Number(result.rowCount ?? 0);
@@ -1586,6 +1694,7 @@ module.exports = {
   createProduct,
   updateProduct,
   upsertProductBySku,
+  patchProductDisplayOrder,
   deleteAllProducts,
   deleteProductsByCategoryScope,
   splitCategoryId,

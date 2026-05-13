@@ -122,6 +122,7 @@ const tables: TableDef[] = [
       { name: "options", type: "jsonb" },
       { name: "scope", type: "text", badge: "CHECK" },
       { name: "is_filterable", type: "bool" },
+      { name: "is_visible_on_product", type: "bool" },
       { name: "sort_order", type: "int" },
     ],
   },

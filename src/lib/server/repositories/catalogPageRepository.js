@@ -158,6 +158,29 @@ const findCatalogPageBySlug = async (slug) => {
   return expanded[0] || null;
 };
 
+const findCatalogPageById = async (id) => {
+  const numericId = Number(id);
+  if (!Number.isFinite(numericId) || numericId <= 0) return null;
+  const res = await query(
+    `
+    SELECT
+      id,
+      name,
+      slug,
+      sort_order AS "sortOrder",
+      category_slugs AS "categorySlugs",
+      filter_codes AS "filterCodes"
+    FROM catalog_pages
+    WHERE id = $1
+    LIMIT 1
+    `,
+    [numericId],
+  );
+  if (!res.rows[0]) return null;
+  const expanded = await expandPages([res.rows[0]]);
+  return expanded[0] || null;
+};
+
 const findDefaultCatalogPage = async () => {
   const res = await query(
     `
@@ -267,6 +290,7 @@ const deleteCatalogPage = async (id) => {
 module.exports = {
   listCatalogPages,
   findCatalogPageBySlug,
+  findCatalogPageById,
   findDefaultCatalogPage,
   createCatalogPage,
   updateCatalogPage,

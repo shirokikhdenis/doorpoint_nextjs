@@ -3,7 +3,7 @@ import Link from "next/link";
 
 export function AppTopBar() {
   return (
-    <div className="h-[100px] border-b border-zinc-200 bg-white">
+    <div className="h-[100px] border-b border-zinc-200 bg-white print:hidden">
       <div className="mx-auto grid h-full w-full max-w-7xl grid-cols-3 items-center gap-4 px-4">
         <p className="text-left text-sm text-zinc-700">Архангельск, ТЦ Новосёл, пр. Московский, д. 25, к. 4, стр. 1</p>
         <div className="flex justify-center">

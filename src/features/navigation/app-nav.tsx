@@ -13,7 +13,7 @@ const links = [
 
 export function AppNav() {
   return (
-    <header className="sticky top-0 z-40 border-b bg-white/95 backdrop-blur">
+    <header className="sticky top-0 z-40 border-b bg-white/95 backdrop-blur print:hidden">
       <nav className="mx-auto flex w-full max-w-7xl flex-wrap items-center gap-2 p-3">
         {links.map((link) => (
           <Link

@@ -4,17 +4,38 @@ export type CartItem = {
   image: string;
   price: number;
   quantity: number;
+  /** Цвет полотна / комплектующих к выбранной открытой карточке (для отображения в корзине). */
+  color?: string;
+  /** Погонаж / комплектующие: в корзине не показываем превью фото. */
+  hideCartImage?: boolean;
 };
+
+/** Строка корзины: id + подпись варианта + цвет (одинаковые SKU в разном цвете — разные строки). */
+export type CartLineRef = Pick<CartItem, "id" | "name" | "color" | "hideCartImage">;
+
+const trimLine = (value: string | undefined) => String(value ?? "").trim();
+
+const sameLine = (a: CartLineRef, b: CartLineRef) =>
+  Number(a.id) === Number(b.id) &&
+  trimLine(a.name) === trimLine(b.name) &&
+  trimLine(a.color) === trimLine(b.color) &&
+  Boolean(a.hideCartImage) === Boolean(b.hideCartImage);
 
 const CART_STORAGE_KEY = "door_catalog_cart_v1";
 
-const sanitizeItem = (item: Partial<CartItem>): CartItem => ({
-  id: Number(item.id) || 0,
-  name: String(item.name || "").trim(),
-  image: String(item.image || "").trim(),
-  price: Number(item.price) || 0,
-  quantity: Math.max(1, Number(item.quantity) || 1),
-});
+const sanitizeItem = (item: Partial<CartItem>): CartItem => {
+  const base: CartItem = {
+    id: Number(item.id) || 0,
+    name: String(item.name || "").trim(),
+    image: String(item.image || "").trim(),
+    price: Number(item.price) || 0,
+    quantity: Math.max(1, Number(item.quantity) || 1),
+  };
+  const c = trimLine(item.color);
+  if (c) base.color = c;
+  if (item.hideCartImage === true) base.hideCartImage = true;
+  return base;
+};
 
 const readRaw = (): CartItem[] => {
   if (typeof window === "undefined") return [];
@@ -42,7 +63,7 @@ export const cartStore = {
   addItem(item: Partial<CartItem>): CartItem[] {
     const next = sanitizeItem(item);
     const items = readRaw();
-    const existing = items.find((entry) => entry.id === next.id && entry.name === next.name);
+    const existing = items.find((entry) => sameLine(entry, next));
     if (existing) {
       existing.quantity += next.quantity;
     } else {
@@ -52,17 +73,21 @@ export const cartStore = {
     return items;
   },
 
-  setQuantity(id: number, quantity: number): CartItem[] {
-    const numericId = Number(id);
+  setQuantity(ref: CartLineRef, quantity: number): CartItem[] {
     const nextQuantity = Math.max(0, Number(quantity) || 0);
     const items = readRaw()
-      .map((item) => (item.id === numericId ? { ...item, quantity: nextQuantity } : item))
+      .map((item) => (sameLine(item, ref) ? { ...item, quantity: nextQuantity } : item))
       .filter((item) => item.quantity > 0);
     writeRaw(items);
     return items;
   },
 
-  removeItem(id: number): CartItem[] {
-    return this.setQuantity(id, 0);
+  removeItem(ref: CartLineRef): CartItem[] {
+    return this.setQuantity(ref, 0);
+  },
+
+  clear(): CartItem[] {
+    writeRaw([]);
+    return [];
   },
 };

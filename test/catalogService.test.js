@@ -26,3 +26,8 @@ test("buildCatalogFilters parses filters and pagination", () => {
   assert.equal(filters.limit, 20);
   assert.equal(filters.offset, 40);
 });
+
+test("buildCatalogFilters defaults sort to popularity", () => {
+  const filters = buildCatalogFilters({});
+  assert.equal(filters.sort, "popularity");
+});

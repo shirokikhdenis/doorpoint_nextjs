@@ -25,6 +25,7 @@ type ProductRow = {
   category: string;
   subcategory: string;
   isActive: boolean;
+  displayOrder: number;
   attributes: Record<string, string | number | boolean | null>;
   variantsCount: number;
   imagesCount: number;
@@ -35,6 +36,7 @@ type ProductsTableResponse = {
   page: number;
   limit: number;
   totalPages: number;
+  manufacturers: string[];
   attributes: AttributeDef[];
   categories: CategoryRef[];
   subcategories: SubcategoryRef[];
@@ -67,6 +69,9 @@ export default function AdminProductsPage() {
   const [limit, setLimit] = useState<number>(100);
   const [reloadToken, setReloadToken] = useState<number>(0);
 
+  const [manufacturer, setManufacturer] = useState("");
+  const [appliedManufacturer, setAppliedManufacturer] = useState("");
+
   useEffect(() => {
     const controller = new AbortController();
     let cancelled = false;
@@ -80,6 +85,7 @@ export default function AdminProductsPage() {
       if (appliedSearch.trim()) params.set("search", appliedSearch.trim());
       if (categoryId) params.set("categoryId", String(categoryId));
       if (subcategoryId) params.set("subcategoryId", String(subcategoryId));
+      if (appliedManufacturer.trim()) params.set("manufacturer", appliedManufacturer.trim());
       try {
         const response = await fetch(
           `/api/admin/products-table?${params.toString()}`,
@@ -102,7 +108,7 @@ export default function AdminProductsPage() {
       cancelled = true;
       controller.abort();
     };
-  }, [page, limit, appliedSearch, categoryId, subcategoryId, reloadToken]);
+  }, [page, limit, appliedSearch, categoryId, subcategoryId, appliedManufacturer, reloadToken]);
 
   const triggerReload = () => setReloadToken((token) => token + 1);
 
@@ -110,7 +116,7 @@ export default function AdminProductsPage() {
     event.preventDefault();
     setPage(1);
     setAppliedSearch(search);
-    triggerReload();
+    setAppliedManufacturer(manufacturer.trim());
   };
 
   const visibleSubcategories = useMemo(
@@ -276,6 +282,24 @@ export default function AdminProductsPage() {
           </select>
         </label>
         <label className="flex flex-col gap-1 text-xs text-zinc-600">
+          Производитель
+          <select
+            value={manufacturer}
+            onChange={(event) => {
+              setManufacturer(event.target.value);
+              setPage(1);
+            }}
+            className="min-w-[160px] rounded border border-zinc-200 px-3 py-1.5 text-sm"
+          >
+            <option value="">Все</option>
+            {(data?.manufacturers || []).map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-xs text-zinc-600">
           Подкатегория
           <select
             value={subcategoryId}
@@ -322,6 +346,9 @@ export default function AdminProductsPage() {
           type="button"
           onClick={() => {
             setSearch("");
+            setAppliedSearch("");
+            setManufacturer("");
+            setAppliedManufacturer("");
             setCategoryId(0);
             setSubcategoryId(0);
             setPage(1);
@@ -373,6 +400,7 @@ export default function AdminProductsPage() {
           <table className="w-full min-w-[1200px] text-left text-xs">
             <thead className="sticky top-0 z-10 bg-zinc-50 text-[11px] uppercase text-zinc-500">
               <tr>
+                <th className="whitespace-nowrap px-2 py-2 text-right">Порядок выдачи</th>
                 <th className="px-2 py-2">ID</th>
                 <th className="px-2 py-2">SKU</th>
                 <th className="px-2 py-2">Название</th>
@@ -401,7 +429,7 @@ export default function AdminProductsPage() {
               {rows.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={10 + attributes.length}
+                    colSpan={11 + attributes.length}
                     className="px-3 py-6 text-center text-sm text-zinc-500"
                   >
                     {loading ? "Загрузка…" : "Товары не найдены"}
@@ -410,6 +438,13 @@ export default function AdminProductsPage() {
               ) : (
                 rows.map((row) => (
                   <tr key={row.id} className="border-t hover:bg-zinc-50">
+                    <td className="px-2 py-1 align-middle">
+                      <DisplayOrderInput
+                        productId={row.id}
+                        displayOrder={row.displayOrder ?? 0}
+                        onSaved={triggerReload}
+                      />
+                    </td>
                     <td className="px-2 py-1 text-zinc-500">{row.id}</td>
                     <td className="px-2 py-1 font-mono text-zinc-700">{row.sku}</td>
                     <td className="px-2 py-1 text-zinc-800">{row.name}</td>
@@ -472,5 +507,54 @@ export default function AdminProductsPage() {
         ) : null}
       </section>
     </main>
+  );
+}
+
+function DisplayOrderInput({
+  productId,
+  displayOrder,
+  onSaved,
+}: {
+  productId: number;
+  displayOrder: number;
+  onSaved: () => void;
+}) {
+  const [value, setValue] = useState(String(displayOrder));
+
+  useEffect(() => {
+    setValue(String(displayOrder));
+  }, [productId, displayOrder]);
+
+  const commit = async () => {
+    const n = Number(value);
+    const safe = Number.isFinite(n) ? Math.trunc(n) : 0;
+    if (safe === displayOrder) return;
+    try {
+      const res = await fetch(`/api/admin/products/${productId}/display-order`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ displayOrder: safe }),
+      });
+      if (!res.ok) {
+        const t = await res.text();
+        throw new Error(t || `HTTP ${res.status}`);
+      }
+      onSaved();
+    } catch {
+      setValue(String(displayOrder));
+    }
+  };
+
+  return (
+    <input
+      type="number"
+      className="w-14 rounded border border-zinc-200 px-1 py-0.5 text-right font-mono text-[11px]"
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+      onBlur={() => void commit()}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+      }}
+    />
   );
 }

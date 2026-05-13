@@ -9,7 +9,8 @@
     "lint": "eslint",
     "test": "node --test",
     "db:init": "node src/scripts/dbInit.js",
-    "db:seed": "node src/scripts/dbInit.js"
+    "db:seed": "node src/scripts/dbInit.js",
+    "db:migrate:attribute-visible": "node scripts/run-sql-file.js scripts/add-attribute-is-visible-on-product.sql"
   },
   "dependencies": {
     "dotenv": "^17.4.2",

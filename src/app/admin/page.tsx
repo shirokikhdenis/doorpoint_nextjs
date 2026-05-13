@@ -150,6 +150,18 @@ export default function AdminPage() {
             Витрины каталога →
           </Link>
           <Link
+            href="/admin/catalog-labels"
+            className="rounded border border-zinc-200 bg-white px-3 py-1.5 text-sm hover:bg-zinc-100"
+          >
+            Ярлыки витрин →
+          </Link>
+          <Link
+            href="/admin/attributes"
+            className="rounded border border-zinc-200 bg-white px-3 py-1.5 text-sm hover:bg-zinc-100"
+          >
+            Атрибуты →
+          </Link>
+          <Link
             href="/admin/products"
             className="rounded border border-zinc-200 bg-white px-3 py-1.5 text-sm hover:bg-zinc-100"
           >

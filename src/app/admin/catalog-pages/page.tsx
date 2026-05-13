@@ -138,12 +138,20 @@ export default function AdminCatalogPagesPage() {
             доступны пользователю.
           </p>
         </div>
-        <Link
-          href="/admin"
-          className="rounded border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-100"
-        >
-          ← К админке
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/admin/catalog-labels"
+            className="rounded border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-100"
+          >
+            Ярлыки витрин →
+          </Link>
+          <Link
+            href="/admin"
+            className="rounded border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-100"
+          >
+            ← К админке
+          </Link>
+        </div>
       </header>
 
       {notice ? (

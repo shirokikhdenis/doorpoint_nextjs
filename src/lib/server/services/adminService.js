@@ -3,6 +3,7 @@ const subcategoryRepository = require("../repositories/subcategoryRepository");
 const attributeRepository = require("../repositories/attributeRepository");
 const productRepository = require("../repositories/productRepository");
 const catalogPageRepository = require("../repositories/catalogPageRepository");
+const catalogPageLabelRepository = require("../repositories/catalogPageLabelRepository");
 
 const slugify = (value) =>
   String(value || "")
@@ -13,6 +14,8 @@ const slugify = (value) =>
     .replace(/[^\p{L}\p{N}-]+/gu, "")
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
+
+const listAttributes = async () => attributeRepository.listAttributes();
 
 const listBootstrap = async () => {
   const [categories, subcategories, attributes, products, catalogPages] = await Promise.all([
@@ -57,6 +60,94 @@ const updateCatalogPage = async (id, payload) =>
   });
 
 const deleteCatalogPage = async (id) => catalogPageRepository.deleteCatalogPage(Number(id));
+
+const normalizeLabelFiltersInput = (raw) => catalogPageLabelRepository.normalizeFilters(raw);
+
+const validateLabelFiltersAgainstPage = (page, filters) => {
+  const allowed = new Set((page.filterAttributes || []).map((a) => a.code));
+  for (const f of filters) {
+    if (!allowed.has(f.code)) {
+      return {
+        ok: false,
+        message: `Код «${f.code}» не входит в фильтры выбранной витрины`,
+      };
+    }
+  }
+  return { ok: true };
+};
+
+const listCatalogPageLabels = async (catalogPageId) => {
+  const page = await catalogPageRepository.findCatalogPageById(Number(catalogPageId));
+  if (!page) return { ok: false, message: "Витрина не найдена", status: 404 };
+  const labels = await catalogPageLabelRepository.listByCatalogPageId(page.id);
+  return { ok: true, labels };
+};
+
+const createCatalogPageLabel = async (payload) => {
+  const catalogPageId = Number(payload.catalogPageId);
+  const filters = normalizeLabelFiltersInput(payload.filters);
+  if (!Number.isFinite(catalogPageId) || catalogPageId <= 0) {
+    return { ok: false, message: "Укажите витрину" };
+  }
+  if (filters.length === 0) {
+    return { ok: false, message: "Добавьте хотя бы одну пару атрибут–значение" };
+  }
+  const title = String(payload.title || "").trim();
+  if (!title) return { ok: false, message: "Укажите название ярлыка" };
+
+  const page = await catalogPageRepository.findCatalogPageById(catalogPageId);
+  if (!page) return { ok: false, message: "Витрина не найдена", status: 404 };
+
+  const check = validateLabelFiltersAgainstPage(page, filters);
+  if (!check.ok) return check;
+
+  const label = await catalogPageLabelRepository.create({
+    catalogPageId,
+    title,
+    imageUrl: payload.imageUrl,
+    sortOrder: payload.sortOrder,
+    filters,
+  });
+  return { ok: true, label };
+};
+
+const updateCatalogPageLabel = async (id, payload) => {
+  const existing = await catalogPageLabelRepository.getById(id);
+  if (!existing) return { ok: false, message: "Ярлык не найден", status: 404 };
+
+  const page = await catalogPageRepository.findCatalogPageById(existing.catalogPageId);
+  if (!page) return { ok: false, message: "Витрина не найдена", status: 404 };
+
+  let filters = existing.filters;
+  if (payload.filters !== undefined) {
+    filters = normalizeLabelFiltersInput(payload.filters);
+    if (filters.length === 0) {
+      return { ok: false, message: "Добавьте хотя бы одну пару атрибут–значение" };
+    }
+    const check = validateLabelFiltersAgainstPage(page, filters);
+    if (!check.ok) return check;
+  }
+
+  if (payload.title !== undefined) {
+    const title = String(payload.title || "").trim();
+    if (!title) return { ok: false, message: "Укажите название ярлыка" };
+  }
+
+  const label = await catalogPageLabelRepository.update(id, {
+    title: payload.title,
+    imageUrl: payload.imageUrl,
+    sortOrder: payload.sortOrder,
+    filters: payload.filters !== undefined ? filters : undefined,
+  });
+  if (!label) return { ok: false, message: "Не удалось обновить ярлык", status: 400 };
+  return { ok: true, label };
+};
+
+const deleteCatalogPageLabel = async (id) => {
+  const deleted = await catalogPageLabelRepository.deleteById(id);
+  if (!deleted) return { ok: false, message: "Ярлык не найден", status: 404 };
+  return { ok: true };
+};
 
 const createCategory = async (payload) =>
   categoryRepository.createCategory({
@@ -202,6 +293,7 @@ const getProductsTable = async (query) =>
     search: String(query.search || ""),
     categoryId: query.categoryId ? Number(query.categoryId) : null,
     subcategoryId: query.subcategoryId ? Number(query.subcategoryId) : null,
+    manufacturer: query.manufacturer ? String(query.manufacturer).trim() : null,
     attributeFilters: Object.fromEntries(
       Object.entries(query)
         .filter(([key, value]) => key.startsWith("attr_") && String(value || "").trim())
@@ -209,7 +301,11 @@ const getProductsTable = async (query) =>
     )
   });
 
+const patchProductDisplayOrder = async (id, body) =>
+  productRepository.patchProductDisplayOrder(Number(id), body?.displayOrder ?? body?.sortOrder);
+
 module.exports = {
+  listAttributes,
   listBootstrap,
   createCatalogPage,
   updateCatalogPage,
@@ -228,5 +324,10 @@ module.exports = {
   getProductForEdit,
   deleteAllProducts,
   deleteProductsByCategoryScope,
-  getProductsTable
+  getProductsTable,
+  patchProductDisplayOrder,
+  listCatalogPageLabels,
+  createCatalogPageLabel,
+  updateCatalogPageLabel,
+  deleteCatalogPageLabel
 };

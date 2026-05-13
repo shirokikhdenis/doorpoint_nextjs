@@ -1,5 +1,6 @@
 const productRepository = require("../repositories/productRepository");
 const catalogPageRepository = require("../repositories/catalogPageRepository");
+const catalogPageLabelRepository = require("../repositories/catalogPageLabelRepository");
 const subcategoryRepository = require("../repositories/subcategoryRepository");
 
 const parseCsv = (value) =>
@@ -44,7 +45,7 @@ const buildCatalogFilters = (query) => {
 
   return {
     search: String(query.search || "").trim(),
-    sort: String(query.sort || "alphabet-asc"),
+    sort: String(query.sort || "popularity"),
     categories: parseCsv(query.categories),
     subcategories: parseCsv(query.subcategories),
     attributeFilters,
@@ -134,9 +135,19 @@ const getProducts = async (query) => {
 const getFilterMeta = async (query = {}) => {
   const pageSlug = normalizeCatalogPageFromQuery(query);
   const filters = {};
+  let labels = [];
   if (pageSlug) {
     const page = await catalogPageRepository.findCatalogPageBySlug(pageSlug);
     if (page) {
+      const labelRows = await catalogPageLabelRepository.listByCatalogPageId(page.id);
+      labels = labelRows.map((label) => ({
+        id: label.id,
+        title: label.title,
+        imageUrl: label.imageUrl,
+        sortOrder: label.sortOrder,
+        filters: label.filters,
+      }));
+
       const filterAttrs = page.filterAttributes || [];
       if (filterAttrs.length > 0) {
         filters.allowedAttributeIds = filterAttrs.map((a) => a.id);
@@ -155,13 +166,11 @@ const getFilterMeta = async (query = {}) => {
       }
     }
   }
-  return productRepository.listFilterMeta(filters);
+  const meta = await productRepository.listFilterMeta(filters);
+  return { ...meta, labels };
 };
 
-const listCatalogPages = async () => {
-  const pages = await catalogPageRepository.listCatalogPages({ activeOnly: true });
-  return pages;
-};
+const listCatalogPages = async () => catalogPageRepository.listCatalogPages();
 const getProductById = async (id) => {
   const numericId = Number(id);
   if (!Number.isInteger(numericId) || numericId <= 0) {
