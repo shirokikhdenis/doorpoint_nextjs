@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   CatalogAttributeFilter,
   CatalogLabel,
   CatalogPageItem,
   CatalogMeta,
   ProductCard,
+  isEntryDoorCatalogItem,
   normalizeCatalogMeta,
   normalizeCatalogPages,
   normalizeProductsResponse,
@@ -16,6 +17,10 @@ import {
 import { MeasureLeadForm } from "@/features/store/measure-lead-form";
 
 const formatPrice = (price: number) => `${Number(price || 0).toLocaleString("ru-RU")} ₽`;
+
+/** Фиксированная высота превью в карточке каталога (класс h-100 в теме не задан). */
+const CATALOG_CARD_IMAGE_HEIGHT = "h-[350px]";
+const CATALOG_DUAL_PHOTO_GAP_PX = 4;
 
 const emptyMeta: CatalogMeta = {
   categories: [],
@@ -87,6 +92,8 @@ export default function CatalogPage() {
   // Числовые диапазоны: { [code]: { min: "45", max: "120" } }.
   const [attrRanges, setAttrRanges] = useState<Record<string, NumericRange>>({});
   const [priceRange, setPriceRange] = useState<NumericRange>({ min: "", max: "" });
+  const [dualPhotoHeightByProductId, setDualPhotoHeightByProductId] = useState<Record<number, number>>({});
+  const leftDualPhotoImageRefs = useRef<Record<number, HTMLImageElement | null>>({});
 
   // Сбрасываем фильтры при переключении витрины — иначе остаются галки от другой витрины.
   const resetUserFilters = () => {
@@ -176,6 +183,29 @@ export default function CatalogPage() {
       // просто без восстановления скролла.
     }
   };
+
+  const syncDualPhotoHeightFromLeft = useCallback((productId: number) => {
+    const image = leftDualPhotoImageRefs.current[productId];
+    if (!image) return;
+    const nextHeight = Math.round(image.getBoundingClientRect().height);
+    if (nextHeight <= 0) return;
+    setDualPhotoHeightByProductId((prev) => {
+      if (prev[productId] === nextHeight) return prev;
+      return { ...prev, [productId]: nextHeight };
+    });
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onResize = () => {
+      for (const rawId of Object.keys(leftDualPhotoImageRefs.current)) {
+        const productId = Number(rawId);
+        if (Number.isFinite(productId)) syncDualPhotoHeightFromLeft(productId);
+      }
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [syncDualPhotoHeightFromLeft]);
 
   // Синхронизация выбранной витрины в URL и sessionStorage: чтобы «Назад в каталог»
   // из карточки товара вернул именно на ту витрину, с которой ушли.
@@ -451,7 +481,7 @@ export default function CatalogPage() {
   return (
     <>
       {meta.labels.length > 0 ? (
-        <div className="mx-auto w-full max-w-[1480px] px-6 pt-4">
+        <div className="mx-auto w-full max-w-[1600px] px-6 pt-4">
           <div className="flex flex-wrap justify-center gap-3 pb-2 pt-1">
             {meta.labels.map((label) => {
               const active = labelMatchesSelections(label, attrSelections);
@@ -486,7 +516,7 @@ export default function CatalogPage() {
         </div>
       ) : null}
 
-      <main className="mx-auto flex w-full max-w-[1480px] flex-1 flex-col gap-4 p-6 pt-2">
+      <main className="mx-auto flex w-full max-w-[1630px] flex-1 flex-col gap-4 p-6 pt-2">
         <div className="flex w-full flex-1 gap-6">
           <aside className="sticky top-[120px] w-72 self-start space-y-4 rounded-lg border bg-white p-4 shadow-md">
         <h2 className="text-lg font-semibold">Фильтры</h2>
@@ -592,7 +622,14 @@ export default function CatalogPage() {
             ) : (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {products.map((item) => {
+                  const isEntryDoor = isEntryDoorCatalogItem(item);
+                  const dualPhotos =
+                    isEntryDoor &&
+                    Boolean(item.image) &&
+                    Boolean(item.hoverImage && item.hoverImage !== item.image);
+                  const dualPhotoHeight = dualPhotoHeightByProductId[item.id];
                   const showHover =
+                    !dualPhotos &&
                     hoveredProductId === item.id &&
                     Boolean(item.hoverImage && item.hoverImage !== item.image);
                   const cardImage = showHover ? item.hoverImage : item.image || "";
@@ -600,19 +637,59 @@ export default function CatalogPage() {
                   <article
                     key={item.id}
                     className="flex h-full flex-col rounded-lg bg-white p-3 shadow-md transition-shadow duration-150 hover:shadow-lg"
-                    onMouseEnter={() => setHoveredProductId(item.id)}
-                    onMouseLeave={() => setHoveredProductId(null)}
+                    onMouseEnter={dualPhotos ? undefined : () => setHoveredProductId(item.id)}
+                    onMouseLeave={dualPhotos ? undefined : () => setHoveredProductId(null)}
                   >
                     <Link
                       href={`/product/${item.id}`}
                       className="block"
                       onClick={rememberScrollForProduct}
                     >
-                      <img
-                        src={cardImage || ""}
-                        alt={item.name}
-                        className="mb-3 h-100 w-full rounded bg-white object-contain p-2"
-                      />
+                      {dualPhotos ? (
+                        <div
+                          className="mb-3 grid grid-cols-2 gap-0 overflow-hidden rounded bg-white p-2"
+                          style={{ columnGap: `${CATALOG_DUAL_PHOTO_GAP_PX}px` }}
+                        >
+                          <div className="flex h-full items-center justify-center overflow-hidden rounded bg-white">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={item.image || ""}
+                              alt={item.name}
+                              className="block h-auto w-full object-contain object-right"
+                              ref={(node) => {
+                                leftDualPhotoImageRefs.current[item.id] = node;
+                                if (node) requestAnimationFrame(() => syncDualPhotoHeightFromLeft(item.id));
+                              }}
+                              onLoad={() => syncDualPhotoHeightFromLeft(item.id)}
+                            />
+                          </div>
+                          <div
+                            className="flex items-center justify-center overflow-hidden rounded bg-white"
+                            style={dualPhotoHeight ? { height: `${dualPhotoHeight}px` } : undefined}
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={item.hoverImage || ""}
+                              alt=""
+                              className={`block w-full object-contain object-left ${
+                                dualPhotoHeight ? "h-full" : "h-auto"
+                              }`}
+                              aria-hidden
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <div
+                          className={`mb-3 ${CATALOG_CARD_IMAGE_HEIGHT} flex items-center justify-center overflow-hidden rounded bg-white p-2`}
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={cardImage || ""}
+                            alt={item.name}
+                            className="block h-full w-full object-contain object-center"
+                          />
+                        </div>
+                      )}
                       <h3 className="font-normal">{item.color ? `${item.name} ${item.color}` : item.name}</h3>
                       <p className="mt-2 text-base font-medium text-zinc-800">{formatPrice(item.price)}</p>
                     </Link>

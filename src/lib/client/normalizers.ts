@@ -24,6 +24,9 @@ export type CatalogMeta = {
   labels: CatalogLabel[];
 };
 export type ProductGlassOption = { id: number; label: string };
+/** Корневая категория «Входные двери» в сиде и каталоге. */
+export const ENTRY_DOORS_CATEGORY_SLUG = "entry-doors";
+
 export type ProductCard = {
   id: number;
   name: string;
@@ -31,10 +34,19 @@ export type ProductCard = {
   image?: string;
   /** Второе фото (hover) из product_images, sort_order второй. */
   hoverImage?: string;
+  category?: string;
+  categorySlug?: string;
   price: number;
   /** Варианты стекла той же модели (тот же model_key + name, тот же color); для чипов в выдаче. */
   glassOptions?: ProductGlassOption[];
 };
+
+/** Две картинки в ряд на витрине — только для группы «Входные двери». */
+export const isEntryDoorCatalogItem = (item: Pick<ProductCard, "categorySlug" | "category">): boolean =>
+  item.categorySlug === ENTRY_DOORS_CATEGORY_SLUG ||
+  String(item.category || "")
+    .toLowerCase()
+    .includes("входн");
 export type VariantAttribute = {
   code: string;
   name: string;
@@ -178,6 +190,8 @@ export const normalizeProductsResponse = (value: unknown): ProductCard[] => {
     color: item.color ? String(item.color) : undefined,
     image: item.image ? String(item.image) : undefined,
     hoverImage: item.hoverImage ? String(item.hoverImage) : undefined,
+    category: item.category ? String(item.category) : undefined,
+    categorySlug: item.categorySlug ? String(item.categorySlug) : undefined,
     price: Number(item.price) || 0,
     glassOptions: parseGlassOptions(item.glassOptions),
   }));

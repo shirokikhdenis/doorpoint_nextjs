@@ -63,6 +63,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
   // Видимое фото: при смене цвета прогреваем новый url через off-screen `Image()`
   // и подменяем `src` только когда ресурс уже в кэше — без «пустого» кадра.
   const [displayedImage, setDisplayedImage] = useState("");
+  const [isManualImageSelection, setIsManualImageSelection] = useState(false);
 
   // Кэш загруженных карточек по id и список «уже летящих» запросов — чтобы при
   // повторном клике/наведении не дёргать API.
@@ -237,7 +238,13 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
     selectedVariant?.image || product?.images[0] || product?.image || "";
 
   useEffect(() => {
+    // На смене товара/варианта возвращаем авто-режим изображения по умолчанию.
+    setIsManualImageSelection(false);
+  }, [selectedId, variantSku]);
+
+  useEffect(() => {
     if (!targetImage) return;
+    if (isManualImageSelection && displayedImage) return;
     if (!displayedImage) {
       setDisplayedImage(targetImage);
       return;
@@ -248,7 +255,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
     preload.onload = swap;
     preload.onerror = swap;
     preload.src = targetImage;
-  }, [targetImage, displayedImage]);
+  }, [targetImage, displayedImage, isManualImageSelection]);
 
   if (loading) return <main className="mx-auto w-full max-w-5xl p-6">Загрузка...</main>;
   if (!product) return <main className="mx-auto w-full max-w-5xl p-6">{error || "Товар не найден"}</main>;
@@ -288,7 +295,10 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
                   <button
                     key={url}
                     type="button"
-                    onClick={() => setDisplayedImage(url)}
+                    onClick={() => {
+                      setIsManualImageSelection(true);
+                      setDisplayedImage(url);
+                    }}
                     className={`flex h-16 w-16 items-center justify-center overflow-hidden rounded border bg-white p-1 ${
                       active ? "border-[#2C2CB7] ring-2 ring-[#2C2CB7]/30" : "border-zinc-200"
                     }`}
