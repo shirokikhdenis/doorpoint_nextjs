@@ -74,6 +74,19 @@ const ensureAttrs = (raw) => {
   return {};
 };
 
+const parseImageUrlsJson = (raw) => {
+  let value = raw;
+  if (typeof value === "string") {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      return [];
+    }
+  }
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => String(item || "").trim()).filter(Boolean);
+};
+
 const productImageSubquery = `
   COALESCE(
     (SELECT image_url FROM product_images WHERE product_id = p.id ORDER BY sort_order, id LIMIT 1),
@@ -83,6 +96,15 @@ const productImageSubquery = `
 
 const hoverImageSubquery = `
   (SELECT image_url FROM product_images WHERE product_id = p.id ORDER BY sort_order, id OFFSET 1 LIMIT 1)
+`;
+
+/** Публичная витрина: без хотя бы одной картинки с непустым URL карточка в списках не показывается. */
+const storefrontListedProductPredicatesSql = `
+  EXISTS (
+    SELECT 1 FROM product_images pi
+    WHERE pi.product_id = p.id
+      AND NULLIF(BTRIM(pi.image_url), '') IS NOT NULL
+  )
 `;
 
 const splitTaxonomy = (row) => {
@@ -161,6 +183,8 @@ const buildScopeWhere = (filters, addParam) => {
   if (filters.maxPrice !== null && filters.maxPrice !== undefined) {
     where.push(`p.price <= ${addParam(filters.maxPrice)}`);
   }
+
+  where.push(storefrontListedProductPredicatesSql);
 
   return where;
 };
@@ -467,6 +491,7 @@ const listFilterMeta = async (constraints = {}) => {
     FROM products p
     ${taxonomyJoin}
     WHERE p.is_active = TRUE
+      AND ${storefrontListedProductPredicatesSql}
       ${priceScope.productScopeCondition}
   `;
 
@@ -514,6 +539,7 @@ const listFilterMeta = async (constraints = {}) => {
         ${taxonomyJoin}
         CROSS JOIN LATERAL jsonb_each(p.attrs) AS unnested
         WHERE p.is_active = TRUE
+          AND ${storefrontListedProductPredicatesSql}
           AND unnested.key = ANY(${codesParam}::text[])
           AND jsonb_typeof(unnested.value) IN ('number', 'string')
           AND (unnested.value #>> '{}') ~ '^-?[0-9]+(\\.[0-9]+)?$'
@@ -547,6 +573,7 @@ const listFilterMeta = async (constraints = {}) => {
       ${taxonomyJoin}
       CROSS JOIN LATERAL jsonb_each(p.attrs) AS unnested
       WHERE p.is_active = TRUE
+        AND ${storefrontListedProductPredicatesSql}
         AND unnested.key = ANY(${codesParam}::text[])
         AND unnested.value #>> '{}' IS NOT NULL
         AND unnested.value #>> '{}' <> ''
@@ -579,6 +606,7 @@ const listFilterMeta = async (constraints = {}) => {
       JOIN product_variants pv ON pv.product_id = p.id AND pv.is_active = TRUE
       CROSS JOIN LATERAL jsonb_each(pv.attrs) AS unnested
       WHERE p.is_active = TRUE
+        AND ${storefrontListedProductPredicatesSql}
         AND unnested.key = ANY(${codesParam}::text[])
         AND unnested.value #>> '{}' IS NOT NULL
         AND unnested.value #>> '{}' <> ''
@@ -1179,6 +1207,13 @@ const listProductsTable = async ({
       CASE WHEN parent.id IS NOT NULL THEN c.name ELSE '' END AS subcategory,
       (SELECT COUNT(*)::int FROM product_variants pv WHERE pv.product_id = p.id) AS "variantsCount",
       (SELECT COUNT(*)::int FROM product_images pi WHERE pi.product_id = p.id) AS "imagesCount",
+      ${productImageSubquery} AS "primaryImageUrl",
+      COALESCE(
+        (SELECT json_agg(pi.image_url ORDER BY pi.sort_order, pi.id)
+         FROM product_images pi
+         WHERE pi.product_id = p.id),
+        '[]'::json
+      ) AS "imageUrls",
       ${displayOrderExpr} AS "displayOrder"
     FROM products p
     ${taxonomyJoin}
@@ -1237,6 +1272,8 @@ const listProductsTable = async ({
       attributes: ensureAttrs(row.attrs),
       variantsCount: Number(row.variantsCount || 0),
       imagesCount: Number(row.imagesCount || 0),
+      primaryImageUrl: row.primaryImageUrl || "",
+      imageUrls: parseImageUrlsJson(row.imageUrls),
     })),
   };
 };

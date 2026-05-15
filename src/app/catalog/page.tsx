@@ -68,6 +68,7 @@ export default function CatalogPage() {
   });
   const [meta, setMeta] = useState<CatalogMeta>(emptyMeta);
   const [products, setProducts] = useState<ProductCard[]>([]);
+  const [hoveredProductId, setHoveredProductId] = useState<number | null>(null);
   const [total, setTotal] = useState(0);
   // Текущий номер «страницы» (батча) в режиме «Показать ещё». На смене фильтров
   // или витрины сбрасывается обратно в 1.
@@ -451,7 +452,7 @@ export default function CatalogPage() {
     <>
       {meta.labels.length > 0 ? (
         <div className="mx-auto w-full max-w-[1480px] px-6 pt-4">
-          <div className="grid grid-cols-2 gap-3 pb-2 pt-1 sm:grid-cols-3 lg:grid-cols-4">
+          <div className="flex flex-wrap justify-center gap-3 pb-2 pt-1">
             {meta.labels.map((label) => {
               const active = labelMatchesSelections(label, attrSelections);
               return (
@@ -459,25 +460,25 @@ export default function CatalogPage() {
                   key={label.id}
                   type="button"
                   onClick={() => handleLabelClick(label)}
-                  className={`flex w-full min-w-0 flex-col items-center gap-3 rounded-lg border bg-white px-3 py-[1.125rem] text-center transition hover:shadow-md ${
+                  className={`flex min-w-0 shrink-0 grow-0 basis-[calc((100%-0.75rem)/2)] flex-col items-center gap-3 rounded-lg border bg-white px-3 py-[1.125rem] text-center transition hover:shadow-md sm:basis-[calc((100%-1.5rem)/3)] md:basis-[calc((100%-2.25rem)/4)] lg:basis-[calc((100%-3.75rem)/6)] ${
                     active
                       ? "border-zinc-200 shadow-xl shadow-zinc-900/20"
                       : "border-zinc-200 shadow-sm"
                   }`}
                 >
-                  <span className="flex h-[7.5rem] w-full items-center justify-center overflow-hidden rounded-md bg-zinc-50">
+                  <span className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-md bg-zinc-50">
                     {label.imageUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={label.imageUrl}
                         alt=""
-                        className="max-h-[7.5rem] w-auto max-w-full object-contain"
+                        className="h-full w-full object-contain"
                       />
                     ) : (
-                      <span className="text-[10px] text-zinc-400">нет фото</span>
+                      <span className="text-[12px] text-zinc-400">нет фото</span>
                     )}
                   </span>
-                  <span className="text-xs font-medium leading-snug text-zinc-800">{label.title}</span>
+                  <span className="text-sm font-medium leading-snug text-zinc-800">{label.title}</span>
                 </button>
               );
             })}
@@ -590,10 +591,17 @@ export default function CatalogPage() {
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                {products.map((item) => (
+                {products.map((item) => {
+                  const showHover =
+                    hoveredProductId === item.id &&
+                    Boolean(item.hoverImage && item.hoverImage !== item.image);
+                  const cardImage = showHover ? item.hoverImage : item.image || "";
+                  return (
                   <article
                     key={item.id}
                     className="flex h-full flex-col rounded-lg bg-white p-3 shadow-md transition-shadow duration-150 hover:shadow-lg"
+                    onMouseEnter={() => setHoveredProductId(item.id)}
+                    onMouseLeave={() => setHoveredProductId(null)}
                   >
                     <Link
                       href={`/product/${item.id}`}
@@ -601,7 +609,7 @@ export default function CatalogPage() {
                       onClick={rememberScrollForProduct}
                     >
                       <img
-                        src={item.image || ""}
+                        src={cardImage || ""}
                         alt={item.name}
                         className="mb-3 h-100 w-full rounded bg-white object-contain p-2"
                       />
@@ -641,7 +649,8 @@ export default function CatalogPage() {
                       </div>
                     ) : null}
                   </article>
-                ))}
+                  );
+                })}
               </div>
             )}
             {!loading && !error && products.length > 0 && products.length < total ? (

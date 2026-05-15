@@ -254,6 +254,12 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
   if (!product) return <main className="mx-auto w-full max-w-5xl p-6">{error || "Товар не найден"}</main>;
 
   const image = displayedImage || targetImage;
+  const galleryImages =
+    product.images.length > 0
+      ? product.images
+      : product.image
+        ? [product.image]
+        : [];
   const price = selectedVariant?.price ?? product.price;
   const selectedNumericId = Number(selectedId);
   const backHref = buildCatalogBackHref();
@@ -265,13 +271,37 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
         Назад в каталог
       </Link>
       <div className="mt-4 grid gap-6 md:grid-cols-2">
-        <div className="py-[5px] flex h-[600px] w-full items-center justify-center overflow-hidden rounded-lg border bg-zinc-50">
+        <div className="space-y-3">
+          <div className="flex h-[600px] w-full items-center justify-center overflow-hidden rounded-lg border bg-zinc-50 py-[5px]">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={image}
             alt={product.name}
             className="max-h-full max-w-full object-contain"
           />
+          </div>
+          {galleryImages.length > 1 ? (
+            <div className="flex flex-wrap gap-2">
+              {galleryImages.map((url) => {
+                const active = url === image;
+                return (
+                  <button
+                    key={url}
+                    type="button"
+                    onClick={() => setDisplayedImage(url)}
+                    className={`flex h-16 w-16 items-center justify-center overflow-hidden rounded border bg-white p-1 ${
+                      active ? "border-[#2C2CB7] ring-2 ring-[#2C2CB7]/30" : "border-zinc-200"
+                    }`}
+                    aria-label="Показать фото"
+                    aria-pressed={active}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={url} alt="" className="max-h-full max-w-full object-contain" />
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
         </div>
         <div className="space-y-4">
           <h1 className="text-2xl font-semibold">{product.name}</h1>

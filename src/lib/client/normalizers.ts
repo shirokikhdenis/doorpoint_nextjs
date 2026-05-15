@@ -29,6 +29,8 @@ export type ProductCard = {
   name: string;
   color?: string;
   image?: string;
+  /** Второе фото (hover) из product_images, sort_order второй. */
+  hoverImage?: string;
   price: number;
   /** Варианты стекла той же модели (тот же model_key + name, тот же color); для чипов в выдаче. */
   glassOptions?: ProductGlassOption[];
@@ -175,6 +177,7 @@ export const normalizeProductsResponse = (value: unknown): ProductCard[] => {
     name: String(item.name || ""),
     color: item.color ? String(item.color) : undefined,
     image: item.image ? String(item.image) : undefined,
+    hoverImage: item.hoverImage ? String(item.hoverImage) : undefined,
     price: Number(item.price) || 0,
     glassOptions: parseGlassOptions(item.glassOptions),
   }));

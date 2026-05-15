@@ -307,6 +307,7 @@ const importRows = async (rows) => {
   const importErrors = [];
   let imported = 0;
   const imageUrlCache = new Map();
+  const imagesBySku = new Map();
   await ensureUploadsDir();
 
   const ensureAttributeByName = async (name) => {
@@ -416,11 +417,19 @@ const importRows = async (rows) => {
     const generatedVariantSku = buildVariantSku(sku, finalVariantAttributes);
 
     const imageUrls = extractImageUrls(row.imageUrl);
-    const presentImages = imageUrls.length > 0;
-    const resolvedImages = presentImages
+    const presentImagesInRow = imageUrls.length > 0;
+    const resolvedImages = presentImagesInRow
       ? await resolveImagesToLocal(imageUrls, i, importErrors, imageUrlCache)
       : [];
-    const primaryImageUrl = resolvedImages[0] || null;
+    const previousSkuImages = imagesBySku.get(sku) || [];
+    const mergedSkuImages = [...new Set([
+      ...previousSkuImages,
+      ...resolvedImages.map((item) => String(item || "").trim()).filter(Boolean),
+    ])];
+    if (mergedSkuImages.length > 0) {
+      imagesBySku.set(sku, mergedSkuImages);
+    }
+    const primaryImageUrl = mergedSkuImages[0] || null;
     const resolvedVariantImage =
       hasNonEmpty(row, "variantImageUrl") && row.variantImageUrl
         ? await resolveImagesToLocal([row.variantImageUrl], i, importErrors, imageUrlCache).then(
@@ -437,7 +446,7 @@ const importRows = async (rows) => {
       subcategory: hasNonEmpty(row, "subcategory"),
       price: hasNonEmpty(row, "price"),
       imageUrl: hasNonEmpty(row, "imageUrl"),
-      images: presentImages && resolvedImages.length > 0,
+      images: mergedSkuImages.length > 0,
       variantPrice: hasNonEmpty(row, "variantPrice"),
       variantImageUrl: hasNonEmpty(row, "variantImageUrl"),
       variantSku: hasNonEmpty(row, "variantSku"),
@@ -481,7 +490,7 @@ const importRows = async (rows) => {
         modelKey: modelKeyValue,
         price: rowPrice,
         imageUrl: primaryImageUrl,
-        images: resolvedImages.length > 0 ? resolvedImages : undefined,
+        images: mergedSkuImages.length > 0 ? mergedSkuImages : undefined,
         isActive: true,
         attributes: allMappedAttributes,
         variantSku: generatedVariantSku,

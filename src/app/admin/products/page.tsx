@@ -29,6 +29,8 @@ type ProductRow = {
   attributes: Record<string, string | number | boolean | null>;
   variantsCount: number;
   imagesCount: number;
+  primaryImageUrl: string;
+  imageUrls: string[];
 };
 
 type ProductsTableResponse = {
@@ -423,13 +425,14 @@ export default function AdminProductsPage() {
                     ) : null}
                   </th>
                 ))}
+                <th className="px-2 py-2">Фото</th>
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={11 + attributes.length}
+                    colSpan={12 + attributes.length}
                     className="px-3 py-6 text-center text-sm text-zinc-500"
                   >
                     {loading ? "Загрузка…" : "Товары не найдены"}
@@ -473,6 +476,27 @@ export default function AdminProductsPage() {
                         {formatAttrValue(row.attributes?.[attribute.code])}
                       </td>
                     ))}
+                    <td className="max-w-md px-2 py-1 align-top">
+                      {row.imageUrls.length > 0 ? (
+                        <ul className="space-y-1">
+                          {row.imageUrls.map((url, index) => (
+                            <li key={`${row.id}-${index}-${url}`}>
+                              <a
+                                href={url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="block max-w-md truncate font-mono text-[11px] text-blue-700 underline hover:text-blue-900"
+                                title={url}
+                              >
+                                {url}
+                              </a>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <span className="text-zinc-400">—</span>
+                      )}
+                    </td>
                   </tr>
                 ))
               )}
