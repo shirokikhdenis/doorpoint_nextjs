@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   CatalogAttributeFilter,
   CatalogLabel,
@@ -60,7 +60,7 @@ type CatalogReturnSnapshot = {
   scrollApplied: boolean;
 };
 
-export default function CatalogPage() {
+function CatalogPageContent() {
   const [catalogPages, setCatalogPages] = useState<CatalogPageItem[]>([]);
   // Инициализируем выбранную витрину из URL (`?catalogPage=...`) или из
   // sessionStorage (последняя витрина текущей сессии). Делает «Назад в каталог»
@@ -790,5 +790,17 @@ function AttributeFilterBlock({
         ))}
       </div>
     </div>
+  );
+}
+
+export default function CatalogPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="mx-auto w-full max-w-7xl p-8 text-sm text-zinc-500">Загрузка каталога…</main>
+      }
+    >
+      <CatalogPageContent />
+    </Suspense>
   );
 }
