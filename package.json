@@ -3,14 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -H 0.0.0.0",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "test": "node --test",
     "db:init": "node src/scripts/dbInit.js",
     "db:seed": "node src/scripts/dbInit.js",
-    "db:migrate:attribute-visible": "node scripts/run-sql-file.js scripts/add-attribute-is-visible-on-product.sql"
+    "db:migrate:attribute-visible": "node scripts/run-sql-file.js scripts/add-attribute-is-visible-on-product.sql",
+    "db:restore": "bash scripts/restore-catalog-dump.sh"
   },
   "dependencies": {
     "@radix-ui/react-label": "^2.1.8",
