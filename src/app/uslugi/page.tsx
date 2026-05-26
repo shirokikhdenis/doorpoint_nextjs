@@ -21,9 +21,9 @@ type Row = { service: string; price: string; notes: string };
 function ServiceTable({ title, rows }: { title: string; rows: Row[] }) {
   return (
     <section className="rounded-xl bg-white p-4">
-      <h2 className="mb-3 text-xl font-semibold">{title}</h2>
+      <h2 className="mb-3 text-lg font-semibold sm:text-xl">{title}</h2>
       <div className="overflow-x-auto">
-        <table className="min-w-full table-fixed text-sm">
+        <table className="min-w-[640px] table-fixed text-xs sm:text-sm">
           <colgroup>
             <col className="w-1/2" />
             <col className="w-1/4" />
@@ -53,8 +53,8 @@ function ServiceTable({ title, rows }: { title: string; rows: Row[] }) {
 
 export default function UslugiPage() {
   return (
-    <main className="mx-auto flex w-full max-w-7xl flex-col gap-4 p-6">
-      <h1 className="text-3xl font-semibold">Услуги</h1>
+    <main className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-6 sm:px-6">
+      <h1 className="text-2xl font-semibold sm:text-3xl">Услуги</h1>
       <ServiceTable title="Монтаж межкомнатных дверей" rows={installationInteriorRows} />
       <ServiceTable title="Монтаж входных дверей" rows={installationEntranceRows} />
       <ServiceTable title="Доставка" rows={deliveryRows} />

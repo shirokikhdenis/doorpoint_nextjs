@@ -131,7 +131,7 @@ export default function CartPage() {
 
   if (items.length === 0) {
     return (
-      <main className="mx-auto w-full max-w-5xl p-6">
+      <main className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6">
         <h1 className="text-2xl font-semibold">Корзина</h1>
         <p className="mt-4 text-zinc-600">Корзина пуста.</p>
         <Link href="/catalog" className="mt-3 inline-block underline">
@@ -142,7 +142,7 @@ export default function CartPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-5xl p-6">
+    <main className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6">
       {/* Заголовок страницы и панель действий (на печати действия скрыты). */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Корзина</h1>
@@ -191,7 +191,7 @@ export default function CartPage() {
         {items.map((item) => (
           <div
             key={`${item.id}-${item.name}-${item.color ?? ""}-${item.hideCartImage ? "1" : "0"}`}
-            className="grid grid-cols-[80px_1fr_auto_auto] items-center gap-3 rounded border bg-white p-3 print:break-inside-avoid print:rounded-none print:border-0 print:border-b print:border-zinc-300 print:p-0 print:py-2"
+            className="flex flex-col gap-3 rounded border bg-white p-3 print:break-inside-avoid print:rounded-none print:border-0 print:border-b print:border-zinc-300 print:p-0 print:py-2 sm:grid sm:grid-cols-[80px_1fr_auto_auto] sm:items-center"
           >
             <div className="h-16 w-16 shrink-0 print:h-14 print:w-14">
               {!item.hideCartImage && item.image ? (
@@ -226,7 +226,7 @@ export default function CartPage() {
               {formatPrice(item.price * item.quantity)}
             </div>
             <button
-              className="text-sm underline print:hidden"
+              className="self-start text-sm underline print:hidden sm:self-auto sm:justify-self-end"
               onClick={() =>
                 setItems(
                   cartStore.removeItem({

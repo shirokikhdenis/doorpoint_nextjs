@@ -19,9 +19,9 @@ import { MeasureLeadForm } from "@/features/store/measure-lead-form";
 const formatPrice = (price: number) => `${Number(price || 0).toLocaleString("ru-RU")} ₽`;
 
 /** Фиксированная высота превью в карточке каталога (класс h-100 в теме не задан). */
-const CATALOG_CARD_IMAGE_HEIGHT = "h-[400px]";
+const CATALOG_CARD_IMAGE_HEIGHT = "h-[240px] sm:h-[320px] lg:h-[360px]";
 const CATALOG_DUAL_PHOTO_GAP_PX = 3;
-const CATALOG_DUAL_IMAGE_HEIGHT_PX = 250;
+const CATALOG_DUAL_IMAGE_HEIGHT_PX = 180;
 
 const emptyMeta: CatalogMeta = {
   categories: [],
@@ -93,6 +93,7 @@ function CatalogPageContent() {
   // Числовые диапазоны: { [code]: { min: "45", max: "120" } }.
   const [attrRanges, setAttrRanges] = useState<Record<string, NumericRange>>({});
   const [priceRange, setPriceRange] = useState<NumericRange>({ min: "", max: "" });
+  const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
 
   // Сбрасываем фильтры при переключении витрины — иначе остаются галки от другой витрины.
   const resetUserFilters = () => {
@@ -457,7 +458,7 @@ function CatalogPageContent() {
   return (
     <>
       {meta.labels.length > 0 ? (
-        <div className="mx-auto w-full max-w-[1600px] px-6 pt-4">
+        <div className="mx-auto w-full max-w-[1600px] px-4 pt-4 sm:px-6 lg:px-8">
           <div className="flex flex-wrap justify-center gap-3 pb-2 pt-1">
             {meta.labels.map((label) => {
               const active = labelMatchesSelections(label, attrSelections);
@@ -484,7 +485,7 @@ function CatalogPageContent() {
                       <span className="text-[12px] text-zinc-400">нет фото</span>
                     )}
                   </span>
-                  <span className="text-sm font-medium leading-snug text-zinc-800">{label.title}</span>
+                  <span className="text-xs font-medium leading-snug text-zinc-800 sm:text-sm">{label.title}</span>
                 </button>
               );
             })}
@@ -492,9 +493,11 @@ function CatalogPageContent() {
         </div>
       ) : null}
 
-      <main className="mx-auto flex w-full max-w-[1630px] flex-1 flex-col gap-4 p-6 pt-2">
-        <div className="flex w-full flex-1 gap-6">
-          <aside className="sticky top-[120px] w-72 self-start space-y-4 rounded-lg border bg-white p-4 shadow-md">
+      <main className="mx-auto flex w-full max-w-[1630px] flex-1 flex-col gap-4 px-4 pb-6 pt-2 sm:px-6 lg:px-8">
+        <div className="flex w-full flex-1 flex-col gap-4 lg:flex-row lg:gap-6">
+          <aside
+            className={`${isMobileFiltersOpen ? "block" : "hidden"} w-full space-y-4 rounded-lg border bg-white p-4 shadow-md lg:sticky lg:top-[120px] lg:block lg:w-72 lg:self-start`}
+          >
         <h2 className="text-lg font-semibold">Фильтры</h2>
         <input
           className="w-full rounded border px-3 py-2"
@@ -558,7 +561,7 @@ function CatalogPageContent() {
                 onChange={(event) =>
                   setPriceRange((prev) => ({ ...prev, min: event.target.value }))
                 }
-                className="w-1/2 rounded border px-2 py-1 text-sm"
+                className="min-w-0 flex-1 rounded border px-2 py-1 text-sm"
               />
               <input
                 type="number"
@@ -568,7 +571,7 @@ function CatalogPageContent() {
                 onChange={(event) =>
                   setPriceRange((prev) => ({ ...prev, max: event.target.value }))
                 }
-                className="w-1/2 rounded border px-2 py-1 text-sm"
+                className="min-w-0 flex-1 rounded border px-2 py-1 text-sm"
               />
             </div>
           </div>
@@ -587,6 +590,18 @@ function CatalogPageContent() {
           </aside>
 
           <section className="flex-1 space-y-4">
+            <div className="flex items-center justify-between gap-2 lg:hidden">
+              <button
+                type="button"
+                className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-800"
+                onClick={() => setIsMobileFiltersOpen((current) => !current)}
+              >
+                {isMobileFiltersOpen ? "Скрыть фильтры" : "Показать фильтры"}
+              </button>
+              <span className="text-xs text-zinc-500">
+                {products.length > 0 ? `${products.length} из ${total}` : "Подберите параметры"}
+              </span>
+            </div>
             {loading ? (
               <div>Загрузка...</div>
             ) : error ? (
@@ -596,7 +611,7 @@ function CatalogPageContent() {
                 По выбранным фильтрам ничего не найдено.
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                 {products.map((item) => {
                   const isEntryDoor = isEntryDoorCatalogItem(item);
                   const dualPhotos =
@@ -757,7 +772,7 @@ function AttributeFilterBlock({
             placeholder={String(min)}
             value={range.min}
             onChange={(event) => onChangeRange("min", event.target.value)}
-            className="w-1/2 rounded border px-2 py-1 text-sm"
+            className="min-w-0 flex-1 rounded border px-2 py-1 text-sm"
           />
           <input
             type="number"
@@ -765,7 +780,7 @@ function AttributeFilterBlock({
             placeholder={String(max)}
             value={range.max}
             onChange={(event) => onChangeRange("max", event.target.value)}
-            className="w-1/2 rounded border px-2 py-1 text-sm"
+            className="min-w-0 flex-1 rounded border px-2 py-1 text-sm"
           />
         </div>
       </div>
@@ -797,7 +812,9 @@ export default function CatalogPage() {
   return (
     <Suspense
       fallback={
-        <main className="mx-auto w-full max-w-7xl p-8 text-sm text-zinc-500">Загрузка каталога…</main>
+        <main className="mx-auto w-full max-w-7xl px-4 py-6 text-sm text-zinc-500 sm:px-6 lg:px-8">
+          Загрузка каталога…
+        </main>
       }
     >
       <CatalogPageContent />

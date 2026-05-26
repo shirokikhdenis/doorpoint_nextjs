@@ -46,7 +46,7 @@ export function AppCatalogNav() {
 
   return (
     <div className="border-b border-zinc-200 bg-white/95 backdrop-blur print:hidden">
-      <nav className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-center gap-2 p-3">
+      <nav className="mx-auto flex w-full max-w-7xl items-center gap-2 overflow-x-auto px-3 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {pages.map((page) => {
           const isActive = page.slug === activeSlug;
           return (
@@ -55,7 +55,7 @@ export function AppCatalogNav() {
               href={`/catalog?catalogPage=${encodeURIComponent(page.slug)}`}
               scroll={false}
               aria-current={isActive ? "page" : undefined}
-              className={`rounded-md border px-3 py-1.5 text-base font-medium transition ${
+              className={`shrink-0 whitespace-nowrap rounded-md border px-2.5 py-1.5 text-sm font-medium transition md:px-3 md:text-base ${
                 isActive
                   ? "border-[#2C2CB7] bg-[#2C2CB7] text-white"
                   : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-400 hover:bg-zinc-50"

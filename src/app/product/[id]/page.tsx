@@ -257,8 +257,8 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
     preload.src = targetImage;
   }, [targetImage, displayedImage, isManualImageSelection]);
 
-  if (loading) return <main className="mx-auto w-full max-w-5xl p-6">Загрузка...</main>;
-  if (!product) return <main className="mx-auto w-full max-w-5xl p-6">{error || "Товар не найден"}</main>;
+  if (loading) return <main className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6">Загрузка...</main>;
+  if (!product) return <main className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6">{error || "Товар не найден"}</main>;
 
   const image = displayedImage || targetImage;
   const galleryImages =
@@ -273,13 +273,13 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
 
   return (
     <>
-      <main className="mx-auto w-full max-w-5xl p-6">
+      <main className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6">
       <Link href={backHref} className="text-sm underline">
         Назад в каталог
       </Link>
       <div className="mt-4 grid gap-6 md:grid-cols-2">
         <div className="space-y-3">
-          <div className="flex h-[600px] w-full items-center justify-center overflow-hidden rounded-lg border bg-zinc-50 py-[5px]">
+          <div className="flex aspect-[4/5] w-full items-center justify-center overflow-hidden rounded-lg border bg-zinc-50 py-[5px] md:aspect-auto md:h-[520px]">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={image}
@@ -410,9 +410,9 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
           {notice ? <p className="text-sm text-emerald-700">{notice}</p> : null}
           <div className="space-y-2">
             {product.attributes.map((attr) => (
-              <div key={attr.code} className="flex justify-between border-b py-1 text-sm">
-                <span>{attr.name}</span>
-                <strong>{attr.value || "-"}</strong>
+              <div key={attr.code} className="flex items-start justify-between gap-3 border-b py-1 text-sm">
+                <span className="min-w-0">{attr.name}</span>
+                <strong className="shrink-0 text-right">{attr.value || "-"}</strong>
               </div>
             ))}
           </div>

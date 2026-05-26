@@ -1,7 +1,7 @@
 export default function ContactPage() {
   return (
-    <main className="mx-auto w-full max-w-7xl p-6">
-      <h1 className="text-3xl font-semibold">Контакты</h1>
+    <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6">
+      <h1 className="text-2xl font-semibold sm:text-3xl">Контакты</h1>
 
       <div className="mt-5 grid gap-4 lg:grid-cols-2">
         <section className="rounded-xl bg-white p-6">
@@ -40,7 +40,7 @@ export default function ContactPage() {
             <iframe
               title="Карта салона"
               src="https://yandex.ru/map-widget/v1/?text=%D0%90%D1%80%D1%85%D0%B0%D0%BD%D0%B3%D0%B5%D0%BB%D1%8C%D1%81%D0%BA%2C%20%D0%9C%D0%BE%D1%81%D0%BA%D0%BE%D0%B2%D1%81%D0%BA%D0%B8%D0%B9%20%D0%BF%D1%80%D0%BE%D1%81%D0%BF%D0%B5%D0%BA%D1%82%2025&z=16"
-              className="h-[360px] w-full"
+              className="h-[300px] w-full sm:h-[360px]"
               loading="lazy"
               referrerPolicy="no-referrer-when-downgrade"
             />

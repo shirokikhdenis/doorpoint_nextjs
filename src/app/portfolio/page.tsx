@@ -20,8 +20,8 @@ export default function PortfolioPage() {
   const active = activeIndex != null ? galleryItems[activeIndex] : null;
 
   return (
-    <main className="mx-auto w-full max-w-7xl p-6">
-      <h1 className="text-3xl font-semibold">Портфолио</h1>
+    <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6">
+      <h1 className="text-2xl font-semibold sm:text-3xl">Портфолио</h1>
       <p className="mt-2 text-sm text-zinc-600">Наши выполненные работы.</p>
 
       <section className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -60,7 +60,7 @@ export default function PortfolioPage() {
             <button
               type="button"
               onClick={() => setActiveIndex(null)}
-              className="absolute -top-10 right-0 rounded bg-white px-3 py-1 text-sm font-medium"
+              className="absolute right-2 top-2 z-10 rounded bg-white px-3 py-1 text-sm font-medium"
             >
               Закрыть
             </button>
