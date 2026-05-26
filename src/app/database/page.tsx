@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
 const CARD_W = 300;
 const HEADER_H = 60;
@@ -310,7 +311,7 @@ const FieldRow = ({
   </div>
 );
 
-export default function DatabasePage() {
+export function DatabasePageView() {
   const [activeTable, setActiveTable] = useState<string | null>(null);
   const [hoveredTable, setHoveredTable] = useState<string | null>(null);
   const [stats, setStats] = useState<Stats>(emptyStats);
@@ -649,4 +650,14 @@ export default function DatabasePage() {
       </section>
     </main>
   );
+}
+
+export default function DatabasePage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    router.replace("/admin/database");
+  }, [router]);
+
+  return null;
 }

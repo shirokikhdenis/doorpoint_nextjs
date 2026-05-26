@@ -4,6 +4,7 @@ const require = createRequire(import.meta.url);
 const adminService = require("@/lib/server/services/adminService");
 const csvImportService = require("@/lib/server/services/csvImportService");
 const { withErrorHandling, json, empty, getQuery, readBody } = require("@/lib/server/http/handlers");
+const { requestHasAdminSession } = require("@/lib/server/auth/adminAuth");
 
 export const runtime = "nodejs";
 
@@ -12,6 +13,10 @@ const match = (path, method, expectedMethod, ...segments) =>
 
 const handle = async (request, context) =>
   withErrorHandling(async () => {
+    if (!requestHasAdminSession(request)) {
+      return json({ message: "Unauthorized" }, 401);
+    }
+
     const params = await context.params;
     const path = Array.isArray(params.path) ? params.path : [];
     const query = getQuery(request);

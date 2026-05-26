@@ -173,6 +173,12 @@ export default function AdminPage() {
           >
             Импорт CSV →
           </Link>
+          <Link
+            href="/admin/database"
+            className="rounded border border-zinc-200 bg-white px-3 py-1.5 text-sm hover:bg-zinc-100"
+          >
+            База →
+          </Link>
         </div>
       </div>
       {notice ? <p className="mt-2 text-sm text-zinc-600">{notice}</p> : null}

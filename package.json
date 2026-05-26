@@ -10,7 +10,8 @@
     "test": "node --test",
     "db:init": "node src/scripts/dbInit.js",
     "db:seed": "node src/scripts/dbInit.js",
-    "db:migrate:attribute-visible": "node scripts/run-sql-file.js scripts/add-attribute-is-visible-on-product.sql"
+    "db:migrate:attribute-visible": "node scripts/run-sql-file.js scripts/add-attribute-is-visible-on-product.sql",
+    "admin:hash-password": "node scripts/hash-admin-password.js"
   },
   "dependencies": {
     "@radix-ui/react-label": "^2.1.8",

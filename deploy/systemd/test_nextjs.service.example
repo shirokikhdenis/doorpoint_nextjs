@@ -1,0 +1,23 @@
+[Unit]
+Description=Next.js storefront/admin app
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/var/www/test_nextjs
+Environment=NODE_ENV=production
+Environment=PORT=3000
+EnvironmentFile=/etc/test_nextjs.env
+ExecStart=/usr/bin/npm run start
+Restart=always
+RestartSec=5
+User=www-data
+Group=www-data
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/var/www/test_nextjs
+
+[Install]
+WantedBy=multi-user.target

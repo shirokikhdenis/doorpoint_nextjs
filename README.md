@@ -1,4 +1,4 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+This is a [Next.js](https://nextjs.org) storefront project with an admin area.
 
 ## Getting Started
 
@@ -28,6 +28,33 @@ To learn more about Next.js, take a look at the following resources:
 - [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+
+## Admin auth configuration
+
+Admin access uses two layers:
+- Nginx BasicAuth on `/admin` and `/api/admin`
+- App session auth for `/admin/*` and `/api/admin/*`
+
+Required environment variables:
+- `ADMIN_LOGIN`
+- `ADMIN_PASSWORD_HASH` (`sha256:<hex>`)
+- `SESSION_SECRET`
+- optional: `ADMIN_SESSION_TTL_SECONDS`
+
+Generate hash:
+
+```bash
+npm run admin:hash-password -- "your-password"
+```
+
+## VPS deployment with Nginx
+
+See deployment guide:
+- `docs/vps-nginx-admin-deploy.md`
+
+Reference templates:
+- `deploy/nginx/test_nextjs.conf.example`
+- `deploy/systemd/test_nextjs.service.example`
 
 ## Deploy on Vercel
 

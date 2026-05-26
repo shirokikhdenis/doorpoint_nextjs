@@ -8,7 +8,7 @@ export function AppTopBar() {
         <p className="text-left text-sm text-zinc-700">Архангельск, ТЦ Новосёл, пр. Московский, д. 25, к. 4, стр. 1</p>
         <div className="flex justify-center">
           <Link
-            href="/"
+            href="/catalog"
             className="inline-flex rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2"
             aria-label="На главную"
           >
