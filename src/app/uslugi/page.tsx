@@ -21,27 +21,22 @@ type Row = { service: string; price: string; notes: string };
 function ServiceTable({ title, rows }: { title: string; rows: Row[] }) {
   return (
     <section className="rounded-xl bg-white p-4">
-      <h2 className="mb-3 text-lg font-semibold sm:text-xl">{title}</h2>
+      <h2 className="mb-3 text-xl font-semibold">{title}</h2>
       <div className="overflow-x-auto">
-        <table className="min-w-[640px] table-fixed text-xs sm:text-sm">
-          <colgroup>
-            <col className="w-1/2" />
-            <col className="w-1/4" />
-            <col className="w-1/4" />
-          </colgroup>
+        <table className="w-full table-auto text-[13px] leading-tight sm:text-sm md:table-fixed">
           <thead>
             <tr className="bg-zinc-100 text-left">
-              <th className="px-3 py-2">Услуга</th>
-              <th className="px-3 py-2">Цена</th>
-              <th className="px-3 py-2">Примечание</th>
+              <th className="w-[45%] px-2 py-2 sm:px-3">Услуга</th>
+              <th className="w-[22%] px-2 py-2 sm:px-3">Цена</th>
+              <th className="w-[33%] px-2 py-2 sm:px-3">Примечание</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-200">
             {rows.map((row) => (
               <tr key={row.service}>
-                <td className="px-3 py-2">{row.service}</td>
-                <td className="px-3 py-2 font-medium">{row.price}</td>
-                <td className="px-3 py-2">{row.notes}</td>
+                <td className="px-2 py-2 align-top sm:px-3">{row.service}</td>
+                <td className="whitespace-nowrap px-2 py-2 align-top font-medium sm:px-3">{row.price}</td>
+                <td className="px-2 py-2 align-top whitespace-normal break-words sm:px-3">{row.notes}</td>
               </tr>
             ))}
           </tbody>

@@ -4,7 +4,7 @@ import Link from "next/link";
 export function AppTopBar() {
   return (
     <div className="border-b border-zinc-200 bg-white print:hidden">
-      <div className="mx-auto grid w-full max-w-7xl grid-cols-1 items-center gap-2 px-4 py-3 md:h-[100px] md:grid-cols-3 md:gap-4 md:py-0">
+      <div className="mx-auto grid w-full max-w-[1630px] grid-cols-1 items-center gap-2 px-4 py-3 sm:px-6 lg:px-8 md:h-[100px] md:grid-cols-3 md:gap-4 md:py-0">
         <div className="order-1 flex justify-center md:order-2">
           <Link
             href="/catalog"

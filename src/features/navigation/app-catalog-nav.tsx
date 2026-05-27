@@ -45,8 +45,8 @@ export function AppCatalogNav() {
   const activeSlug = isOnCatalog ? urlSlug || fallbackSlug : "";
 
   return (
-    <div className="border-b border-zinc-200 bg-white/95 backdrop-blur print:hidden">
-      <nav className="mx-auto flex w-full max-w-7xl items-center gap-2 overflow-x-auto px-3 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <div className="relative border-b border-zinc-200 bg-white/95 backdrop-blur print:hidden">
+      <nav className="mx-auto flex w-full max-w-[1630px] snap-x snap-mandatory items-center gap-2 overflow-x-auto px-4 py-2 sm:px-6 lg:px-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:justify-center">
         {pages.map((page) => {
           const isActive = page.slug === activeSlug;
           return (
@@ -55,7 +55,7 @@ export function AppCatalogNav() {
               href={`/catalog?catalogPage=${encodeURIComponent(page.slug)}`}
               scroll={false}
               aria-current={isActive ? "page" : undefined}
-              className={`shrink-0 whitespace-nowrap rounded-md border px-2.5 py-1.5 text-sm font-medium transition md:px-3 md:text-base ${
+              className={`max-w-[14rem] shrink-0 snap-start truncate whitespace-nowrap rounded-md border px-3 py-1.5 text-sm font-medium transition md:max-w-none md:px-3 md:text-base ${
                 isActive
                   ? "border-[#2C2CB7] bg-[#2C2CB7] text-white"
                   : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-400 hover:bg-zinc-50"
@@ -66,6 +66,8 @@ export function AppCatalogNav() {
           );
         })}
       </nav>
+      <div className="pointer-events-none absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-white/95 to-transparent md:hidden" />
+      <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-white/95 to-transparent md:hidden" />
     </div>
   );
 }
