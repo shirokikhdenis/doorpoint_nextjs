@@ -7,11 +7,14 @@ import {
   AccessoryItem,
   ProductData,
   Variant,
+  isEntryDoorCatalogItem,
   normalizeProductData,
 } from "@/lib/client/normalizers";
 import { MeasureLeadForm } from "@/features/store/measure-lead-form";
+import { chipToneClass } from "@/features/store/storefront-ui";
 
 const formatPrice = (price: number) => `${Number(price || 0).toLocaleString("ru-RU")} ₽`;
+const PRODUCT_DUAL_PHOTO_GAP_PX = 3;
 
 const variantAxesLabel = (variant: Variant): string => {
   const axes = variant.attributes.filter((attribute) => attribute.isVariantAxis);
@@ -257,8 +260,8 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
     preload.src = targetImage;
   }, [targetImage, displayedImage, isManualImageSelection]);
 
-  if (loading) return <main className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6">Загрузка...</main>;
-  if (!product) return <main className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6">{error || "Товар не найден"}</main>;
+  if (loading) return <main className="mx-auto w-full max-w-[1400px] px-4 py-6 sm:px-6 lg:px-8">Загрузка...</main>;
+  if (!product) return <main className="mx-auto w-full max-w-[1400px] px-4 py-6 sm:px-6 lg:px-8">{error || "Товар не найден"}</main>;
 
   const image = displayedImage || targetImage;
   const galleryImages =
@@ -267,26 +270,57 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
       : product.image
         ? [product.image]
         : [];
+  const dualMainImages = galleryImages.slice(0, 2);
+  const dualPhotos =
+    isEntryDoorCatalogItem({ category: product.category }) &&
+    dualMainImages.length === 2 &&
+    dualMainImages[0] !== dualMainImages[1];
+  const cartImage = dualPhotos ? dualMainImages[0] : image;
   const price = selectedVariant?.price ?? product.price;
   const selectedNumericId = Number(selectedId);
   const backHref = buildCatalogBackHref();
 
   return (
     <>
-      <main className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6">
+      <main className="mx-auto w-full max-w-[1400px] px-4 py-6 sm:px-6 lg:px-8">
       <Link href={backHref} className="text-sm underline">
         Назад в каталог
       </Link>
       <div className="mt-4 grid gap-6 md:grid-cols-2">
         <div className="space-y-3">
-          <div className="flex aspect-[4/5] w-full items-center justify-center overflow-hidden rounded-lg border bg-zinc-50 py-[5px] md:aspect-auto md:h-[520px]">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={image}
-            alt={product.name}
-            className="max-h-full max-w-full object-contain"
-          />
-          </div>
+          {dualPhotos ? (
+            <div
+              className="grid aspect-[4/5] w-full grid-cols-2 overflow-hidden rounded-lg bg-white p-2 md:aspect-auto md:h-[620px]"
+              style={{ columnGap: `${PRODUCT_DUAL_PHOTO_GAP_PX}px` }}
+            >
+              <div className="flex h-full items-center justify-center overflow-hidden bg-white">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={dualMainImages[0]}
+                  alt={product.name}
+                  className="block h-full w-full object-contain object-right drop-shadow-[0_8px_8px_rgba(0,0,0,0.14)]"
+                />
+              </div>
+              <div className="flex h-full items-center justify-center overflow-hidden bg-white">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={dualMainImages[1]}
+                  alt=""
+                  className="block h-full w-full object-contain object-left drop-shadow-[0_8px_8px_rgba(0,0,0,0.14)]"
+                  aria-hidden
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="flex aspect-[4/5] w-full items-center justify-center overflow-hidden rounded-lg bg-white py-[5px] md:aspect-auto md:h-[620px]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={image}
+              alt={product.name}
+              className="max-h-full max-w-full object-contain drop-shadow-[0_8px_8px_rgba(0,0,0,0.14)]"
+            />
+            </div>
+          )}
           {galleryImages.length > 1 ? (
             <div className="flex flex-wrap gap-2">
               {galleryImages.map((url) => {
@@ -396,7 +430,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
                 name: selectedVariant
                   ? `${product.name} (${variantCartSuffix(selectedVariant)})`
                   : product.name,
-                image,
+                image: cartImage,
                 price,
                 quantity: 1,
                 ...(cartColorLabel ? { color: cartColorLabel } : {}),
@@ -476,10 +510,8 @@ type VariantChipProps = {
  */
 function VariantChip({ label, image, isCurrent, onSelect, onHoverPrefetch }: VariantChipProps) {
   const baseClass =
-    "flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs transition";
-  const stateClass = isCurrent
-    ? "border-[#2C2CB7] bg-[#2C2CB7] text-white"
-    : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-400 hover:bg-zinc-50";
+    "flex items-center gap-2 rounded-full px-3 py-1.5 text-xs";
+  const stateClass = chipToneClass(isCurrent);
   const thumbBorder = isCurrent ? "border-white/30" : "border-zinc-200";
   return (
     <button

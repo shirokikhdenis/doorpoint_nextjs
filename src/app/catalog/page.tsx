@@ -15,13 +15,14 @@ import {
   normalizeProductsResponse,
 } from "@/lib/client/normalizers";
 import { MeasureLeadForm } from "@/features/store/measure-lead-form";
+import { chipToneClass } from "@/features/store/storefront-ui";
 
 const formatPrice = (price: number) => `${Number(price || 0).toLocaleString("ru-RU")} ₽`;
 
 /** Фиксированная высота превью в карточке каталога (класс h-100 в теме не задан). */
 const CATALOG_CARD_IMAGE_HEIGHT = "h-[240px] sm:h-[320px] lg:h-[360px]";
 const CATALOG_DUAL_PHOTO_GAP_PX = 3;
-const CATALOG_DUAL_IMAGE_HEIGHT_PX = 180;
+const CATALOG_DUAL_IMAGE_HEIGHT_PX = 250;
 
 const emptyMeta: CatalogMeta = {
   categories: [],
@@ -626,7 +627,7 @@ function CatalogPageContent() {
                   return (
                   <article
                     key={item.id}
-                    className="flex h-full flex-col rounded-lg bg-white p-3 shadow-md transition-shadow duration-150 hover:shadow-lg"
+                    className="flex h-full flex-col rounded-lg bg-white p-2 shadow-md transition-shadow duration-150 hover:shadow-lg"
                     onMouseEnter={dualPhotos ? undefined : () => setHoveredProductId(item.id)}
                     onMouseLeave={dualPhotos ? undefined : () => setHoveredProductId(null)}
                   >
@@ -675,38 +676,6 @@ function CatalogPageContent() {
                       <h3 className="font-normal">{item.color ? `${item.name} ${item.color}` : item.name}</h3>
                       <p className="mt-2 text-base font-medium text-zinc-800">{formatPrice(item.price)}</p>
                     </Link>
-                    {item.glassOptions && item.glassOptions.length > 1 ? (
-                      <div className="mt-2 space-y-1">
-                        <span className="text-xs text-zinc-500">Стекло</span>
-                        <div className="flex flex-wrap gap-1">
-                          {item.glassOptions.map((opt) => {
-                            const active = opt.id === item.id;
-                            const chipClass =
-                              "rounded-full border px-2 py-0.5 text-[11px] leading-tight transition";
-                            if (active) {
-                              return (
-                                <span
-                                  key={opt.id}
-                                  className={`${chipClass} border-zinc-900 bg-zinc-900 text-white`}
-                                >
-                                  {opt.label}
-                                </span>
-                              );
-                            }
-                            return (
-                              <Link
-                                key={opt.id}
-                                href={`/product/${opt.id}`}
-                                className={`${chipClass} border-zinc-200 bg-white text-zinc-700 hover:border-zinc-400`}
-                                onClick={rememberScrollForProduct}
-                              >
-                                {opt.label}
-                              </Link>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ) : null}
                   </article>
                   );
                 })}

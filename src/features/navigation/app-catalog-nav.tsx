@@ -7,6 +7,10 @@ import {
   CatalogPageItem,
   normalizeCatalogPages,
 } from "@/lib/client/normalizers";
+import { navToneClass } from "@/features/store/storefront-ui";
+
+const navButtonBase =
+  "max-w-[14rem] shrink-0 snap-start truncate whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium md:max-w-none md:px-3 md:text-base";
 
 /**
  * Глобальный навбар витрин: «Общий каталог», «Входные двери», ... Расположен
@@ -19,6 +23,7 @@ import {
  */
 export function AppCatalogNav() {
   const [pages, setPages] = useState<CatalogPageItem[]>([]);
+  const [lastSelectedSlug, setLastSelectedSlug] = useState("");
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
@@ -37,12 +42,20 @@ export function AppCatalogNav() {
     };
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const saved = window.sessionStorage.getItem("lastCatalogPage") || "";
+    if (saved) setLastSelectedSlug(saved);
+  }, [pathname, searchParams]);
+
   if (pages.length === 0) return null;
 
   const isOnCatalog = pathname === "/catalog";
   const urlSlug = searchParams?.get("catalogPage") || "";
   const fallbackSlug = (pages.find((page) => page.isDefault) || pages[0])?.slug || "";
-  const activeSlug = isOnCatalog ? urlSlug || fallbackSlug : "";
+  const activeSlug = isOnCatalog
+    ? urlSlug || lastSelectedSlug || fallbackSlug
+    : lastSelectedSlug;
 
   return (
     <div className="relative border-b border-zinc-200 bg-white/95 backdrop-blur print:hidden">
@@ -55,11 +68,8 @@ export function AppCatalogNav() {
               href={`/catalog?catalogPage=${encodeURIComponent(page.slug)}`}
               scroll={false}
               aria-current={isActive ? "page" : undefined}
-              className={`max-w-[14rem] shrink-0 snap-start truncate whitespace-nowrap rounded-md border px-3 py-1.5 text-sm font-medium transition md:max-w-none md:px-3 md:text-base ${
-                isActive
-                  ? "border-[#2C2CB7] bg-[#2C2CB7] text-white"
-                  : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-400 hover:bg-zinc-50"
-              }`}
+              onClick={() => setLastSelectedSlug(page.slug)}
+              className={`${navButtonBase} ${navToneClass(isActive)}`}
             >
               {page.name}
             </Link>

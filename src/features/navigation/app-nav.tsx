@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { navToneClass } from "@/features/store/storefront-ui";
 
 const links = [
   { href: "/catalog", label: "Каталог" },
@@ -12,6 +13,8 @@ const links = [
 ];
 
 const cartLink = { href: "/cart", label: "Корзина" };
+const navButtonBase =
+  "whitespace-nowrap rounded-md px-2.5 py-1.5 text-sm font-medium md:px-3 md:text-base";
 
 export function AppNav() {
   const pathname = usePathname();
@@ -47,11 +50,7 @@ export function AppNav() {
                 key={link.href}
                 href={link.href}
                 aria-current={isActive ? "page" : undefined}
-                className={`shrink-0 whitespace-nowrap rounded-md border px-2.5 py-1.5 text-sm font-medium transition md:px-3 md:text-base ${
-                  isActive
-                    ? "border-[#2C2CB7] bg-[#2C2CB7] text-white"
-                    : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-400 hover:bg-zinc-50"
-                }`}
+                className={`shrink-0 ${navButtonBase} ${navToneClass(isActive)}`}
               >
                 {link.label}
               </Link>
@@ -63,11 +62,7 @@ export function AppNav() {
           <Link
             href={cartLink.href}
             aria-current={pathname === cartLink.href ? "page" : undefined}
-            className={`whitespace-nowrap rounded-md border px-2.5 py-1.5 text-sm font-medium transition md:px-3 md:text-base ${
-              pathname === cartLink.href
-                ? "border-[#2C2CB7] bg-[#2C2CB7] text-white"
-                : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-400 hover:bg-zinc-50"
-            }`}
+            className={`${navButtonBase} ${navToneClass(pathname === cartLink.href)}`}
           >
             {cartLink.label}
           </Link>
@@ -84,11 +79,7 @@ export function AppNav() {
                   key={link.href}
                   href={link.href}
                   aria-current={isActive ? "page" : undefined}
-                  className={`rounded-md border px-3 py-2 text-sm font-medium transition ${
-                    isActive
-                      ? "border-[#2C2CB7] bg-[#2C2CB7] text-white"
-                      : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-400 hover:bg-zinc-50"
-                  }`}
+                  className={`rounded-md px-3 py-2 text-sm font-medium ${navToneClass(isActive)}`}
                 >
                   {link.label}
                 </Link>

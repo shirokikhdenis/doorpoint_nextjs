@@ -35,13 +35,19 @@ export function StoreHero() {
           </p>
         </div>
         <div className="flex flex-wrap items-center justify-center gap-3">
-          <Button asChild size="lg" className="bg-white text-zinc-900 shadow-md hover:bg-zinc-100">
+          <Button
+            asChild
+            size="lg"
+            className="bg-white text-sm font-medium text-zinc-900 shadow-md hover:bg-zinc-100 md:text-base"
+          >
             <Link href="/catalog#catalog-vitrines">Перейти в каталог</Link>
           </Button>
-          <Button asChild size="lg" variant="outline" className="border-white/40 bg-white/10 text-white backdrop-blur hover:bg-white/20">
-            <Link href="/door-quiz">Подобрать дверь</Link>
-          </Button>
-          <Button asChild size="lg" variant="secondary" className="bg-zinc-900/80 text-white hover:bg-zinc-900">
+          <Button
+            asChild
+            size="lg"
+            variant="secondary"
+            className="bg-[#2C2CB7] text-sm font-medium text-white hover:bg-[#252599] md:text-base"
+          >
             <a href="#zamer-form">Записаться на замер</a>
           </Button>
         </div>
