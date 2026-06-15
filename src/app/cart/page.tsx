@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { CartItem, cartStore } from "@/lib/client/cart-store";
-
-const formatPrice = (price: number) =>
-  `${Number(price || 0).toLocaleString("ru-RU")} ₽`;
+import { useEffect, useState } from "react";
+import { downloadCartCsv } from "@/lib/client/cart-csv-export";
+import { CartItem, cartItemHasProductLink } from "@/lib/client/cart-store";
+import { formatPrice } from "@/lib/client/format";
+import { productHref } from "@/lib/client/product-url";
+import { useCart } from "@/lib/client/use-cart";
+import { SITE_EMAIL, SITE_PHONE_DISPLAY, SITE_PHONE_TEL } from "@/lib/site-contact";
 
 const formatToday = () => {
   try {
@@ -24,10 +26,15 @@ const CART_QTY_MAX = 99;
 
 function CartLineQuantity({
   item,
-  setItems,
+  setQuantity,
 }: {
   item: CartItem;
-  setItems: React.Dispatch<React.SetStateAction<CartItem[]>>;
+  setQuantity: (ref: {
+    id: number;
+    name: string;
+    color: string;
+    hideCartImage: boolean;
+  }, quantity: number) => void;
 }) {
   const lineRef = {
     id: item.id,
@@ -43,7 +50,7 @@ function CartLineQuantity({
 
   const applyQuantity = (next: number) => {
     const clamped = Math.min(CART_QTY_MAX, Math.max(0, Math.floor(next)));
-    setItems(cartStore.setQuantity(lineRef, clamped));
+    setQuantity(lineRef, clamped);
   };
 
   const handleChange = (raw: string) => {
@@ -52,17 +59,17 @@ function CartLineQuantity({
       return;
     }
     if (!/^\d+$/.test(raw)) {
-      setText("NaN");
+      setText(String(item.quantity));
       return;
     }
     const n = parseInt(raw, 10);
     const clamped = Math.min(CART_QTY_MAX, Math.max(0, n));
     setText(String(clamped));
-    setItems(cartStore.setQuantity(lineRef, clamped));
+    setQuantity(lineRef, clamped);
   };
 
   const handleBlur = () => {
-    if (text === "" || text === "NaN" || !/^\d+$/.test(text)) {
+    if (text === "" || !/^\d+$/.test(text)) {
       setText(String(item.quantity));
       return;
     }
@@ -70,7 +77,7 @@ function CartLineQuantity({
     const clamped = Math.min(CART_QTY_MAX, Math.max(0, n));
     if (clamped !== n || text !== String(clamped)) {
       setText(String(clamped));
-      setItems(cartStore.setQuantity(lineRef, clamped));
+      setQuantity(lineRef, clamped);
     }
   };
 
@@ -87,10 +94,7 @@ function CartLineQuantity({
         type="text"
         inputMode="numeric"
         autoComplete="off"
-        aria-invalid={text === "NaN"}
-        className={`shrink-0 rounded border px-1 py-1 text-center text-sm tabular-nums ${
-          text === "NaN" ? "w-12 border-amber-500 text-amber-700" : "w-9 border-zinc-300"
-        }`}
+        className="w-9 shrink-0 rounded border border-zinc-300 px-1 py-1 text-center text-sm tabular-nums"
         value={text}
         onChange={(event) => handleChange(event.target.value)}
         onBlur={handleBlur}
@@ -107,26 +111,28 @@ function CartLineQuantity({
 }
 
 export default function CartPage() {
-  const [items, setItems] = useState<CartItem[]>(() => cartStore.getItems());
-
-  const total = useMemo(
-    () => items.reduce((sum, item) => sum + item.price * item.quantity, 0),
-    [items],
-  );
-  const totalQuantity = useMemo(
-    () => items.reduce((sum, item) => sum + item.quantity, 0),
-    [items],
-  );
+  const { items, totalPrice, totalQuantity, setQuantity, removeItem, clear } = useCart();
+  const [isExporting, setIsExporting] = useState(false);
 
   const handleClear = () => {
     if (items.length === 0) return;
     const ok = window.confirm("Очистить корзину? Действие нельзя отменить.");
     if (!ok) return;
-    setItems(cartStore.clear());
+    clear();
   };
 
   const handlePrint = () => {
     if (typeof window !== "undefined") window.print();
+  };
+
+  const handleExportCsv = async () => {
+    if (items.length === 0 || isExporting) return;
+    setIsExporting(true);
+    try {
+      await downloadCartCsv(items);
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   if (items.length === 0) {
@@ -147,6 +153,29 @@ export default function CartPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Корзина</h1>
         <div className="flex flex-wrap items-center gap-2 print:hidden">
+          <button
+            type="button"
+            onClick={handleExportCsv}
+            disabled={isExporting}
+            className="inline-flex items-center gap-2 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-800 transition hover:border-zinc-500 hover:bg-zinc-50 disabled:cursor-wait disabled:opacity-60"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-4 w-4"
+              aria-hidden="true"
+            >
+              <path d="M12 3v12" />
+              <path d="m7 10 5 5 5-5" />
+              <path d="M5 19h14" />
+            </svg>
+            {isExporting ? "Экспорт…" : "Экспорт CSV"}
+          </button>
           <button
             type="button"
             onClick={handlePrint}
@@ -181,67 +210,95 @@ export default function CartPage() {
 
       {/* Шапка для печатной версии: видна только при печати. */}
       <div className="mt-4 hidden border-b border-zinc-300 pb-3 print:block">
-        <div className="flex items-baseline justify-between">
+        <div className="flex items-baseline justify-between gap-4">
           <h2 className="text-xl font-semibold">Заказ</h2>
           <span className="text-sm">от {formatToday()}</span>
         </div>
+        <p className="mt-2 text-sm text-zinc-700">
+          Телефон:{" "}
+          <a href={`tel:${SITE_PHONE_TEL}`} className="font-medium text-zinc-900">
+            {SITE_PHONE_DISPLAY}
+          </a>
+          <span className="mx-2 text-zinc-400">·</span>
+          E-mail:{" "}
+          <a href={`mailto:${SITE_EMAIL}`} className="font-medium text-zinc-900">
+            {SITE_EMAIL}
+          </a>
+        </p>
       </div>
 
-      <div className="mt-4 space-y-3 print:mt-3 print:space-y-2">
-        {items.map((item) => (
-          <div
-            key={`${item.id}-${item.name}-${item.color ?? ""}-${item.hideCartImage ? "1" : "0"}`}
-            className="flex flex-col gap-3 rounded border bg-white p-3 print:break-inside-avoid print:rounded-none print:border-0 print:border-b print:border-zinc-300 print:p-0 print:py-2 sm:grid sm:grid-cols-[80px_1fr_auto_auto] sm:items-center"
-          >
-            <div className="h-16 w-16 shrink-0 print:h-14 print:w-14">
-              {!item.hideCartImage && item.image ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
-                  src={item.image}
-                  alt={item.name}
-                  className="h-full w-full rounded object-cover print:rounded-none"
-                />
-              ) : null}
-            </div>
-            <div>
-              <p className="font-medium">{item.name}</p>
-              {item.color ? (
-                <p className="text-sm text-zinc-600 print:text-zinc-700">
-                  Цвет: {item.color}
-                </p>
-              ) : null}
-              <p className="text-sm text-zinc-600 print:text-zinc-700">
-                {formatPrice(item.price)}
-              </p>
-            </div>
-            <div className="flex items-center gap-2 print:hidden">
-              <CartLineQuantity item={item} setItems={setItems} />
-            </div>
-            {/* Печатный вид количества: одной строкой, без кнопок. */}
-            <div className="hidden whitespace-nowrap print:block">
-              {item.quantity} шт.
-            </div>
-            {/* Сумма по строке — видна только на печати, иначе колонок было бы больше. */}
-            <div className="hidden whitespace-nowrap text-right font-medium print:block">
-              {formatPrice(item.price * item.quantity)}
-            </div>
-            <button
-              className="self-start text-sm underline print:hidden sm:self-auto sm:justify-self-end"
-              onClick={() =>
-                setItems(
-                  cartStore.removeItem({
-                    id: item.id,
-                    name: item.name,
-                    color: item.color ?? "",
-                    hideCartImage: item.hideCartImage === true,
-                  }),
-                )
-              }
-            >
-              Удалить
-            </button>
-          </div>
-        ))}
+      <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-200 bg-white print:mt-3 print:rounded-none print:border-0">
+        <table className="w-full min-w-[560px] text-sm">
+          <thead className="bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500">
+            <tr>
+              <th className="px-4 py-2 font-medium">Наименование</th>
+              <th className="px-4 py-2 font-medium">Цена</th>
+              <th className="px-4 py-2 font-medium">Кол-во</th>
+              <th className="px-4 py-2 text-right font-medium">Сумма</th>
+              <th className="w-10 px-2 py-2 print:hidden" />
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-zinc-100">
+            {items.map((item) => (
+              <tr
+                key={`${item.id}-${item.name}-${item.color ?? ""}-${item.hideCartImage ? "1" : "0"}`}
+                className="hover:bg-zinc-50/60 print:break-inside-avoid"
+              >
+                <td className="px-4 py-3 align-middle">
+                  {cartItemHasProductLink(item) ? (
+                    <Link
+                      href={productHref(item)}
+                      className="font-medium leading-snug text-zinc-900 underline-offset-2 hover:text-brand hover:underline"
+                    >
+                      {item.name}
+                    </Link>
+                  ) : (
+                    <p className="font-medium leading-snug text-zinc-900">{item.name}</p>
+                  )}
+                  {item.color ? (
+                    <p className="mt-0.5 text-xs text-zinc-500 print:text-zinc-700">
+                      Цвет: {item.color}
+                    </p>
+                  ) : null}
+                </td>
+                <td className="whitespace-nowrap px-4 py-3 align-middle font-medium">
+                  {formatPrice(item.price)}
+                </td>
+                <td className="px-4 py-3 align-middle">
+                  <div className="flex items-center gap-2 print:hidden">
+                    <CartLineQuantity item={item} setQuantity={setQuantity} />
+                  </div>
+                  <span className="hidden whitespace-nowrap print:inline">
+                    {item.quantity} шт.
+                  </span>
+                </td>
+                <td className="whitespace-nowrap px-4 py-3 text-right align-middle font-medium">
+                  {formatPrice(item.price * item.quantity)}
+                </td>
+                <td className="px-2 py-3 text-right align-middle print:hidden">
+                  <button
+                    type="button"
+                    aria-label={`Удалить «${item.name}» из корзины`}
+                    title="Удалить"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900"
+                    onClick={() =>
+                      removeItem({
+                        id: item.id,
+                        name: item.name,
+                        color: item.color ?? "",
+                        hideCartImage: item.hideCartImage === true,
+                      })
+                    }
+                  >
+                    <span className="text-lg leading-none" aria-hidden="true">
+                      ✕
+                    </span>
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
       <div className="mt-6 flex flex-wrap items-baseline justify-end gap-x-6 gap-y-1 text-right">
@@ -249,7 +306,7 @@ export default function CartPage() {
           Позиций: {items.length} · Всего предметов: {totalQuantity}
         </span>
         <span className="text-lg font-semibold">
-          Итого: {formatPrice(total)}
+          Итого: {formatPrice(totalPrice)}
         </span>
       </div>
     </main>

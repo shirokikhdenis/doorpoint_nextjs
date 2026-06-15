@@ -1,3 +1,8 @@
+import { toPublicImageSrc } from "@/lib/client/image-src";
+import { parseProductBadges, type ProductBadge } from "@/lib/client/product-badges";
+
+export type { ProductBadge };
+
 export type CatalogPageItem = { slug: string; name: string; isDefault?: boolean };
 export type CatalogAttributeFilter = {
   code: string;
@@ -24,11 +29,11 @@ export type CatalogMeta = {
   labels: CatalogLabel[];
 };
 export type ProductGlassOption = { id: number; label: string };
-/** Корневая категория «Входные двери» в сиде и каталоге. */
-export const ENTRY_DOORS_CATEGORY_SLUG = "entry-doors";
 
 export type ProductCard = {
   id: number;
+  sku?: string;
+  slug?: string;
   name: string;
   color?: string;
   image?: string;
@@ -39,14 +44,9 @@ export type ProductCard = {
   price: number;
   /** Варианты стекла той же модели (тот же model_key + name, тот же color); для чипов в выдаче. */
   glassOptions?: ProductGlassOption[];
+  badges?: ProductBadge[];
 };
 
-/** Две картинки в ряд на витрине — только для группы «Входные двери». */
-export const isEntryDoorCatalogItem = (item: Pick<ProductCard, "categorySlug" | "category">): boolean =>
-  item.categorySlug === ENTRY_DOORS_CATEGORY_SLUG ||
-  String(item.category || "")
-    .toLowerCase()
-    .includes("входн");
 export type VariantAttribute = {
   code: string;
   name: string;
@@ -62,12 +62,14 @@ export type Variant = {
 };
 export type ColorVariant = {
   id: number;
+  slug?: string;
   color: string;
   image: string;
   isCurrent: boolean;
 };
 export type GlassVariant = {
   id: number;
+  slug?: string;
   glass: string;
   image: string;
   isCurrent: boolean;
@@ -81,8 +83,25 @@ export type AccessoryItem = {
   category: string;
   attributes: Array<{ code: string; name: string; value: string }>;
 };
+export type RelatedFittingItem = {
+  id: number;
+  sku: string;
+  slug?: string;
+  name: string;
+  price: number;
+  image: string;
+  subcategory: string;
+  group: "fixators" | "latches" | "hinges";
+};
+export type RelatedFittings = {
+  fixators: RelatedFittingItem[];
+  latches: RelatedFittingItem[];
+  hinges: RelatedFittingItem[];
+};
 export type ProductData = {
   id: number;
+  sku?: string;
+  slug?: string;
   name: string;
   price: number;
   image?: string;
@@ -94,6 +113,8 @@ export type ProductData = {
   colorVariants: ColorVariant[];
   glassVariants: GlassVariant[];
   accessories: AccessoryItem[];
+  relatedFittings: RelatedFittings;
+  badges?: ProductBadge[];
 };
 
 export type AdminCatalogPage = {
@@ -148,7 +169,10 @@ export const normalizeCatalogMeta = (value: unknown): CatalogMeta => {
     labels: asArray<Record<string, unknown>>(source.labels).map((entry) => ({
       id: Number(entry.id) || 0,
       title: String(entry.title || ""),
-      imageUrl: entry.imageUrl != null && entry.imageUrl !== "" ? String(entry.imageUrl) : null,
+      imageUrl:
+        entry.imageUrl != null && entry.imageUrl !== ""
+          ? toPublicImageSrc(String(entry.imageUrl))
+          : null,
       sortOrder: Number(entry.sortOrder) || 0,
       filters: asArray<Record<string, unknown>>(entry.filters)
         .map((f) => ({
@@ -182,48 +206,91 @@ const parseGlassOptions = (raw: unknown): ProductGlassOption[] => {
     .filter(Boolean) as ProductGlassOption[];
 };
 
+const normalizeOptionalImage = (value: unknown) => {
+  const src = toPublicImageSrc(value != null ? String(value) : "");
+  return src || undefined;
+};
+
 export const normalizeProductsResponse = (value: unknown): ProductCard[] => {
   const source = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
   return asArray<Record<string, unknown>>(source.items).map((item) => ({
     id: Number(item.id) || 0,
+    sku: item.sku ? String(item.sku) : undefined,
+    slug: item.slug ? String(item.slug) : undefined,
     name: String(item.name || ""),
     color: item.color ? String(item.color) : undefined,
-    image: item.image ? String(item.image) : undefined,
-    hoverImage: item.hoverImage ? String(item.hoverImage) : undefined,
+    image: normalizeOptionalImage(item.image),
+    hoverImage: normalizeOptionalImage(item.hoverImage),
     category: item.category ? String(item.category) : undefined,
     categorySlug: item.categorySlug ? String(item.categorySlug) : undefined,
     price: Number(item.price) || 0,
     glassOptions: parseGlassOptions(item.glassOptions),
+    badges: parseProductBadges(item.badges),
   }));
+};
+
+const normalizeRelatedFittingItem = (
+  entry: Record<string, unknown>,
+  group: RelatedFittingItem["group"],
+): RelatedFittingItem => ({
+  id: Number(entry.id) || 0,
+  sku: String(entry.sku || ""),
+  name: String(entry.name || ""),
+  price: Number(entry.price) || 0,
+  image: toPublicImageSrc(String(entry.image || "")),
+  slug: entry.slug ? String(entry.slug) : undefined,
+  subcategory: String(entry.subcategory || ""),
+  group,
+});
+
+const normalizeRelatedFittings = (value: unknown): RelatedFittings => {
+  const source = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
+  return {
+    fixators: asArray<Record<string, unknown>>(source.fixators).map((entry) =>
+      normalizeRelatedFittingItem(entry, "fixators"),
+    ),
+    latches: asArray<Record<string, unknown>>(source.latches).map((entry) =>
+      normalizeRelatedFittingItem(entry, "latches"),
+    ),
+    hinges: asArray<Record<string, unknown>>(source.hinges).map((entry) =>
+      normalizeRelatedFittingItem(entry, "hinges"),
+    ),
+  };
 };
 
 export const normalizeProductData = (value: unknown): ProductData => {
   const source = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
   return {
     id: Number(source.id) || 0,
+    sku: source.sku ? String(source.sku) : undefined,
+    slug: source.slug ? String(source.slug) : undefined,
     name: String(source.name || ""),
     price: Number(source.price) || 0,
-    image: source.image ? String(source.image) : undefined,
-    images: asArray<string>(source.images),
+    image: source.image ? toPublicImageSrc(String(source.image)) : undefined,
+    images: asArray<string>(source.images)
+      .map((url) => toPublicImageSrc(String(url)))
+      .filter(Boolean),
     category: source.category ? String(source.category) : undefined,
     subcategory: source.subcategory ? String(source.subcategory) : undefined,
     attributes: asArray<ProductData["attributes"][number]>(source.attributes),
     variants: asArray<Record<string, unknown>>(source.variants).map((variant) => ({
       sku: String(variant.sku || ""),
       price: Number(variant.price) || 0,
-      image: variant.image ? String(variant.image) : undefined,
+      image: variant.image ? toPublicImageSrc(String(variant.image)) : undefined,
       attributes: asArray<VariantAttribute>(variant.attributes),
     })),
     colorVariants: asArray<Record<string, unknown>>(source.colorVariants).map((entry) => ({
       id: Number(entry.id) || 0,
+      slug: entry.slug ? String(entry.slug) : undefined,
       color: String(entry.color || ""),
-      image: String(entry.image || ""),
+      image: toPublicImageSrc(String(entry.image || "")),
       isCurrent: Boolean(entry.isCurrent),
     })),
     glassVariants: asArray<Record<string, unknown>>(source.glassVariants || []).map((entry) => ({
       id: Number(entry.id) || 0,
+      slug: entry.slug ? String(entry.slug) : undefined,
       glass: String(entry.glass || ""),
-      image: String(entry.image || ""),
+      image: toPublicImageSrc(String(entry.image || "")),
       isCurrent: Boolean(entry.isCurrent),
     })),
     accessories: asArray<Record<string, unknown>>(source.accessories || []).map((entry) => ({
@@ -231,7 +298,7 @@ export const normalizeProductData = (value: unknown): ProductData => {
       sku: String(entry.sku || ""),
       name: String(entry.name || ""),
       price: Number(entry.price) || 0,
-      image: String(entry.image || ""),
+      image: toPublicImageSrc(String(entry.image || "")),
       category: String(entry.category || ""),
       attributes: asArray<AccessoryItem["attributes"][number]>(entry.attributes).map((a) => ({
         code: String(a.code || ""),
@@ -239,6 +306,8 @@ export const normalizeProductData = (value: unknown): ProductData => {
         value: String(a.value || ""),
       })),
     })),
+    relatedFittings: normalizeRelatedFittings(source.relatedFittings),
+    badges: parseProductBadges(source.badges),
   };
 };
 

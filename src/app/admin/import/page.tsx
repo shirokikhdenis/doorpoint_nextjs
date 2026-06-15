@@ -468,6 +468,10 @@ function MappingDialog({
     setDraft((prev) => ({ ...prev, [header]: value }));
   };
 
+  const clearMapping = () => {
+    setDraft(Object.fromEntries(headers.map((header) => [header, SKIP_TARGET])));
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
@@ -571,6 +575,13 @@ function MappingDialog({
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={clearMapping}
+              className="rounded border border-zinc-200 bg-white px-3 py-1.5 hover:bg-zinc-100"
+            >
+              Очистить
+            </button>
             <button
               type="button"
               onClick={() => setDraft(computeAutoMapping())}

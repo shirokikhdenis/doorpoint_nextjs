@@ -1,3 +1,18 @@
+import type { Metadata } from "next";
+import { SiteSocialLinks } from "@/features/store/site-social-links";
+import {
+  SITE_ADDRESS,
+  SITE_EMAIL,
+  SITE_HOURS,
+  SITE_PHONE_DISPLAY,
+  SITE_PHONE_TEL,
+} from "@/lib/site-contact";
+
+export const metadata: Metadata = {
+  title: "Контакты — Салон дверей",
+  description: "Адрес салона, телефон, e-mail и режим работы",
+};
+
 export default function ContactPage() {
   return (
     <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6">
@@ -9,27 +24,33 @@ export default function ContactPage() {
           <dl className="mt-4 space-y-3 text-sm text-zinc-700">
             <div>
               <dt className="font-medium text-zinc-900">Адрес</dt>
-              <dd>Архангельск, ТЦ Новосёл, пр. Московский, д. 25, к. 4, стр. 1, 1 этаж, направо до конца</dd>
+              <dd>{SITE_ADDRESS}</dd>
             </div>
             <div>
               <dt className="font-medium text-zinc-900">Телефон</dt>
               <dd>
-                <a className="hover:underline" href="tel:+79000000000">
-                  +7 (921) 290-59-99
+                <a className="hover:underline" href={`tel:${SITE_PHONE_TEL}`}>
+                  {SITE_PHONE_DISPLAY}
                 </a>
               </dd>
             </div>
             <div>
               <dt className="font-medium text-zinc-900">E-mail</dt>
               <dd>
-                <a className="hover:underline" href="mailto:info@example.local">
-                  doorpoint29@yandex.ru
+                <a className="hover:underline" href={`mailto:${SITE_EMAIL}`}>
+                  {SITE_EMAIL}
                 </a>
               </dd>
             </div>
             <div>
               <dt className="font-medium text-zinc-900">Режим работы</dt>
-              <dd>Пн-Пт: 11:00-19:00, Сб-Вс: 11:00-17:00</dd>
+              <dd>{SITE_HOURS}</dd>
+            </div>
+            <div>
+              <dt className="font-medium text-zinc-900">Мессенджеры и соцсети</dt>
+              <dd className="mt-2">
+                <SiteSocialLinks variant="light" />
+              </dd>
             </div>
           </dl>
         </section>

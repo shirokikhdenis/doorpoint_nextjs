@@ -12,8 +12,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Door Catalog Next.js",
-  description: "Migrated storefront/admin application on Next.js + PostgreSQL",
+  title: "Салон дверей — каталог",
+  description: "Каталог межкомнатных и входных дверей, корзина и заявка на замер",
 };
 
 export default function RootLayout({
@@ -23,7 +23,7 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang="ru"
       className={`${geometria.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full overflow-x-hidden bg-zinc-50 font-sans text-zinc-900">

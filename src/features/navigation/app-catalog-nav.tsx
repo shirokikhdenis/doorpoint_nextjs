@@ -7,10 +7,10 @@ import {
   CatalogPageItem,
   normalizeCatalogPages,
 } from "@/lib/client/normalizers";
-import { navToneClass } from "@/features/store/storefront-ui";
+import { catalogTabClass } from "@/features/store/storefront-ui";
 
-const navButtonBase =
-  "max-w-[14rem] shrink-0 snap-start truncate whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium md:max-w-none md:px-3 md:text-base";
+const tabButtonBase =
+  "max-w-[14rem] snap-start truncate md:max-w-none";
 
 /**
  * Глобальный навбар витрин: «Общий каталог», «Входные двери», ... Расположен
@@ -58,8 +58,8 @@ export function AppCatalogNav() {
     : lastSelectedSlug;
 
   return (
-    <div className="relative border-b border-zinc-200 bg-white/95 backdrop-blur print:hidden">
-      <nav className="mx-auto flex w-full max-w-[1630px] snap-x snap-mandatory items-center gap-2 overflow-x-auto px-4 py-2 sm:px-6 lg:px-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:justify-center">
+    <div className="relative border-b border-zinc-200 bg-white print:hidden">
+      <nav className="mx-auto flex w-full max-w-[1920px] snap-x snap-mandatory items-end gap-1 overflow-x-auto px-4 sm:px-6 lg:px-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:justify-center">
         {pages.map((page) => {
           const isActive = page.slug === activeSlug;
           return (
@@ -69,15 +69,15 @@ export function AppCatalogNav() {
               scroll={false}
               aria-current={isActive ? "page" : undefined}
               onClick={() => setLastSelectedSlug(page.slug)}
-              className={`${navButtonBase} ${navToneClass(isActive)}`}
+              className={`${tabButtonBase} ${catalogTabClass(isActive)}`}
             >
               {page.name}
             </Link>
           );
         })}
       </nav>
-      <div className="pointer-events-none absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-white/95 to-transparent md:hidden" />
-      <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-white/95 to-transparent md:hidden" />
+      <div className="pointer-events-none absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-white to-transparent md:hidden" />
+      <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-white to-transparent md:hidden" />
     </div>
   );
 }

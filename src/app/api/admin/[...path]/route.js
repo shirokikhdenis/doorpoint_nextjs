@@ -119,6 +119,13 @@ const handle = async (request, context) =>
       const updated = await adminService.patchProductDisplayOrder(Number(path[1]), body);
       return updated ? json(updated) : json({ message: "Product not found" }, 404);
     }
+    if (path[0] === "products" && path.length === 3 && path[2] === "badges" && method === "PATCH") {
+      if (!Array.isArray(body.badges)) {
+        return json({ message: "badges must be an array" }, 400);
+      }
+      const updated = await adminService.patchProductBadges(Number(path[1]), body);
+      return updated ? json(updated) : json({ message: "Product not found" }, 404);
+    }
     if (path[0] === "products" && path.length === 2 && method === "PUT") return json(await adminService.updateProduct(Number(path[1]), body));
     if (path[0] === "products" && path.length === 2 && method === "GET") {
       const product = await adminService.getProductForEdit(Number(path[1]));
@@ -126,6 +133,12 @@ const handle = async (request, context) =>
     }
 
     if (match(path, method, "GET", "products-table")) return json(await adminService.getProductsTable(query));
+    if (match(path, method, "GET", "product-attribute-values")) {
+      if (!String(query.code || "").trim()) {
+        return json({ message: "code is required" }, 400);
+      }
+      return json(await adminService.getProductAttributeDistinctValues(query));
+    }
     if (match(path, method, "POST", "import", "csv")) {
       if (!Array.isArray(body.rows)) return json({ message: "rows must be an array" }, 400);
       return json(await csvImportService.importRows(body.rows));

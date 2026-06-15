@@ -1,25 +1,28 @@
-export type CartItem = {
-  id: number;
-  name: string;
-  image: string;
-  price: number;
-  quantity: number;
-  /** Цвет полотна / комплектующих к выбранной открытой карточке (для отображения в корзине). */
-  color?: string;
-  /** Погонаж / комплектующие: в корзине не показываем превью фото. */
-  hideCartImage?: boolean;
+import { cartToast } from "@/lib/client/cart-toast";
+import { isSameCartLine } from "@/lib/client/cart-line";
+
+export type {
+  AddCartItemOptions,
+  CartItem,
+  CartLineRef,
+} from "@/lib/client/cart-types";
+
+export { findCartLine, isSameCartLine } from "@/lib/client/cart-line";
+
+import type { AddCartItemOptions, CartItem, CartLineRef } from "@/lib/client/cart-types";
+
+export const isPogonazhCategoryLabel = (category?: string, categorySlug?: string) => {
+  const name = String(category ?? "").trim().toLowerCase();
+  const slug = String(categorySlug ?? "").trim().toLowerCase();
+  return (
+    name.includes("погонаж") ||
+    slug.includes("погонаж") ||
+    slug.includes("pogonazh")
+  );
 };
 
-/** Строка корзины: id + подпись варианта + цвет (одинаковые SKU в разном цвете — разные строки). */
-export type CartLineRef = Pick<CartItem, "id" | "name" | "color" | "hideCartImage">;
-
-const trimLine = (value: string | undefined) => String(value ?? "").trim();
-
-const sameLine = (a: CartLineRef, b: CartLineRef) =>
-  Number(a.id) === Number(b.id) &&
-  trimLine(a.name) === trimLine(b.name) &&
-  trimLine(a.color) === trimLine(b.color) &&
-  Boolean(a.hideCartImage) === Boolean(b.hideCartImage);
+export const cartItemHasProductLink = (item: CartItem) =>
+  !(item.noProductLink === true || item.hideCartImage === true);
 
 const CART_STORAGE_KEY = "door_catalog_cart_v1";
 
@@ -31,9 +34,12 @@ const sanitizeItem = (item: Partial<CartItem>): CartItem => {
     price: Number(item.price) || 0,
     quantity: Math.max(1, Number(item.quantity) || 1),
   };
-  const c = trimLine(item.color);
+  const c = String(item.color ?? "").trim();
   if (c) base.color = c;
+  const sku = String(item.sku ?? "").trim();
+  if (sku) base.sku = sku;
   if (item.hideCartImage === true) base.hideCartImage = true;
+  if (item.noProductLink === true) base.noProductLink = true;
   return base;
 };
 
@@ -50,35 +56,83 @@ const readRaw = (): CartItem[] => {
   }
 };
 
+let memorySnapshot: CartItem[] = [];
+
+const getSnapshot = (): CartItem[] => memorySnapshot;
+
+const syncSnapshotFromStorage = () => {
+  memorySnapshot = readRaw();
+};
+
+if (typeof window !== "undefined") {
+  syncSnapshotFromStorage();
+}
+
 const writeRaw = (items: CartItem[]) => {
   if (typeof window === "undefined") return;
   localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
+  memorySnapshot = items;
 };
+
+type CartListener = () => void;
+const listeners = new Set<CartListener>();
+
+const notify = () => {
+  for (const listener of listeners) listener();
+};
+
+const persistAndNotify = (items: CartItem[]) => {
+  writeRaw(items);
+  notify();
+};
+
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", (event) => {
+    if (event.key !== CART_STORAGE_KEY) return;
+    syncSnapshotFromStorage();
+    notify();
+  });
+}
 
 export const cartStore = {
   getItems(): CartItem[] {
-    return readRaw();
+    if (typeof window === "undefined") return [];
+    return getSnapshot();
   },
 
-  addItem(item: Partial<CartItem>): CartItem[] {
+  getSnapshot,
+
+  subscribe(listener: CartListener): () => void {
+    listeners.add(listener);
+    return () => {
+      listeners.delete(listener);
+    };
+  },
+
+  addItem(item: Partial<CartItem>, options?: AddCartItemOptions): CartItem[] {
     const next = sanitizeItem(item);
-    const items = readRaw();
-    const existing = items.find((entry) => sameLine(entry, next));
+    const items = [...getSnapshot()];
+    const existing = items.find((entry) => isSameCartLine(entry, next));
     if (existing) {
       existing.quantity += next.quantity;
+      if (next.sku && !existing.sku) existing.sku = next.sku;
+      if (next.noProductLink && !existing.noProductLink) existing.noProductLink = true;
     } else {
       items.push(next);
     }
-    writeRaw(items);
+    persistAndNotify(items);
+    if (options?.toast !== false) {
+      cartToast.show(options?.toast ?? "Товар добавлен в корзину");
+    }
     return items;
   },
 
   setQuantity(ref: CartLineRef, quantity: number): CartItem[] {
     const nextQuantity = Math.max(0, Number(quantity) || 0);
-    const items = readRaw()
-      .map((item) => (sameLine(item, ref) ? { ...item, quantity: nextQuantity } : item))
+    const items = getSnapshot()
+      .map((item) => (isSameCartLine(item, ref) ? { ...item, quantity: nextQuantity } : item))
       .filter((item) => item.quantity > 0);
-    writeRaw(items);
+    persistAndNotify(items);
     return items;
   },
 
@@ -87,7 +141,7 @@ export const cartStore = {
   },
 
   clear(): CartItem[] {
-    writeRaw([]);
+    persistAndNotify([]);
     return [];
   },
 };

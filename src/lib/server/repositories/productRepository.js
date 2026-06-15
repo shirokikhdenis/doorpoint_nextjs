@@ -1,5 +1,13 @@
 const { query, withTransaction } = require("../db/postgres");
 const attributeRepository = require("./attributeRepository");
+const { loadRelatedFittingsForHandle } = require("../domain/fittingsRelated");
+const { normalizeProductBadges, resolveProductBadges } = require("../domain/productBadges");
+const { allocateUniqueSlug } = require("../domain/productSlug");
+const {
+  ensureProductBadgesColumn,
+  ensureProductSlugColumn,
+  ensureLatinProductSlugs,
+} = require("../db/schemaPatches");
 
 /**
  * Репозиторий товаров на новой схеме (JSONB attrs + единое дерево categories).
@@ -19,14 +27,16 @@ const displayOrderExpr = `(CASE
   ELSE 0
 END)`;
 
-const popularitySortSql = `${displayOrderExpr} DESC, p.name ASC`;
+const stableProductIdSort = "p.id ASC";
+
+const popularitySortSql = `${displayOrderExpr} DESC, p.name ASC, ${stableProductIdSort}`;
 
 const sortMap = {
   popularity: popularitySortSql,
-  "alphabet-asc": "p.name ASC",
-  "alphabet-desc": "p.name DESC",
-  "price-asc": "p.price ASC",
-  "price-desc": "p.price DESC",
+  "alphabet-asc": `p.name ASC, ${stableProductIdSort}`,
+  "alphabet-desc": `p.name DESC, ${stableProductIdSort}`,
+  "price-asc": `p.price ASC, ${stableProductIdSort}`,
+  "price-desc": `p.price DESC, ${stableProductIdSort}`,
 };
 
 const isPlainObject = (value) =>
@@ -84,26 +94,66 @@ const parseImageUrlsJson = (raw) => {
     }
   }
   if (!Array.isArray(value)) return [];
-  return value.map((item) => String(item || "").trim()).filter(Boolean);
+  return value.map((item) => String(item || "").trim()).filter(isStorefrontImageUrl);
 };
+
+/** Заглушка в БД вместо реального фото (см. scripts/clear-placeholder-image-x.js). */
+const isStorefrontImageUrl = (url) => {
+  const raw = String(url ?? "").trim();
+  if (!raw) return false;
+  return raw.toUpperCase() !== "X";
+};
+
+/** SQL-фильтр валидного URL картинки для витрины (алиас таблицы — image_url без префикса). */
+const validStorefrontImageUrlSql = `
+  NULLIF(BTRIM(image_url), '') IS NOT NULL
+  AND upper(trim(image_url)) <> 'X'
+`;
 
 const productImageSubquery = `
   COALESCE(
-    (SELECT image_url FROM product_images WHERE product_id = p.id ORDER BY sort_order, id LIMIT 1),
+    (
+      SELECT image_url FROM product_images
+      WHERE product_id = p.id AND ${validStorefrontImageUrlSql}
+      ORDER BY sort_order, id
+      LIMIT 1
+    ),
+    (
+      SELECT image_url FROM product_variants
+      WHERE product_id = p.id AND is_active = TRUE AND ${validStorefrontImageUrlSql}
+      ORDER BY sort_order, id
+      LIMIT 1
+    ),
     ''
   )
 `;
 
 const hoverImageSubquery = `
-  (SELECT image_url FROM product_images WHERE product_id = p.id ORDER BY sort_order, id OFFSET 1 LIMIT 1)
+  (
+    SELECT image_url FROM product_images
+    WHERE product_id = p.id AND ${validStorefrontImageUrlSql}
+    ORDER BY sort_order, id
+    OFFSET 1
+    LIMIT 1
+  )
 `;
 
-/** Публичная витрина: без хотя бы одной картинки с непустым URL карточка в списках не показывается. */
+/** Публичная витрина: без хотя бы одной реальной картинки карточка в списках не показывается. */
 const storefrontListedProductPredicatesSql = `
-  EXISTS (
-    SELECT 1 FROM product_images pi
-    WHERE pi.product_id = p.id
-      AND NULLIF(BTRIM(pi.image_url), '') IS NOT NULL
+  (
+    EXISTS (
+      SELECT 1 FROM product_images pi
+      WHERE pi.product_id = p.id
+        AND NULLIF(BTRIM(pi.image_url), '') IS NOT NULL
+        AND upper(trim(pi.image_url)) <> 'X'
+    )
+    OR EXISTS (
+      SELECT 1 FROM product_variants pv
+      WHERE pv.product_id = p.id
+        AND pv.is_active = TRUE
+        AND NULLIF(BTRIM(pv.image_url), '') IS NOT NULL
+        AND upper(trim(pv.image_url)) <> 'X'
+    )
   )
 `;
 
@@ -138,6 +188,38 @@ const taxonomySelect = `
   parent.slug AS "parentSlug"
 `;
 
+const parseSearchTerms = (search) =>
+  String(search || "")
+    .trim()
+    .split(/\s+/)
+    .map((term) => term.trim())
+    .filter(Boolean);
+
+/**
+ * Поиск по каталогу: каждое слово из запроса должно встретиться хотя бы в одном
+ * из полей — name, sku или любом текстовом значении attrs (цвет, оттенок, коллекция…).
+ * Так «браво-22 snow» находит карточку с name «Браво-22» и оттенком «Snow Art».
+ */
+const buildCatalogSearchSql = (search, addParam) => {
+  const terms = parseSearchTerms(search);
+  if (terms.length === 0) return null;
+
+  const termClauses = terms.map((term) => {
+    const pattern = addParam(`%${term}%`);
+    return `(
+      p.name ILIKE ${pattern}
+      OR p.sku ILIKE ${pattern}
+      OR EXISTS (
+        SELECT 1
+        FROM jsonb_each_text(p.attrs) AS search_attr(key, value)
+        WHERE search_attr.value ILIKE ${pattern}
+      )
+    )`;
+  });
+
+  return `(${termClauses.join(" AND ")})`;
+};
+
 const buildScopeWhere = (filters, addParam) => {
   const where = ["p.is_active = TRUE"];
   const scopeCats = Array.isArray(filters.scopeCategories) ? filters.scopeCategories : [];
@@ -146,13 +228,8 @@ const buildScopeWhere = (filters, addParam) => {
   const userCats = Array.isArray(filters.categories) ? filters.categories : [];
   const userSubs = Array.isArray(filters.subcategories) ? filters.subcategories : [];
 
-  if (filters.search) {
-    // На витрине показывается «название + цвет» одной строкой, поэтому поиск
-    // ищет и в `p.name`, и в `attrs->>'color'`. Параметр биндим один раз и
-    // переиспользуем — иначе для одного поискового слова было бы два плейсхолдера.
-    const searchParam = addParam(`%${filters.search}%`);
-    where.push(`(p.name ILIKE ${searchParam} OR COALESCE(p.attrs->>'color', '') ILIKE ${searchParam})`);
-  }
+  const searchSql = buildCatalogSearchSql(filters.search, addParam);
+  if (searchSql) where.push(searchSql);
 
   // scope от страницы каталога
   if (scopeOr && scopeCats.length > 0 && scopeSubs.length > 0) {
@@ -257,6 +334,8 @@ const loadAttributeDefMap = async () => {
 };
 
 const listProducts = async (filters) => {
+  await ensureProductBadgesColumn();
+  await ensureLatinProductSlugs();
   const params = [];
   const addParam = (value) => {
     params.push(value);
@@ -288,8 +367,10 @@ const listProducts = async (filters) => {
     SELECT
       p.id,
       p.sku,
+      p.slug,
       p.name,
       p.price,
+      p.badges,
       p.attrs->>'color' AS color,
       (
         SELECT COALESCE(
@@ -329,6 +410,7 @@ const listProducts = async (filters) => {
     return {
       id: Number(row.id),
       sku: row.sku,
+      slug: row.slug || null,
       name: row.name,
       color: row.color || null,
       glassOptions: (() => {
@@ -349,6 +431,7 @@ const listProducts = async (filters) => {
           .filter((o) => Number.isInteger(o.id) && o.id > 0 && o.label);
       })(),
       price: Number(row.price),
+      badges: resolveProductBadges(row.badges),
       image: row.image || "",
       hoverImage: row.hoverImage || null,
       category: taxonomy.category,
@@ -515,6 +598,14 @@ const listFilterMeta = async (constraints = {}) => {
 
   // Числовые диапазоны (только product-scope; для variant-scope min/max не нужен — переключаем UI на список значений).
   const filterable = filterableRes.rows;
+  if (restrictAttrIds && restrictAttrIds.length > 0) {
+    const orderIndex = new Map(restrictAttrIds.map((id, index) => [Number(id), index]));
+    filterable.sort(
+      (a, b) =>
+        (orderIndex.get(Number(a.id)) ?? Number.MAX_SAFE_INTEGER) -
+        (orderIndex.get(Number(b.id)) ?? Number.MAX_SAFE_INTEGER),
+    );
+  }
   const productAttrs = filterable.filter((a) => a.scope === "product");
   const variantAttrs = filterable.filter((a) => a.scope === "variant");
 
@@ -661,7 +752,21 @@ const listFilterMeta = async (constraints = {}) => {
   };
 };
 
+const getProductBySlug = async (slug) => {
+  await ensureLatinProductSlugs();
+  const raw = String(slug || "").trim();
+  if (!raw) return null;
+  const res = await query(
+    `SELECT id FROM products WHERE slug = $1 AND is_active = TRUE LIMIT 1`,
+    [raw],
+  );
+  if (res.rows.length === 0) return null;
+  return getProductById(Number(res.rows[0].id));
+};
+
 const getProductById = async (id) => {
+  await ensureProductBadgesColumn();
+  await ensureLatinProductSlugs();
   const numericId = Number(id);
   if (!Number.isInteger(numericId) || numericId <= 0) return null;
 
@@ -670,9 +775,11 @@ const getProductById = async (id) => {
     SELECT
       p.id,
       p.sku,
+      p.slug,
       p.name,
       p.price,
       p.model_key AS "modelKey",
+      p.badges,
       p.attrs,
       c.id AS "categoryId",
       parent.id AS "parentCategoryId",
@@ -711,7 +818,13 @@ const getProductById = async (id) => {
     attributeRepository.listAttributes(),
   ]);
 
-  const images = imagesRes.rows.map((r) => r.imageUrl).filter(Boolean);
+  let images = imagesRes.rows.map((r) => r.imageUrl).filter(isStorefrontImageUrl);
+  if (images.length === 0) {
+    const variantImage = variantsRes.rows
+      .map((r) => r.imageUrl)
+      .find(isStorefrontImageUrl);
+    if (variantImage) images = [variantImage];
+  }
   const primaryImage = images[0] || "";
 
   const attrDefByCode = new Map(attrDefs.map((def) => [def.code, def]));
@@ -741,6 +854,7 @@ const getProductById = async (id) => {
       `
       SELECT
         p.id,
+        p.slug,
         p.attrs->>'color' AS color,
         ${productImageSubquery} AS image
       FROM products p
@@ -757,6 +871,7 @@ const getProductById = async (id) => {
     );
     colorVariants = colorRes.rows.map((r) => ({
       id: Number(r.id),
+      slug: r.slug || null,
       color: r.color || "",
       image: r.image || "",
       isCurrent: Number(r.id) === numericId,
@@ -779,6 +894,7 @@ const getProductById = async (id) => {
       `
       SELECT
         p.id,
+        p.slug,
         p.attrs->>'glass' AS glass,
         ${productImageSubquery} AS image
       FROM products p
@@ -795,6 +911,7 @@ const getProductById = async (id) => {
     );
     const rawGlass = glassRes.rows.map((r) => ({
       id: Number(r.id),
+      slug: r.slug || null,
       glass: String(r.glass || "").trim(),
       image: r.image || "",
       isCurrent: Number(r.id) === numericId,
@@ -932,9 +1049,17 @@ const getProductById = async (id) => {
     });
   }
 
+  const relatedFittings = await loadRelatedFittingsForHandle({
+    productId: numericId,
+    productAttrs,
+    taxonomy,
+    attrDefs,
+  });
+
   return {
     id: numericId,
     sku: row.sku,
+    slug: row.slug || null,
     name: row.name,
     price: Number(row.price),
     image: primaryImage,
@@ -949,7 +1074,9 @@ const getProductById = async (id) => {
     colorVariants,
     glassVariants,
     accessories,
+    relatedFittings,
     pogonazhIds,
+    badges: resolveProductBadges(row.badges),
   };
 };
 
@@ -1100,6 +1227,58 @@ const getAdminProductById = async (id) => {
   };
 };
 
+/** Уникальные значения product-scope атрибута из `products.attrs` (для фильтра в админке). */
+const listProductAttributeDistinctValues = async ({
+  code,
+  categoryId = null,
+  subcategoryId = null,
+  search = "",
+}) => {
+  const attrCode = String(code || "").trim();
+  if (!attrCode || !/^[a-z0-9_]+$/i.test(attrCode)) return [];
+
+  const defRes = await query(
+    `SELECT code, scope FROM attribute_definitions WHERE code = $1 LIMIT 1`,
+    [attrCode],
+  );
+  const def = defRes.rows[0];
+  if (!def || def.scope === "variant") return [];
+
+  const params = [];
+  const addParam = (value) => {
+    params.push(value);
+    return `$${params.length}`;
+  };
+  const codeParam = addParam(attrCode);
+  const whereParts = [
+    `TRIM(COALESCE(p.attrs->>${codeParam}, '')) <> ''`,
+  ];
+  if (String(search || "").trim()) {
+    const t = String(search).trim();
+    whereParts.push(`(p.name ILIKE ${addParam(`%${t}%`)} OR p.sku ILIKE ${addParam(`%${t}%`)})`);
+  }
+  if (categoryId) {
+    whereParts.push(
+      `(p.category_id = ${addParam(Number(categoryId))} OR c.parent_id = ${addParam(Number(categoryId))})`,
+    );
+  }
+  if (subcategoryId) {
+    whereParts.push(`p.category_id = ${addParam(Number(subcategoryId))}`);
+  }
+
+  const res = await query(
+    `
+    SELECT DISTINCT TRIM(p.attrs->>${codeParam}) AS value
+    FROM products p
+    ${taxonomyJoin}
+    WHERE ${whereParts.join(" AND ")}
+    ORDER BY value
+    `,
+    params,
+  );
+  return res.rows.map((row) => String(row.value || "").trim()).filter(Boolean);
+};
+
 const listProductsTable = async ({
   page = 1,
   limit = 100,
@@ -1109,6 +1288,7 @@ const listProductsTable = async ({
   attributeFilters = {},
   manufacturer = null,
 }) => {
+  await ensureProductBadgesColumn();
   const safePage = Math.max(1, Number(page) || 1);
   const safeLimit = Math.min(500, Math.max(1, Number(limit) || 100));
   const offset = (safePage - 1) * safeLimit;
@@ -1200,6 +1380,7 @@ const listProductsTable = async ({
       p.name,
       p.price,
       p.attrs,
+      p.badges,
       p.model_key AS "modelKey",
       p.is_active AS "isActive",
       COALESCE(parent.name, c.name) AS category,
@@ -1269,6 +1450,7 @@ const listProductsTable = async ({
       subcategory: row.subcategory,
       isActive: row.isActive !== false,
       displayOrder: Number(row.displayOrder) || 0,
+      badges: normalizeProductBadges(row.badges),
       attributes: ensureAttrs(row.attrs),
       variantsCount: Number(row.variantsCount || 0),
       imagesCount: Number(row.imagesCount || 0),
@@ -1350,8 +1532,9 @@ const resolveTargetCategoryId = (payload) => {
   return null;
 };
 
-const createProduct = async (payload) =>
-  withTransaction(async (client) => {
+const createProduct = async (payload) => {
+  await ensureProductSlugColumn();
+  return withTransaction(async (client) => {
     const attrDefs = await attributeRepository.listAttributes();
     const attrDefById = new Map(attrDefs.map((def) => [def.id, def]));
     const partitioned = partitionAttributesByScope(payload.attributes, attrDefById);
@@ -1359,16 +1542,18 @@ const createProduct = async (payload) =>
     const targetCategoryId = resolveTargetCategoryId(payload);
     if (!targetCategoryId) throw new Error("categoryId is required");
 
+    const slug = await allocateUniqueSlug(client, payload.name, productAttrs);
     const inserted = await client.query(
       `
-      INSERT INTO products(category_id, sku, name, model_key, price, attrs, is_active)
-      VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7)
-      RETURNING id, sku, name, price, model_key AS "modelKey", category_id AS "categoryId",
+      INSERT INTO products(category_id, sku, slug, name, model_key, price, attrs, is_active)
+      VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8)
+      RETURNING id, sku, slug, name, price, model_key AS "modelKey", category_id AS "categoryId",
                 is_active AS "isActive"
       `,
       [
         targetCategoryId,
         payload.sku,
+        slug,
         payload.name,
         payload.modelKey || null,
         payload.price,
@@ -1406,6 +1591,7 @@ const createProduct = async (payload) =>
 
     return inserted.rows[0];
   });
+};
 
 const updateProduct = async (id, payload) =>
   withTransaction(async (client) => {
@@ -1559,15 +1745,17 @@ const upsertProductBySku = async (payload) =>
       }
       const insertName = present.name ? payload.name : payload.sku;
       const insertPrice = present.price ? payload.price : 0;
+      const insertSlug = await allocateUniqueSlug(client, insertName, incomingProductAttrs);
       const insertRes = await client.query(
         `
-        INSERT INTO products(category_id, sku, name, model_key, price, attrs, is_active)
-        VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7)
+        INSERT INTO products(category_id, sku, slug, name, model_key, price, attrs, is_active)
+        VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8)
         RETURNING id, sku
         `,
         [
           resolvedCategoryId,
           payload.sku,
+          insertSlug,
           insertName,
           incomingModelKey,
           insertPrice,
@@ -1667,6 +1855,27 @@ const upsertProductBySku = async (payload) =>
   });
 
 /** Порядок выдачи в каталоге: `attrs.sort_order` (число; больше — выше при сортировке «по популярности»). */
+const patchProductBadges = async (id, badges) => {
+  await ensureProductBadgesColumn();
+  const numericId = Number(id);
+  if (!Number.isInteger(numericId) || numericId <= 0) return null;
+  const normalized = normalizeProductBadges(badges);
+  const res = await query(
+    `
+    UPDATE products
+    SET badges = $2::text[], updated_at = NOW()
+    WHERE id = $1
+    RETURNING id, badges
+    `,
+    [numericId, normalized],
+  );
+  if (!res.rows[0]) return null;
+  return {
+    id: Number(res.rows[0].id),
+    badges: normalizeProductBadges(res.rows[0].badges),
+  };
+};
+
 const patchProductDisplayOrder = async (id, rawOrder) => {
   const numericId = Number(id);
   if (!Number.isInteger(numericId) || numericId <= 0) return null;
@@ -1725,12 +1934,15 @@ module.exports = {
   listProducts,
   listFilterMeta,
   getProductById,
+  getProductBySlug,
   listAdminProducts,
   getAdminProductById,
   listProductsTable,
+  listProductAttributeDistinctValues,
   createProduct,
   updateProduct,
   upsertProductBySku,
+  patchProductBadges,
   patchProductDisplayOrder,
   deleteAllProducts,
   deleteProductsByCategoryScope,

@@ -49,6 +49,16 @@ const initEditorFromPage = (
 const toggleId = (list: number[], id: number): number[] =>
   list.includes(id) ? list.filter((current) => current !== id) : [...list, id];
 
+const moveId = (list: number[], id: number, direction: -1 | 1): number[] => {
+  const index = list.indexOf(id);
+  if (index < 0) return list;
+  const nextIndex = index + direction;
+  if (nextIndex < 0 || nextIndex >= list.length) return list;
+  const next = [...list];
+  [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
+  return next;
+};
+
 export default function AdminCatalogPagesPage() {
   const [bootstrap, setBootstrap] = useState<AdminBootstrap>({
     categories: [],
@@ -273,6 +283,24 @@ function CatalogPageEditor({ page, bootstrap, onSaved, onDeleted, onError }: Edi
     return map;
   }, [bootstrap.subcategories]);
 
+  const attributeById = useMemo(
+    () => new Map(bootstrap.attributes.map((attribute) => [attribute.id, attribute])),
+    [bootstrap.attributes],
+  );
+
+  const selectedFilterAttributes = useMemo(
+    () =>
+      state.filterAttributeIds
+        .map((id) => attributeById.get(id))
+        .filter((attribute): attribute is NonNullable<typeof attribute> => Boolean(attribute)),
+    [state.filterAttributeIds, attributeById],
+  );
+
+  const availableFilterAttributes = useMemo(
+    () => bootstrap.attributes.filter((attribute) => !state.filterAttributeIds.includes(attribute.id)),
+    [bootstrap.attributes, state.filterAttributeIds],
+  );
+
   const save = async (event: FormEvent) => {
     event.preventDefault();
     if (saving) return;
@@ -455,34 +483,104 @@ function CatalogPageEditor({ page, bootstrap, onSaved, onDeleted, onError }: Edi
           </p>
         </fieldset>
 
-        <fieldset className="space-y-2 rounded border border-zinc-200 p-3">
-          <legend className="px-1 text-xs uppercase text-zinc-500">Доступные фильтры</legend>
+        <fieldset className="space-y-3 rounded border border-zinc-200 p-3">
+          <legend className="px-1 text-xs uppercase text-zinc-500">Фильтры на витрине</legend>
           {bootstrap.attributes.length === 0 ? (
             <p className="text-xs text-zinc-500">Атрибутов пока нет.</p>
           ) : (
-            bootstrap.attributes.map((attribute) => (
-              <label key={attribute.id} className="flex items-start gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  className="mt-1"
-                  checked={state.filterAttributeIds.includes(attribute.id)}
-                  onChange={onCheckbox("filterAttributeIds", attribute.id)}
-                />
-                <span>
-                  {attribute.name}{" "}
-                  <code className="text-xs text-zinc-500">({attribute.code})</code>
-                  {attribute.isVariantAxis ? (
-                    <span className="ml-1 rounded bg-violet-100 px-1 text-[10px] text-violet-700">
-                      ось варианта
-                    </span>
-                  ) : null}
-                </span>
-              </label>
-            ))
+            <>
+              {selectedFilterAttributes.length > 0 ? (
+                <ol className="space-y-1">
+                  {selectedFilterAttributes.map((attribute, index) => (
+                    <li
+                      key={attribute.id}
+                      className="flex items-center gap-2 rounded border border-zinc-100 bg-zinc-50 px-2 py-1.5 text-sm"
+                    >
+                      <span className="w-5 shrink-0 text-center text-xs text-zinc-400">
+                        {index + 1}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        {attribute.name}{" "}
+                        <code className="text-xs text-zinc-500">({attribute.code})</code>
+                        {attribute.isVariantAxis ? (
+                          <span className="ml-1 rounded bg-violet-100 px-1 text-[10px] text-violet-700">
+                            ось варианта
+                          </span>
+                        ) : null}
+                      </span>
+                      <div className="flex shrink-0 items-center gap-0.5">
+                        <button
+                          type="button"
+                          disabled={index === 0}
+                          onClick={() =>
+                            setState((prev) => ({
+                              ...prev,
+                              filterAttributeIds: moveId(prev.filterAttributeIds, attribute.id, -1),
+                            }))
+                          }
+                          className="rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-xs hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40"
+                          title="Выше"
+                        >
+                          ↑
+                        </button>
+                        <button
+                          type="button"
+                          disabled={index === selectedFilterAttributes.length - 1}
+                          onClick={() =>
+                            setState((prev) => ({
+                              ...prev,
+                              filterAttributeIds: moveId(prev.filterAttributeIds, attribute.id, 1),
+                            }))
+                          }
+                          className="rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-xs hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40"
+                          title="Ниже"
+                        >
+                          ↓
+                        </button>
+                        <button
+                          type="button"
+                          onClick={onCheckbox("filterAttributeIds", attribute.id)}
+                          className="rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-xs text-zinc-600 hover:bg-zinc-100"
+                          title="Убрать"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <p className="text-xs text-zinc-500">
+                  Фильтры не выбраны — на каталоге показываются все доступные, в порядке из
+                  раздела «Атрибуты».
+                </p>
+              )}
+              {availableFilterAttributes.length > 0 ? (
+                <div className="space-y-1 border-t border-zinc-100 pt-2">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+                    Добавить фильтр
+                  </p>
+                  {availableFilterAttributes.map((attribute) => (
+                    <label key={attribute.id} className="flex items-start gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        className="mt-1"
+                        checked={false}
+                        onChange={onCheckbox("filterAttributeIds", attribute.id)}
+                      />
+                      <span>
+                        {attribute.name}{" "}
+                        <code className="text-xs text-zinc-500">({attribute.code})</code>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              ) : null}
+            </>
           )}
           <p className="text-[11px] text-zinc-500">
-            Если ничего не выбрано — все доступные фильтры показываются по умолчанию.
-            Если выбрано хотя бы одно — пользователю на каталоге будут видны только они.
+            Порядок в списке — порядок блоков фильтров в каталоге. Если выбрано хотя бы одно
+            поле — на витрине видны только они.
           </p>
         </fieldset>
       </div>

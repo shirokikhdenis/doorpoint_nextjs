@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { PRODUCT_BADGE_HIT } from "@/lib/client/product-badges";
 
 type AttributeDef = {
   id: number;
@@ -26,6 +27,7 @@ type ProductRow = {
   subcategory: string;
   isActive: boolean;
   displayOrder: number;
+  badges: string[];
   attributes: Record<string, string | number | boolean | null>;
   variantsCount: number;
   imagesCount: number;
@@ -73,6 +75,12 @@ export default function AdminProductsPage() {
 
   const [manufacturer, setManufacturer] = useState("");
   const [appliedManufacturer, setAppliedManufacturer] = useState("");
+  const [attrCode, setAttrCode] = useState("");
+  const [attrValue, setAttrValue] = useState("");
+  const [appliedAttrCode, setAppliedAttrCode] = useState("");
+  const [appliedAttrValue, setAppliedAttrValue] = useState("");
+  const [attrValueOptions, setAttrValueOptions] = useState<string[]>([]);
+  const [attrValueOptionsLoading, setAttrValueOptionsLoading] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -88,6 +96,9 @@ export default function AdminProductsPage() {
       if (categoryId) params.set("categoryId", String(categoryId));
       if (subcategoryId) params.set("subcategoryId", String(subcategoryId));
       if (appliedManufacturer.trim()) params.set("manufacturer", appliedManufacturer.trim());
+      if (appliedAttrCode.trim() && appliedAttrValue.trim()) {
+        params.set(`attr_${appliedAttrCode.trim()}`, appliedAttrValue.trim());
+      }
       try {
         const response = await fetch(
           `/api/admin/products-table?${params.toString()}`,
@@ -110,7 +121,17 @@ export default function AdminProductsPage() {
       cancelled = true;
       controller.abort();
     };
-  }, [page, limit, appliedSearch, categoryId, subcategoryId, appliedManufacturer, reloadToken]);
+  }, [
+    page,
+    limit,
+    appliedSearch,
+    categoryId,
+    subcategoryId,
+    appliedManufacturer,
+    appliedAttrCode,
+    appliedAttrValue,
+    reloadToken,
+  ]);
 
   const triggerReload = () => setReloadToken((token) => token + 1);
 
@@ -119,6 +140,8 @@ export default function AdminProductsPage() {
     setPage(1);
     setAppliedSearch(search);
     setAppliedManufacturer(manufacturer.trim());
+    setAppliedAttrCode(attrCode.trim());
+    setAppliedAttrValue(attrValue.trim());
   };
 
   const visibleSubcategories = useMemo(
@@ -130,6 +153,44 @@ export default function AdminProductsPage() {
   );
 
   const attributes = data?.attributes || [];
+  const productAttributes = useMemo(
+    () => attributes.filter((attribute) => !attribute.isVariantAxis),
+    [attributes],
+  );
+  useEffect(() => {
+    if (!attrCode) {
+      setAttrValueOptions([]);
+      setAttrValueOptionsLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    let cancelled = false;
+    setAttrValueOptionsLoading(true);
+    const params = new URLSearchParams({ code: attrCode });
+    if (categoryId) params.set("categoryId", String(categoryId));
+    if (subcategoryId) params.set("subcategoryId", String(subcategoryId));
+    void fetch(`/api/admin/product-attribute-values?${params.toString()}`, {
+      signal: controller.signal,
+    })
+      .then((response) => (response.ok ? response.json() : []))
+      .then((values) => {
+        if (cancelled) return;
+        setAttrValueOptions(
+          Array.isArray(values) ? values.map((value) => String(value)).filter(Boolean) : [],
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setAttrValueOptions([]);
+      })
+      .finally(() => {
+        if (!cancelled) setAttrValueOptionsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [attrCode, categoryId, subcategoryId]);
+
   const rows = data?.rows || [];
 
   const categoryNameById = useMemo(() => {
@@ -337,6 +398,61 @@ export default function AdminProductsPage() {
             ))}
           </select>
         </label>
+        <label className="flex flex-col gap-1 text-xs text-zinc-600">
+          Характеристика
+          <select
+            value={attrCode}
+            onChange={(event) => {
+              setAttrCode(event.target.value);
+              setAttrValue("");
+              setPage(1);
+            }}
+            className="min-w-[160px] rounded border border-zinc-200 px-3 py-1.5 text-sm"
+          >
+            <option value="">Все</option>
+            {productAttributes.map((attribute) => (
+              <option key={attribute.id} value={attribute.code}>
+                {attribute.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-xs text-zinc-600">
+          Значение
+          {attrCode && attrValueOptions.length > 0 ? (
+            <select
+              value={attrValue}
+              onChange={(event) => {
+                setAttrValue(event.target.value);
+                setPage(1);
+              }}
+              disabled={attrValueOptionsLoading}
+              className="min-w-[160px] rounded border border-zinc-200 px-3 py-1.5 text-sm disabled:bg-zinc-50"
+            >
+              <option value="">Любое</option>
+              {attrValueOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              type="search"
+              value={attrValue}
+              onChange={(event) => setAttrValue(event.target.value)}
+              disabled={!attrCode || attrValueOptionsLoading}
+              placeholder={
+                !attrCode
+                  ? "сначала характеристика"
+                  : attrValueOptionsLoading
+                    ? "загрузка…"
+                    : "часть значения"
+              }
+              className="min-w-[160px] rounded border border-zinc-200 px-3 py-1.5 text-sm disabled:bg-zinc-50"
+            />
+          )}
+        </label>
         <button
           type="submit"
           className="rounded bg-black px-3 py-1.5 text-sm text-white"
@@ -353,6 +469,10 @@ export default function AdminProductsPage() {
             setAppliedManufacturer("");
             setCategoryId(0);
             setSubcategoryId(0);
+            setAttrCode("");
+            setAttrValue("");
+            setAppliedAttrCode("");
+            setAppliedAttrValue("");
             setPage(1);
           }}
           className="rounded border border-zinc-200 bg-white px-3 py-1.5 text-sm hover:bg-zinc-100"
@@ -409,6 +529,7 @@ export default function AdminProductsPage() {
                 <th className="px-2 py-2">Категория</th>
                 <th className="px-2 py-2">Подкатегория</th>
                 <th className="px-2 py-2 text-right">Цена</th>
+                <th className="px-2 py-2 text-center">Хит</th>
                 <th className="px-2 py-2 text-center">Активен</th>
                 <th className="px-2 py-2 text-right">Вариантов</th>
                 <th className="px-2 py-2 text-right">Картинок</th>
@@ -432,7 +553,7 @@ export default function AdminProductsPage() {
               {rows.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={12 + attributes.length}
+                    colSpan={13 + attributes.length}
                     className="px-3 py-6 text-center text-sm text-zinc-500"
                   >
                     {loading ? "Загрузка…" : "Товары не найдены"}
@@ -454,6 +575,13 @@ export default function AdminProductsPage() {
                     <td className="px-2 py-1 text-zinc-600">{row.category || "—"}</td>
                     <td className="px-2 py-1 text-zinc-600">{row.subcategory || "—"}</td>
                     <td className="px-2 py-1 text-right text-zinc-800">{formatPrice(row.price)}</td>
+                    <td className="px-2 py-1 text-center">
+                      <HitBadgeToggle
+                        productId={row.id}
+                        checked={row.badges.includes(PRODUCT_BADGE_HIT)}
+                        onSaved={triggerReload}
+                      />
+                    </td>
                     <td className="px-2 py-1 text-center">
                       {row.isActive ? (
                         <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[11px] text-emerald-700">
@@ -531,6 +659,51 @@ export default function AdminProductsPage() {
         ) : null}
       </section>
     </main>
+  );
+}
+
+function HitBadgeToggle({
+  productId,
+  checked,
+  onSaved,
+}: {
+  productId: number;
+  checked: boolean;
+  onSaved: () => void;
+}) {
+  const [saving, setSaving] = useState(false);
+
+  const toggle = async () => {
+    if (saving) return;
+    setSaving(true);
+    const nextBadges = checked ? [] : [PRODUCT_BADGE_HIT];
+    try {
+      const res = await fetch(`/api/admin/products/${productId}/badges`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ badges: nextBadges }),
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `HTTP ${res.status}`);
+      }
+      onSaved();
+    } catch {
+      /* ignore — чекбокс откатится после reload */
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <input
+      type="checkbox"
+      checked={checked}
+      disabled={saving}
+      onChange={() => void toggle()}
+      aria-label="Бейдж «Хит»"
+      className="h-4 w-4 cursor-pointer disabled:cursor-wait"
+    />
   );
 }
 

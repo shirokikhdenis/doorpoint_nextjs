@@ -1,0 +1,80 @@
+import Image from "next/image";
+import Link from "next/link";
+import { CATALOG_CARD_IMAGE_HEIGHT } from "@/features/catalog/catalog-constants";
+import { AddToCartIconButton } from "@/features/store/add-to-cart-icon-button";
+import { PriceTag } from "@/features/store/price-tag";
+import { ProductCardBadges } from "@/features/store/product-card-badges";
+import { isPogonazhCategoryLabel } from "@/lib/client/cart-store";
+import { toPublicImageSrc } from "@/lib/client/image-src";
+import type { ProductCard } from "@/lib/client/normalizers";
+import { productHref } from "@/lib/client/product-url";
+
+type CatalogProductCardProps = {
+  item: ProductCard;
+  showHover: boolean;
+  onMouseEnter: () => void;
+  onMouseLeave: () => void;
+  onNavigateToProduct: () => void;
+  onAddToCart: () => void;
+};
+
+export function CatalogProductCard({
+  item,
+  showHover,
+  onMouseEnter,
+  onMouseLeave,
+  onNavigateToProduct,
+  onAddToCart,
+}: CatalogProductCardProps) {
+  const primaryImage = toPublicImageSrc(item.image);
+  const hoverImage = toPublicImageSrc(item.hoverImage);
+  const cardImage = showHover && hoverImage ? hoverImage : primaryImage;
+  const displayName = item.color ? `${item.name} ${item.color}` : item.name;
+
+  return (
+    <article
+      className="flex h-full flex-col rounded-lg bg-white p-2 shadow-md transition-shadow duration-150 hover:shadow-lg"
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+    >
+      <div className="relative">
+        <ProductCardBadges badges={item.badges || []} />
+        <Link href={productHref(item)} className="block" onClick={onNavigateToProduct}>
+          <div
+            className={`relative mb-3 ${CATALOG_CARD_IMAGE_HEIGHT} overflow-hidden bg-white p-2`}
+          >
+            {cardImage ? (
+              <Image
+                src={cardImage}
+                alt={item.name}
+                fill
+                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                className="object-contain object-center"
+              />
+            ) : null}
+          </div>
+        </Link>
+        <AddToCartIconButton productName={displayName} onClick={onAddToCart} />
+      </div>
+      <Link href={productHref(item)} className="block" onClick={onNavigateToProduct}>
+        <h3 className="font-normal">{displayName}</h3>
+        <PriceTag price={item.price} className="mt-2 block text-base font-medium text-zinc-800" />
+      </Link>
+    </article>
+  );
+}
+
+export function buildCatalogCartItem(item: ProductCard) {
+  return {
+    id: item.id,
+    name: item.name,
+    image: item.image || "",
+    price: item.price,
+    quantity: 1,
+    ...(item.sku?.trim() ? { sku: item.sku.trim() } : {}),
+    ...(item.color?.trim() ? { color: item.color.trim() } : {}),
+    ...(isPogonazhCategoryLabel(item.category, item.categorySlug)
+      ? { noProductLink: true, hideCartImage: true }
+      : {}),
+  };
+}

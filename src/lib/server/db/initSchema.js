@@ -21,6 +21,8 @@ DROP TABLE IF EXISTS
   audit_log,
   product_variant_attribute_values,
   product_attribute_values,
+  portfolio_images,
+  portfolio_projects,
   product_images,
   product_variants,
   products,
@@ -90,9 +92,11 @@ CREATE TABLE products (
   category_id BIGINT NOT NULL REFERENCES categories(id),
   sku TEXT NOT NULL UNIQUE,
   name TEXT NOT NULL,
+  slug TEXT UNIQUE,
   model_key TEXT,
   price INTEGER NOT NULL,
   attrs JSONB NOT NULL DEFAULT '{}'::jsonb,
+  badges TEXT[] NOT NULL DEFAULT '{}'::text[],
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -102,6 +106,7 @@ CREATE INDEX idx_products_category_id ON products(category_id);
 CREATE INDEX idx_products_model_key ON products(model_key) WHERE model_key IS NOT NULL;
 CREATE INDEX idx_products_price ON products(price);
 CREATE INDEX idx_products_name ON products(name);
+CREATE INDEX idx_products_slug ON products(slug) WHERE slug IS NOT NULL;
 CREATE INDEX idx_products_attrs ON products USING gin (attrs jsonb_path_ops);
 
 CREATE TABLE product_images (
@@ -128,6 +133,25 @@ CREATE TABLE product_variants (
 
 CREATE INDEX idx_product_variants_product_id ON product_variants(product_id);
 CREATE INDEX idx_product_variants_attrs ON product_variants USING gin (attrs jsonb_path_ops);
+
+CREATE TABLE portfolio_projects (
+  id BIGSERIAL PRIMARY KEY,
+  title TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE portfolio_images (
+  id BIGSERIAL PRIMARY KEY,
+  project_id BIGINT NOT NULL REFERENCES portfolio_projects(id) ON DELETE CASCADE,
+  image_url TEXT NOT NULL,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  UNIQUE(project_id, image_url)
+);
+
+CREATE INDEX idx_portfolio_images_project_id ON portfolio_images(project_id);
 `;
 
 const slugify = (value) =>
@@ -220,7 +244,7 @@ const seedAttributes = async (client) => {
       unit: null,
       scope: "product",
       isFilterable: true,
-      options: ["Белый", "Чёрный", "Серый", "Графит", "Орех"],
+      options: [],
     },
     {
       code: "glass",
@@ -229,7 +253,7 @@ const seedAttributes = async (client) => {
       unit: null,
       scope: "product",
       isFilterable: true,
-      options: ["Прозрачное", "Матовое", "Без вставки"],
+      options: [],
     },
     {
       code: "fill",

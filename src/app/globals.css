@@ -1,22 +1,22 @@
-@import "tailwindcss";
+@import "tailwindcss" source(none);
+@source "../**/*.{js,ts,jsx,tsx}";
 
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --color-brand: #2c2cb7;
+  --color-brand-hover: #252599;
+  /* Высота липкой шапки (AppNav) — для колонки фильтров каталога */
+  --storefront-sticky-offset: 3.5rem;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-brand: var(--color-brand);
+  --color-brand-hover: var(--color-brand-hover);
   --font-sans: var(--font-geometria);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
@@ -33,6 +33,112 @@ html {
   html {
     scroll-behavior: auto;
   }
+}
+
+.range-slider-input {
+  pointer-events: none;
+  height: 1.5rem;
+  background: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.range-slider-input::-webkit-slider-thumb {
+  pointer-events: auto;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 1rem;
+  width: 1rem;
+  border-radius: 9999px;
+  border: 2px solid var(--color-brand);
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.08);
+  cursor: pointer;
+}
+
+.range-slider-input::-moz-range-thumb {
+  pointer-events: auto;
+  height: 1rem;
+  width: 1rem;
+  border-radius: 9999px;
+  border: 2px solid var(--color-brand);
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.08);
+  cursor: pointer;
+}
+
+.range-slider-input::-webkit-slider-runnable-track {
+  background: transparent;
+}
+
+.range-slider-input::-moz-range-track {
+  background: transparent;
+}
+
+@keyframes cart-added-toast-in {
+  from {
+    opacity: 0;
+    transform: translate(1rem, 1rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+}
+
+@keyframes cart-added-toast-out {
+  from {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translate(1rem, 1rem);
+  }
+}
+
+.cart-added-toast--enter {
+  animation: cart-added-toast-in 0.35s ease-out forwards;
+}
+
+.cart-added-toast--exit {
+  animation: cart-added-toast-out 0.3s ease-in forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cart-added-toast--enter,
+  .cart-added-toast--exit {
+    animation: none;
+  }
+}
+
+.catalog-filters-scroll {
+  scrollbar-gutter: stable;
+  overscroll-behavior-y: contain;
+}
+
+.catalog-filters-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.catalog-filters-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.catalog-filters-scroll::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background: rgb(212 212 216 / 0.9);
+}
+
+.catalog-filters-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgb(161 161 170);
+}
+
+.catalog-filters-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(212 212 216) transparent;
 }
 
 @media print {

@@ -179,10 +179,20 @@ const getProductById = async (id) => {
   return productRepository.getProductById(numericId);
 };
 
+const getProductByRef = async (ref) => {
+  const raw = String(ref || "").trim();
+  if (!raw) return null;
+  if (/^\d+$/.test(raw)) {
+    return getProductById(raw);
+  }
+  return productRepository.getProductBySlug(raw);
+};
+
 module.exports = {
   getProducts,
   getFilterMeta,
   listCatalogPages,
   getProductById,
+  getProductByRef,
   buildCatalogFilters
 };

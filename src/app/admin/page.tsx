@@ -168,6 +168,12 @@ export default function AdminPage() {
             Товары →
           </Link>
           <Link
+            href="/admin/portfolio"
+            className="rounded border border-zinc-200 bg-white px-3 py-1.5 text-sm hover:bg-zinc-100"
+          >
+            Портфолио →
+          </Link>
+          <Link
             href="/admin/import"
             className="rounded border border-zinc-200 bg-white px-3 py-1.5 text-sm hover:bg-zinc-100"
           >

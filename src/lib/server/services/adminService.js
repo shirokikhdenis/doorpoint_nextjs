@@ -304,6 +304,17 @@ const getProductsTable = async (query) =>
 const patchProductDisplayOrder = async (id, body) =>
   productRepository.patchProductDisplayOrder(Number(id), body?.displayOrder ?? body?.sortOrder);
 
+const patchProductBadges = async (id, body) =>
+  productRepository.patchProductBadges(Number(id), body?.badges);
+
+const getProductAttributeDistinctValues = async (query) =>
+  productRepository.listProductAttributeDistinctValues({
+    code: String(query.code || "").trim(),
+    categoryId: query.categoryId ? Number(query.categoryId) : null,
+    subcategoryId: query.subcategoryId ? Number(query.subcategoryId) : null,
+    search: String(query.search || ""),
+  });
+
 module.exports = {
   listAttributes,
   listBootstrap,
@@ -326,6 +337,8 @@ module.exports = {
   deleteProductsByCategoryScope,
   getProductsTable,
   patchProductDisplayOrder,
+  patchProductBadges,
+  getProductAttributeDistinctValues,
   listCatalogPageLabels,
   createCatalogPageLabel,
   updateCatalogPageLabel,

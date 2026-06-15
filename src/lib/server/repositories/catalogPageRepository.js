@@ -211,13 +211,25 @@ const slugsForCategoryIds = async (client, ids) => {
   return res.rows.map((row) => row.slug).filter(Boolean);
 };
 
+const uniqueOrdered = (items) => {
+  const seen = new Set();
+  return items.filter((item) => {
+    if (seen.has(item)) return false;
+    seen.add(item);
+    return true;
+  });
+};
+
 const codesForAttributeIds = async (client, ids) => {
   if (!Array.isArray(ids) || ids.length === 0) return [];
+  const numericIds = ids.map(Number).filter((n) => Number.isFinite(n) && n > 0);
+  if (numericIds.length === 0) return [];
   const res = await client.query(
-    `SELECT code FROM attribute_definitions WHERE id = ANY($1::bigint[])`,
-    [ids.map(Number).filter((n) => Number.isFinite(n) && n > 0)],
+    `SELECT id, code FROM attribute_definitions WHERE id = ANY($1::bigint[])`,
+    [numericIds],
   );
-  return res.rows.map((row) => row.code).filter(Boolean);
+  const codeById = new Map(res.rows.map((row) => [Number(row.id), row.code]));
+  return numericIds.map((id) => codeById.get(id)).filter(Boolean);
 };
 
 const createCatalogPage = async (payload) =>
@@ -242,7 +254,7 @@ const createCatalogPage = async (payload) =>
       VALUES ($1, $2, $3::text[], $4::text[], $5)
       RETURNING id
       `,
-      [payload.slug, payload.name, [...new Set(categorySlugs)], [...new Set(filterCodes)], sortOrder],
+      [payload.slug, payload.name, [...new Set(categorySlugs)], uniqueOrdered(filterCodes), sortOrder],
     );
     return Number(res.rows[0].id);
   });
@@ -273,7 +285,7 @@ const updateCatalogPage = async (id, payload) =>
         payload.slug,
         Number(payload.sortOrder) || 0,
         [...new Set(categorySlugs)],
-        [...new Set(filterCodes)],
+        uniqueOrdered(filterCodes),
       ],
     );
     return res.rows[0] ? Number(res.rows[0].id) : null;
