@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
+import { PromotionHighlightText } from "@/features/home/promotion-highlight-text";
 import type { PromotionBanner } from "@/lib/client/normalizers";
 
 const AUTOPLAY_MS = 7000;
@@ -44,10 +45,12 @@ function SlideContent({
         <div className="space-y-2 sm:space-y-3">
           <p className="text-xs font-semibold uppercase tracking-widest text-brand">Акция</p>
           <p className="text-xl font-semibold leading-snug text-zinc-900 sm:text-2xl lg:text-3xl">
-            {banner.title}
+            <PromotionHighlightText text={banner.title} />
           </p>
           {banner.subtitle ? (
-            <p className="text-sm leading-snug text-zinc-600 sm:text-base">{banner.subtitle}</p>
+            <p className="text-sm leading-snug text-zinc-600 sm:text-base">
+              <PromotionHighlightText text={banner.subtitle} />
+            </p>
           ) : null}
         </div>
         <span className="inline-flex w-fit rounded-md border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-900 shadow-sm transition group-hover:border-brand/30 group-hover:bg-zinc-50">
