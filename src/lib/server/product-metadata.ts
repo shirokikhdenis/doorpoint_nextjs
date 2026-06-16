@@ -1,6 +1,12 @@
-import { createRequire } from "node:module";
 import type { Metadata } from "next";
+import { createRequire } from "node:module";
 import { toPublicImageSrc } from "@/lib/client/image-src";
+import {
+  absoluteUrl,
+  buildPageTitle,
+  defaultOpenGraph,
+  SITE_TITLE,
+} from "@/lib/site-seo";
 
 const require = createRequire(import.meta.url);
 const catalogService = require("@/lib/server/services/catalogService") as {
@@ -12,18 +18,6 @@ const catalogService = require("@/lib/server/services/catalogService") as {
     image?: string;
     images?: string[];
   } | null>;
-};
-
-const SITE_TITLE = "Салон дверей";
-
-const siteMetadataBase = () => {
-  const raw = String(process.env.NEXT_PUBLIC_SITE_URL || "").trim();
-  if (!raw) return undefined;
-  try {
-    return new URL(raw.endsWith("/") ? raw : `${raw}/`);
-  } catch {
-    return undefined;
-  }
 };
 
 const firstProductImage = (product: {
@@ -45,21 +39,26 @@ export async function buildProductMetadata(ref: string): Promise<Metadata> {
   try {
     const product = await catalogService.getProductByRef(ref);
     if (!product?.name) {
-      return { title: `Товар не найден — ${SITE_TITLE}` };
+      return { title: buildPageTitle("Товар не найден") };
     }
     const categoryLine = [product.category, product.subcategory].filter(Boolean).join(" / ");
     const description = categoryLine
       ? `${product.name}. ${categoryLine}.`
       : product.name;
     const image = firstProductImage(product);
-    const metadataBase = siteMetadataBase();
+    const productPath = `/product/${encodeURIComponent(ref)}`;
+    const title = buildPageTitle(product.name);
     return {
-      ...(metadataBase ? { metadataBase } : {}),
-      title: `${product.name} — ${SITE_TITLE}`,
+      title,
       description,
+      alternates: {
+        canonical: absoluteUrl(productPath),
+      },
       openGraph: {
+        ...defaultOpenGraph(),
         title: product.name,
         description,
+        url: absoluteUrl(productPath),
         ...(image ? { images: [{ url: image, alt: product.name }] } : {}),
       },
       twitter: {

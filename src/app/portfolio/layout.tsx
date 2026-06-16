@@ -1,8 +1,20 @@
 import type { Metadata } from "next";
+import { absoluteUrl, buildPageTitle, defaultOpenGraph } from "@/lib/site-seo";
 
 export const metadata: Metadata = {
-  title: "Наши работы — Салон дверей",
-  description: "Фото выполненных проектов: установка входных и межкомнатных дверей",
+  title: buildPageTitle("Портфолио"),
+  description:
+    "Фото выполненных работ: установка входных и межкомнатных дверей в Архангельске и области",
+  alternates: {
+    canonical: absoluteUrl("/portfolio"),
+  },
+  openGraph: {
+    ...defaultOpenGraph(),
+    title: buildPageTitle("Портфолио"),
+    description:
+      "Фото выполненных работ: установка входных и межкомнатных дверей в Архангельске и области",
+    url: absoluteUrl("/portfolio"),
+  },
 };
 
 export default function PortfolioLayout({ children }: { children: React.ReactNode }) {

@@ -1,4 +1,7 @@
+"use client";
+
 import { SITE_SOCIAL_LINKS } from "@/lib/site-contact";
+import { trackYandexGoal, YANDEX_METRIKA_GOALS } from "@/lib/client/yandex-metrika";
 import { MaxIcon, TelegramIcon, VkIcon } from "@/features/store/social-icons";
 import { cn } from "@/lib/utils";
 
@@ -43,6 +46,9 @@ export function SiteSocialLinks({ variant = "footer", className }: SiteSocialLin
               aria-label={link.label}
               title={link.label}
               className={variantClass[variant]}
+              onClick={() =>
+                trackYandexGoal(YANDEX_METRIKA_GOALS.socialClick, { network: link.id })
+              }
             >
               {HeaderIcon ? <HeaderIcon className="h-6 w-6" /> : link.label}
             </a>

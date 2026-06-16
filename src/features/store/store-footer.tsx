@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { SiteSocialLinks } from "@/features/store/site-social-links";
+import { TrackedPhoneLink } from "@/features/store/tracked-phone-link";
 import {
   SITE_ADDRESS,
   SITE_EMAIL,
   SITE_HOURS,
   SITE_PHONE_DISPLAY,
-  SITE_PHONE_TEL,
 } from "@/lib/site-contact";
 
 const footerNavLinks = [
@@ -55,9 +55,9 @@ export function StoreFooter() {
             <ul className="mt-4 space-y-3 text-sm text-zinc-300">
               <li>
                 <span className="block text-xs text-zinc-500">Телефон</span>
-                <a href={`tel:${SITE_PHONE_TEL}`} className="font-medium text-white hover:underline">
+                <TrackedPhoneLink className="font-medium text-white hover:underline">
                   {SITE_PHONE_DISPLAY}
-                </a>
+                </TrackedPhoneLink>
               </li>
               <li>
                 <span className="block text-xs text-zinc-500">E-mail</span>
@@ -79,6 +79,11 @@ export function StoreFooter() {
 
         <div className="mt-12 border-t border-zinc-800 pt-8 text-xs text-zinc-500">
           <p>© {new Date().getFullYear()} ИП Широких Денис Сергеевич ИНН 290109641301</p>
+          <p className="mt-2">
+            <Link href="/privacy" className="hover:text-zinc-300 hover:underline">
+              Политика конфиденциальности
+            </Link>
+          </p>
         </div>
       </div>
     </footer>

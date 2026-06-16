@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { CartItem } from "@/lib/client/cart-types";
 import { formatPrice } from "@/lib/client/format";
+import { FormPrivacyConsent } from "@/features/store/form-privacy-consent";
+import { trackYandexGoal, YANDEX_METRIKA_GOALS } from "@/lib/client/yandex-metrika";
 
 type CartLeadFormProps = {
   items: CartItem[];
@@ -20,6 +22,7 @@ export function CartLeadForm({ items, totalPrice, onSubmitted }: CartLeadFormPro
   const [phone, setPhone] = useState("");
   const [comment, setComment] = useState("");
   const [website, setWebsite] = useState("");
+  const [privacyConsent, setPrivacyConsent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
@@ -56,10 +59,12 @@ export function CartLeadForm({ items, totalPrice, onSubmitted }: CartLeadFormPro
         throw new Error(payload?.message || `Ошибка ${response.status}`);
       }
       setSuccess(true);
+      trackYandexGoal(YANDEX_METRIKA_GOALS.cartLead);
       setName("");
       setPhone("");
       setComment("");
       setWebsite("");
+      setPrivacyConsent(false);
       onSubmitted?.();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Не удалось отправить заявку");
@@ -152,7 +157,17 @@ export function CartLeadForm({ items, totalPrice, onSubmitted }: CartLeadFormPro
                   {error}
                 </p>
               ) : null}
-              <Button type="submit" className="w-full sm:w-auto" disabled={loading}>
+              <FormPrivacyConsent
+                id="cart-lead-privacy"
+                checked={privacyConsent}
+                onChange={setPrivacyConsent}
+                disabled={loading}
+              />
+              <Button
+                type="submit"
+                className="w-full sm:w-auto"
+                disabled={loading || !privacyConsent}
+              >
                 {loading ? "Отправка…" : "Отправить заявку"}
               </Button>
             </form>

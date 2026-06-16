@@ -1,3 +1,22 @@
+import type { Metadata } from "next";
+import { absoluteUrl, buildPageTitle, defaultOpenGraph } from "@/lib/site-seo";
+
+export const metadata: Metadata = {
+  title: buildPageTitle("Услуги"),
+  description:
+    "Доставка, подъём, монтаж межкомнатных и входных дверей в Архангельске — прайс и условия",
+  alternates: {
+    canonical: absoluteUrl("/uslugi"),
+  },
+  openGraph: {
+    ...defaultOpenGraph(),
+    title: buildPageTitle("Услуги"),
+    description:
+      "Доставка, подъём, монтаж межкомнатных и входных дверей в Архангельске — прайс и условия",
+    url: absoluteUrl("/uslugi"),
+  },
+};
+
 const installationInteriorRows = [
   { service: "Установка коробки и полотна", price: "от 3 500 ₽", notes: "Без доборов и фурнитуры" },
   { service: "Врезка замка и ручки", price: "от 1 200 ₽", notes: "За комплект" },

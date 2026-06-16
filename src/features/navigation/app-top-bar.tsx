@@ -1,12 +1,12 @@
 import Image from "next/image";
 import Link from "next/link";
 import { SiteSocialLinks } from "@/features/store/site-social-links";
+import { TrackedPhoneLink } from "@/features/store/tracked-phone-link";
 import { storefrontHeaderTripleGridClass } from "@/features/store/storefront-ui";
 import {
   SITE_ADDRESS_SHORT,
   SITE_EMAIL,
   SITE_PHONE_DISPLAY,
-  SITE_PHONE_TEL,
 } from "@/lib/site-contact";
 
 const contactLinkClass =
@@ -22,9 +22,9 @@ export function AppTopBar() {
           <div className="order-2 space-y-2 text-center lg:order-1 lg:text-left">
             <p className="text-xs leading-snug text-zinc-500 sm:text-sm">{SITE_ADDRESS_SHORT}</p>
             <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 lg:justify-start">
-              <a href={`tel:${SITE_PHONE_TEL}`} className={`text-sm ${contactLinkClass}`}>
+              <TrackedPhoneLink className={`text-sm ${contactLinkClass}`}>
                 {SITE_PHONE_DISPLAY}
-              </a>
+              </TrackedPhoneLink>
               <span className="text-zinc-300" aria-hidden="true">
                 ·
               </span>

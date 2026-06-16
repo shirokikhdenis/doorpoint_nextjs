@@ -2086,9 +2086,24 @@ const deleteProductsByCategoryScope = async ({ categoryId = null, subcategoryId 
   return 0;
 };
 
+const listActiveProductSlugs = async () => {
+  const result = await query(
+    `
+    SELECT slug
+    FROM products
+    WHERE is_active = TRUE
+      AND slug IS NOT NULL
+      AND TRIM(slug) <> ''
+    ORDER BY id ASC
+    `,
+  );
+  return result.rows.map((row) => String(row.slug));
+};
+
 module.exports = {
   listProducts,
   listFilterMeta,
+  listActiveProductSlugs,
   getProductById,
   getProductBySlug,
   listAdminProducts,

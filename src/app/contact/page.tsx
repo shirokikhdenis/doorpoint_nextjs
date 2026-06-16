@@ -1,21 +1,36 @@
 import type { Metadata } from "next";
 import { SiteSocialLinks } from "@/features/store/site-social-links";
+import { LocalBusinessJsonLd } from "@/features/store/local-business-json-ld";
+import { TrackedPhoneLink } from "@/features/store/tracked-phone-link";
 import {
   SITE_ADDRESS,
   SITE_EMAIL,
   SITE_HOURS,
   SITE_PHONE_DISPLAY,
-  SITE_PHONE_TEL,
 } from "@/lib/site-contact";
+import { absoluteUrl, buildPageTitle, defaultOpenGraph } from "@/lib/site-seo";
 
 export const metadata: Metadata = {
-  title: "Контакты — Салон дверей",
-  description: "Адрес салона, телефон, e-mail и режим работы",
+  title: buildPageTitle("Контакты"),
+  description:
+    "Адрес салона дверей в Архангельске, телефон, e-mail, режим работы и карта проезда",
+  alternates: {
+    canonical: absoluteUrl("/contact"),
+  },
+  openGraph: {
+    ...defaultOpenGraph(),
+    title: buildPageTitle("Контакты"),
+    description:
+      "Адрес салона дверей в Архангельске, телефон, e-mail, режим работы и карта проезда",
+    url: absoluteUrl("/contact"),
+  },
 };
 
 export default function ContactPage() {
   return (
-    <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6">
+    <>
+      <LocalBusinessJsonLd />
+      <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6">
       <h1 className="text-2xl font-semibold sm:text-3xl">Контакты</h1>
 
       <div className="mt-5 grid gap-4 lg:grid-cols-2">
@@ -29,9 +44,9 @@ export default function ContactPage() {
             <div>
               <dt className="font-medium text-zinc-900">Телефон</dt>
               <dd>
-                <a className="hover:underline" href={`tel:${SITE_PHONE_TEL}`}>
+                <TrackedPhoneLink className="hover:underline">
                   {SITE_PHONE_DISPLAY}
-                </a>
+                </TrackedPhoneLink>
               </dd>
             </div>
             <div>
@@ -69,5 +84,6 @@ export default function ContactPage() {
         </section>
       </div>
     </main>
+    </>
   );
 }
