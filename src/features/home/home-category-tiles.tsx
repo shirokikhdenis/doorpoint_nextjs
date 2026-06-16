@@ -48,7 +48,7 @@ export function HomeCategoryTiles({ interiorCoverImage, entryCoverImage }: HomeC
   return (
     <section aria-labelledby="home-categories-title" className="space-y-5">
       <h2 id="home-categories-title" className="text-2xl font-bold text-zinc-900 sm:text-3xl">
-        Какие двери подберём?
+        Какие двери выбираете?
       </h2>
       <div className="grid gap-4 md:grid-cols-2">
         <CategoryTile

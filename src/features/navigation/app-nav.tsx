@@ -28,7 +28,7 @@ export function AppNav() {
         className="mx-auto w-full max-w-[1920px] px-4 py-2 sm:px-6 lg:px-8"
         aria-label="Основная навигация"
       >
-        <div className="flex items-center gap-3 md:hidden">
+        <div className="flex items-center justify-between gap-3 md:hidden">
           <button
             type="button"
             aria-expanded={isMobileMenuOpen}
@@ -39,10 +39,6 @@ export function AppNav() {
             <span className="sr-only">{isMobileMenuOpen ? "Закрыть меню" : "Открыть меню"}</span>
             <span className="text-lg leading-none">{isMobileMenuOpen ? "✕" : "☰"}</span>
           </button>
-
-          <p className="min-w-0 flex-1 truncate text-center text-sm font-medium text-zinc-700">
-            Салон дверей
-          </p>
 
           <CartNavLink />
         </div>

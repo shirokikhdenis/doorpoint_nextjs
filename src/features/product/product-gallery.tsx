@@ -23,20 +23,21 @@ export function ProductGallery({
         type="button"
         onClick={() => image && onOpenLightbox()}
         disabled={!image}
-        className="flex aspect-[4/5] w-full cursor-zoom-in items-center justify-center overflow-hidden rounded-lg bg-white py-[5px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-default md:aspect-auto md:h-[620px]"
+        className="w-full cursor-zoom-in rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-default"
         aria-label="Увеличить фото"
       >
-        {image ? (
-          <Image
-            src={image}
-            alt={productName}
-            width={800}
-            height={1000}
-            className="max-h-full max-w-full object-contain"
-            sizes="(max-width: 768px) 100vw, 50vw"
-            priority
-          />
-        ) : null}
+        <div className="relative aspect-[4/5] w-full rounded-lg bg-white p-3 sm:p-4 md:aspect-auto md:h-[620px]">
+          {image ? (
+            <Image
+              src={image}
+              alt={productName}
+              fill
+              className="object-contain object-center"
+              sizes="(max-width: 768px) 100vw, 50vw"
+              priority
+            />
+          ) : null}
+        </div>
       </button>
       {galleryImages.length > 1 ? (
         <div className="flex flex-wrap gap-2">

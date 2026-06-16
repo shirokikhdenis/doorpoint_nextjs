@@ -84,7 +84,7 @@ export function HomePromotions({ banners }: { banners: PromotionBanner[] }) {
       <div className="grid gap-4 sm:grid-cols-3">
         <InfoCard
           title="Гарантия лучшей цены"
-          description="Согласуем выгодные условия на комплект дверей"
+          description="Найдете дешевле - сделаем скидку!"
           icon={<TagIcon />}
         />
         <InfoCard
