@@ -1,77 +1,29 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { PRODUCT_BADGE_HIT } from "@/lib/client/product-badges";
-
-type AttributeDef = {
-  id: number;
-  code: string;
-  name: string;
-  type: string;
-  isFilterable?: boolean;
-  isVariantAxis?: boolean;
-  options?: Array<string | { value: string }>;
-};
-
-type CategoryRef = { id: number; name: string };
-type SubcategoryRef = { id: number; categoryId: number; name: string };
-
-type ProductRow = {
-  id: number;
-  sku: string;
-  name: string;
-  price: number;
-  modelKey: string | null;
-  category: string;
-  subcategory: string;
-  isActive: boolean;
-  displayOrder: number;
-  badges: string[];
-  attributes: Record<string, string | number | boolean | null>;
-  variantsCount: number;
-  imagesCount: number;
-  primaryImageUrl: string;
-  imageUrls: string[];
-};
-
-type ProductsTableResponse = {
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
-  manufacturers: string[];
-  attributes: AttributeDef[];
-  categories: CategoryRef[];
-  subcategories: SubcategoryRef[];
-  rows: ProductRow[];
-};
-
-const LIMIT_OPTIONS = [50, 100, 200, 500];
-
-const formatAttrValue = (value: ProductRow["attributes"][string]): string => {
-  if (value === null || value === undefined) return "";
-  if (typeof value === "boolean") return value ? "Да" : "Нет";
-  return String(value);
-};
-
-const formatPrice = (price: number): string =>
-  Number.isFinite(price) ? new Intl.NumberFormat("ru-RU").format(Math.round(price)) : "—";
+import { useEffect, useMemo, useState } from "react";
+import { AdminProductsSaleRules } from "@/features/admin/products/admin-products-sale-rules";
+import { AdminProductsFilters } from "@/features/admin/products/admin-products-filters";
+import { AdminProductsPagination } from "@/features/admin/products/admin-products-pagination";
+import { AdminProductsTable } from "@/features/admin/products/admin-products-table";
+import { AdminProductsToolbar } from "@/features/admin/products/admin-products-toolbar";
+import { runBulkProductAction } from "@/features/admin/products/bulk-actions";
+import { loadColumnVisibility, saveColumnVisibility } from "@/features/admin/products/column-visibility";
+import { useAdminProductsData } from "@/features/admin/products/use-admin-products-data";
+import type { BulkAction, ColumnVisibility, HitFilter, SaleFilter, SaleSettings } from "@/features/admin/products/types";
 
 export default function AdminProductsPage() {
-  const [data, setData] = useState<ProductsTableResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
 
   const [search, setSearch] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
-  const [categoryId, setCategoryId] = useState<number>(0);
-  const [subcategoryId, setSubcategoryId] = useState<number>(0);
-  const [page, setPage] = useState<number>(1);
-  const [limit, setLimit] = useState<number>(100);
-  const [reloadToken, setReloadToken] = useState<number>(0);
+  const [categoryId, setCategoryId] = useState(0);
+  const [subcategoryId, setSubcategoryId] = useState(0);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(100);
 
   const [manufacturer, setManufacturer] = useState("");
   const [appliedManufacturer, setAppliedManufacturer] = useState("");
@@ -81,47 +33,19 @@ export default function AdminProductsPage() {
   const [appliedAttrValue, setAppliedAttrValue] = useState("");
   const [attrValueOptions, setAttrValueOptions] = useState<string[]>([]);
   const [attrValueOptionsLoading, setAttrValueOptionsLoading] = useState(false);
+  const [hitFilter, setHitFilter] = useState<HitFilter>("");
+  const [saleFilter, setSaleFilter] = useState<SaleFilter>("");
 
-  useEffect(() => {
-    const controller = new AbortController();
-    let cancelled = false;
+  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>(() => loadColumnVisibility());
+  const [compact, setCompact] = useState(true);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [saleSettings, setSaleSettings] = useState<SaleSettings>({
+    mode: "minus_percent",
+    percent: 10,
+  });
+  const [saleRuleDescription, setSaleRuleDescription] = useState("");
 
-    const run = async () => {
-      setLoading(true);
-      setError("");
-      const params = new URLSearchParams();
-      params.set("page", String(page));
-      params.set("limit", String(limit));
-      if (appliedSearch.trim()) params.set("search", appliedSearch.trim());
-      if (categoryId) params.set("categoryId", String(categoryId));
-      if (subcategoryId) params.set("subcategoryId", String(subcategoryId));
-      if (appliedManufacturer.trim()) params.set("manufacturer", appliedManufacturer.trim());
-      if (appliedAttrCode.trim() && appliedAttrValue.trim()) {
-        params.set(`attr_${appliedAttrCode.trim()}`, appliedAttrValue.trim());
-      }
-      try {
-        const response = await fetch(
-          `/api/admin/products-table?${params.toString()}`,
-          { signal: controller.signal },
-        );
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const json = (await response.json()) as ProductsTableResponse;
-        if (!cancelled) setData(json);
-      } catch (caught) {
-        if (cancelled || (caught instanceof DOMException && caught.name === "AbortError")) return;
-        setError(caught instanceof Error ? caught.message : "Ошибка загрузки");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-
-    void run();
-
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [
+  const { data, loading, error, attributes, productAttributes, rows } = useAdminProductsData({
     page,
     limit,
     appliedSearch,
@@ -130,33 +54,21 @@ export default function AdminProductsPage() {
     appliedManufacturer,
     appliedAttrCode,
     appliedAttrValue,
+    hitFilter,
+    saleFilter,
     reloadToken,
-  ]);
+  });
 
-  const triggerReload = () => setReloadToken((token) => token + 1);
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [page, limit, appliedSearch, categoryId, subcategoryId, appliedManufacturer, appliedAttrCode, appliedAttrValue, hitFilter, saleFilter, reloadToken]);
 
-  const onSearchSubmit = (event: React.FormEvent) => {
-    event.preventDefault();
-    setPage(1);
-    setAppliedSearch(search);
-    setAppliedManufacturer(manufacturer.trim());
-    setAppliedAttrCode(attrCode.trim());
-    setAppliedAttrValue(attrValue.trim());
-  };
+  useEffect(() => {
+    if (!data?.saleSettings) return;
+    setSaleSettings(data.saleSettings);
+    setSaleRuleDescription(data.saleRuleDescription || "");
+  }, [data?.saleSettings, data?.saleRuleDescription]);
 
-  const visibleSubcategories = useMemo(
-    () =>
-      categoryId
-        ? (data?.subcategories || []).filter((sub) => sub.categoryId === categoryId)
-        : data?.subcategories || [],
-    [data?.subcategories, categoryId],
-  );
-
-  const attributes = data?.attributes || [];
-  const productAttributes = useMemo(
-    () => attributes.filter((attribute) => !attribute.isVariantAxis),
-    [attributes],
-  );
   useEffect(() => {
     if (!attrCode) {
       setAttrValueOptions([]);
@@ -191,7 +103,7 @@ export default function AdminProductsPage() {
     };
   }, [attrCode, categoryId, subcategoryId]);
 
-  const rows = data?.rows || [];
+  const triggerReload = () => setReloadToken((token) => token + 1);
 
   const categoryNameById = useMemo(() => {
     const map = new Map<number, string>();
@@ -204,6 +116,181 @@ export default function AdminProductsPage() {
     (data?.subcategories || []).forEach((s) => map.set(s.id, s.name));
     return map;
   }, [data?.subcategories]);
+
+  const onSearchSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    setPage(1);
+    setAppliedSearch(search);
+    setAppliedManufacturer(manufacturer.trim());
+    setAppliedAttrCode(attrCode.trim());
+    setAppliedAttrValue(attrValue.trim());
+  };
+
+  const resetFilters = () => {
+    setSearch("");
+    setAppliedSearch("");
+    setManufacturer("");
+    setAppliedManufacturer("");
+    setCategoryId(0);
+    setSubcategoryId(0);
+    setAttrCode("");
+    setAttrValue("");
+    setAppliedAttrCode("");
+    setAppliedAttrValue("");
+    setHitFilter("");
+    setSaleFilter("");
+    setPage(1);
+  };
+
+  const activeChips = useMemo(() => {
+    const chips: Array<{ key: string; label: string; onRemove: () => void }> = [];
+    if (appliedSearch.trim()) {
+      chips.push({
+        key: "search",
+        label: `Поиск: ${appliedSearch.trim()}`,
+        onRemove: () => {
+          setSearch("");
+          setAppliedSearch("");
+          setPage(1);
+        },
+      });
+    }
+    if (categoryId) {
+      chips.push({
+        key: "category",
+        label: `Категория: ${categoryNameById.get(categoryId) || categoryId}`,
+        onRemove: () => {
+          setCategoryId(0);
+          setSubcategoryId(0);
+          setPage(1);
+        },
+      });
+    }
+    if (subcategoryId) {
+      chips.push({
+        key: "subcategory",
+        label: `Подкатегория: ${subcategoryNameById.get(subcategoryId) || subcategoryId}`,
+        onRemove: () => {
+          setSubcategoryId(0);
+          setPage(1);
+        },
+      });
+    }
+    if (appliedManufacturer.trim()) {
+      chips.push({
+        key: "manufacturer",
+        label: `Производитель: ${appliedManufacturer.trim()}`,
+        onRemove: () => {
+          setManufacturer("");
+          setAppliedManufacturer("");
+          setPage(1);
+        },
+      });
+    }
+    if (hitFilter === "yes") {
+      chips.push({
+        key: "hit",
+        label: "Только хиты",
+        onRemove: () => {
+          setHitFilter("");
+          setPage(1);
+        },
+      });
+    } else if (hitFilter === "no") {
+      chips.push({
+        key: "hit-no",
+        label: "Без хита",
+        onRemove: () => {
+          setHitFilter("");
+          setPage(1);
+        },
+      });
+    }
+    if (saleFilter === "yes") {
+      chips.push({
+        key: "sale",
+        label: "Только акционные",
+        onRemove: () => {
+          setSaleFilter("");
+          setPage(1);
+        },
+      });
+    } else if (saleFilter === "no") {
+      chips.push({
+        key: "sale-no",
+        label: "Без акции",
+        onRemove: () => {
+          setSaleFilter("");
+          setPage(1);
+        },
+      });
+    }
+    if (appliedAttrCode.trim() && appliedAttrValue.trim()) {
+      chips.push({
+        key: "attr",
+        label: `${appliedAttrCode}: ${appliedAttrValue.trim()}`,
+        onRemove: () => {
+          setAttrCode("");
+          setAttrValue("");
+          setAppliedAttrCode("");
+          setAppliedAttrValue("");
+          setPage(1);
+        },
+      });
+    }
+    return chips;
+  }, [
+    appliedSearch,
+    categoryId,
+    subcategoryId,
+    appliedManufacturer,
+    hitFilter,
+    saleFilter,
+    appliedAttrCode,
+    appliedAttrValue,
+    categoryNameById,
+    subcategoryNameById,
+  ]);
+
+  const selectedRows = useMemo(
+    () => rows.filter((row) => selectedIds.has(row.id)),
+    [rows, selectedIds],
+  );
+
+  const toggleRow = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAllPage = () => {
+    if (rows.every((row) => selectedIds.has(row.id))) {
+      setSelectedIds(new Set());
+      return;
+    }
+    setSelectedIds(new Set(rows.map((row) => row.id)));
+  };
+
+  const handleBulkAction = async (action: BulkAction) => {
+    if (!selectedRows.length || bulkLoading) return;
+    setBulkLoading(true);
+    setNotice("");
+    try {
+      const { updated, failed } = await runBulkProductAction(selectedRows, action);
+      setNotice(
+        failed > 0
+          ? `Обновлено: ${updated}, ошибок: ${failed}.`
+          : `Массовое действие выполнено для ${updated} товаров.`,
+      );
+      setSelectedIds(new Set());
+      triggerReload();
+    } finally {
+      setBulkLoading(false);
+    }
+  };
 
   const handleDeleteByCategory = async () => {
     if (deleting) return;
@@ -233,7 +320,7 @@ export default function AdminProductsPage() {
       return;
     }
     setDeleting(true);
-    setError("");
+    setNotice("");
     try {
       const params = new URLSearchParams();
       if (subcategoryId) params.set("subcategoryId", String(subcategoryId));
@@ -245,7 +332,7 @@ export default function AdminProductsPage() {
       setPage(1);
       triggerReload();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Ошибка удаления");
+      setNotice(caught instanceof Error ? caught.message : "Ошибка удаления");
     } finally {
       setDeleting(false);
     }
@@ -270,7 +357,7 @@ export default function AdminProductsPage() {
       return;
     }
     setDeleting(true);
-    setError("");
+    setNotice("");
     try {
       const response = await fetch("/api/admin/products", { method: "DELETE" });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -279,478 +366,168 @@ export default function AdminProductsPage() {
       setPage(1);
       triggerReload();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Ошибка удаления");
+      setNotice(caught instanceof Error ? caught.message : "Ошибка удаления");
     } finally {
       setDeleting(false);
     }
   };
 
   return (
-    <main className="mx-auto flex w-full max-w-[1400px] flex-col gap-4 p-6">
+    <main className="mx-auto flex w-full max-w-[1920px] flex-col gap-4 p-4 sm:p-6">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-semibold">Товары</h1>
-          <p className="mt-1 text-sm text-zinc-600">
-            Все карточки и их характеристики из таблицы <code className="rounded bg-zinc-100 px-1">products</code>{" "}
-            (атрибуты — из JSONB-поля <code className="rounded bg-zinc-100 px-1">attrs</code>).
+          <h1 className="text-3xl font-semibold text-zinc-900">Товары</h1>
+          <p className="mt-1 max-w-3xl text-sm text-zinc-600">
+            Управление каталогом: фильтры, массовые действия, настройка колонок и быстрое редактирование
+            цен и статусов.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Link
             href="/admin/import"
-            className="rounded border border-zinc-200 bg-white px-3 py-1.5 text-sm hover:bg-zinc-100"
+            className="rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50"
           >
             Импорт CSV →
           </Link>
           <Link
             href="/admin"
-            className="rounded border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-100"
+            className="rounded-md border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
           >
             ← К админке
           </Link>
         </div>
       </header>
 
-      <form
+      <AdminProductsSaleRules
+        settings={saleSettings}
+        description={saleRuleDescription}
+        onSaved={(next, description) => {
+          setSaleSettings(next);
+          setSaleRuleDescription(description || "");
+          setNotice("Правила акций сохранены");
+        }}
+      />
+
+      <AdminProductsFilters
+        loading={loading}
+        total={data?.total ?? null}
+        categories={data?.categories || []}
+        subcategories={data?.subcategories || []}
+        manufacturers={data?.manufacturers || []}
+        productAttributes={productAttributes}
+        search={search}
+        onSearchChange={setSearch}
+        categoryId={categoryId}
+        onCategoryChange={(value) => {
+          setCategoryId(value);
+          setSubcategoryId(0);
+          setPage(1);
+        }}
+        subcategoryId={subcategoryId}
+        onSubcategoryChange={(value) => {
+          setSubcategoryId(value);
+          setPage(1);
+        }}
+        manufacturer={manufacturer}
+        onManufacturerChange={(value) => {
+          setManufacturer(value);
+          setPage(1);
+        }}
+        hitFilter={hitFilter}
+        onHitFilterChange={(value) => {
+          setHitFilter(value);
+          setPage(1);
+        }}
+        saleFilter={saleFilter}
+        onSaleFilterChange={(value) => {
+          setSaleFilter(value);
+          setPage(1);
+        }}
+        limit={limit}
+        onLimitChange={(value) => {
+          setLimit(value);
+          setPage(1);
+        }}
+        attrCode={attrCode}
+        onAttrCodeChange={(value) => {
+          setAttrCode(value);
+          setAttrValue("");
+          setPage(1);
+        }}
+        attrValue={attrValue}
+        onAttrValueChange={(value) => {
+          setAttrValue(value);
+          setPage(1);
+        }}
+        attrValueOptions={attrValueOptions}
+        attrValueOptionsLoading={attrValueOptionsLoading}
         onSubmit={onSearchSubmit}
-        className="flex flex-wrap items-end gap-2 rounded-lg border bg-white p-3"
-      >
-        <label className="flex flex-1 min-w-[220px] flex-col gap-1 text-xs text-zinc-600">
-          Поиск (по SKU или названию)
-          <input
-            type="search"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="например, BRAVO"
-            className="rounded border border-zinc-200 px-3 py-1.5 text-sm"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-xs text-zinc-600">
-          Категория
-          <select
-            value={categoryId}
-            onChange={(event) => {
-              setCategoryId(Number(event.target.value));
-              setSubcategoryId(0);
-              setPage(1);
-            }}
-            className="rounded border border-zinc-200 px-3 py-1.5 text-sm"
-          >
-            <option value={0}>Все</option>
-            {(data?.categories || []).map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-xs text-zinc-600">
-          Производитель
-          <select
-            value={manufacturer}
-            onChange={(event) => {
-              setManufacturer(event.target.value);
-              setPage(1);
-            }}
-            className="min-w-[160px] rounded border border-zinc-200 px-3 py-1.5 text-sm"
-          >
-            <option value="">Все</option>
-            {(data?.manufacturers || []).map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-xs text-zinc-600">
-          Подкатегория
-          <select
-            value={subcategoryId}
-            onChange={(event) => {
-              setSubcategoryId(Number(event.target.value));
-              setPage(1);
-            }}
-            className="rounded border border-zinc-200 px-3 py-1.5 text-sm"
-            disabled={!categoryId}
-          >
-            <option value={0}>Все</option>
-            {visibleSubcategories.map((sub) => (
-              <option key={sub.id} value={sub.id}>
-                {sub.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-xs text-zinc-600">
-          На странице
-          <select
-            value={limit}
-            onChange={(event) => {
-              setLimit(Number(event.target.value));
-              setPage(1);
-            }}
-            className="rounded border border-zinc-200 px-3 py-1.5 text-sm"
-          >
-            {LIMIT_OPTIONS.map((value) => (
-              <option key={value} value={value}>
-                {value}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-xs text-zinc-600">
-          Характеристика
-          <select
-            value={attrCode}
-            onChange={(event) => {
-              setAttrCode(event.target.value);
-              setAttrValue("");
-              setPage(1);
-            }}
-            className="min-w-[160px] rounded border border-zinc-200 px-3 py-1.5 text-sm"
-          >
-            <option value="">Все</option>
-            {productAttributes.map((attribute) => (
-              <option key={attribute.id} value={attribute.code}>
-                {attribute.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-xs text-zinc-600">
-          Значение
-          {attrCode && attrValueOptions.length > 0 ? (
-            <select
-              value={attrValue}
-              onChange={(event) => {
-                setAttrValue(event.target.value);
-                setPage(1);
-              }}
-              disabled={attrValueOptionsLoading}
-              className="min-w-[160px] rounded border border-zinc-200 px-3 py-1.5 text-sm disabled:bg-zinc-50"
-            >
-              <option value="">Любое</option>
-              {attrValueOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <input
-              type="search"
-              value={attrValue}
-              onChange={(event) => setAttrValue(event.target.value)}
-              disabled={!attrCode || attrValueOptionsLoading}
-              placeholder={
-                !attrCode
-                  ? "сначала характеристика"
-                  : attrValueOptionsLoading
-                    ? "загрузка…"
-                    : "часть значения"
-              }
-              className="min-w-[160px] rounded border border-zinc-200 px-3 py-1.5 text-sm disabled:bg-zinc-50"
-            />
-          )}
-        </label>
-        <button
-          type="submit"
-          className="rounded bg-black px-3 py-1.5 text-sm text-white"
-          disabled={loading}
-        >
-          {loading ? "Загрузка…" : "Применить"}
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setSearch("");
-            setAppliedSearch("");
-            setManufacturer("");
-            setAppliedManufacturer("");
-            setCategoryId(0);
-            setSubcategoryId(0);
-            setAttrCode("");
-            setAttrValue("");
-            setAppliedAttrCode("");
-            setAppliedAttrValue("");
-            setPage(1);
-          }}
-          className="rounded border border-zinc-200 bg-white px-3 py-1.5 text-sm hover:bg-zinc-100"
-        >
-          Сбросить фильтры
-        </button>
-        <span className="ml-auto flex items-center gap-3">
-          {data ? (
-            <span className="text-xs text-zinc-500">
-              Всего товаров: <strong className="text-zinc-800">{data.total}</strong>
-            </span>
-          ) : null}
-          <button
-            type="button"
-            onClick={handleDeleteByCategory}
-            disabled={deleting || (!categoryId && !subcategoryId)}
-            className="rounded border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm text-amber-900 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
-            title="Удалить все товары выбранной категории или подкатегории (без учёта поиска)"
-          >
-            {deleting ? "Удаляем…" : "Удалить товары категории"}
-          </button>
-          <button
-            type="button"
-            onClick={handleDeleteAll}
-            disabled={deleting || !data || data.total === 0}
-            className="rounded border border-rose-300 bg-rose-50 px-3 py-1.5 text-sm text-rose-700 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
-            title="Удалить все товары из БД"
-          >
-            {deleting ? "Удаляем…" : "Удалить все товары"}
-          </button>
-        </span>
-      </form>
+        onReset={resetFilters}
+        activeChips={activeChips}
+        deleting={deleting}
+        onDeleteByCategory={handleDeleteByCategory}
+        onDeleteAll={handleDeleteAll}
+        canDeleteByCategory={Boolean(categoryId || subcategoryId)}
+      />
 
       {error ? (
-        <div className="rounded border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+        <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
           {error}
         </div>
       ) : null}
       {notice ? (
-        <div className="rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
           {notice}
         </div>
       ) : null}
 
-      <section className="rounded-lg border bg-white">
-        <div className="overflow-auto">
-          <table className="w-full min-w-[1200px] text-left text-xs">
-            <thead className="sticky top-0 z-10 bg-zinc-50 text-[11px] uppercase text-zinc-500">
-              <tr>
-                <th className="whitespace-nowrap px-2 py-2 text-right">Порядок выдачи</th>
-                <th className="px-2 py-2">ID</th>
-                <th className="px-2 py-2">SKU</th>
-                <th className="px-2 py-2">Название</th>
-                <th className="px-2 py-2">Категория</th>
-                <th className="px-2 py-2">Подкатегория</th>
-                <th className="px-2 py-2 text-right">Цена</th>
-                <th className="px-2 py-2 text-center">Хит</th>
-                <th className="px-2 py-2 text-center">Активен</th>
-                <th className="px-2 py-2 text-right">Вариантов</th>
-                <th className="px-2 py-2 text-right">Картинок</th>
-                <th className="px-2 py-2">model_key</th>
-                {attributes.map((attribute) => (
-                  <th
-                    key={attribute.id}
-                    className="whitespace-nowrap px-2 py-2"
-                    title={`${attribute.code} · ${attribute.type}${attribute.isVariantAxis ? " · variant" : ""}`}
-                  >
-                    {attribute.name}
-                    {attribute.isVariantAxis ? (
-                      <span className="ml-1 rounded bg-violet-100 px-1 text-[10px] text-violet-700">var</span>
-                    ) : null}
-                  </th>
-                ))}
-                <th className="px-2 py-2">Фото</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={13 + attributes.length}
-                    className="px-3 py-6 text-center text-sm text-zinc-500"
-                  >
-                    {loading ? "Загрузка…" : "Товары не найдены"}
-                  </td>
-                </tr>
-              ) : (
-                rows.map((row) => (
-                  <tr key={row.id} className="border-t hover:bg-zinc-50">
-                    <td className="px-2 py-1 align-middle">
-                      <DisplayOrderInput
-                        productId={row.id}
-                        displayOrder={row.displayOrder ?? 0}
-                        onSaved={triggerReload}
-                      />
-                    </td>
-                    <td className="px-2 py-1 text-zinc-500">{row.id}</td>
-                    <td className="px-2 py-1 font-mono text-zinc-700">{row.sku}</td>
-                    <td className="px-2 py-1 text-zinc-800">{row.name}</td>
-                    <td className="px-2 py-1 text-zinc-600">{row.category || "—"}</td>
-                    <td className="px-2 py-1 text-zinc-600">{row.subcategory || "—"}</td>
-                    <td className="px-2 py-1 text-right text-zinc-800">{formatPrice(row.price)}</td>
-                    <td className="px-2 py-1 text-center">
-                      <HitBadgeToggle
-                        productId={row.id}
-                        checked={row.badges.includes(PRODUCT_BADGE_HIT)}
-                        onSaved={triggerReload}
-                      />
-                    </td>
-                    <td className="px-2 py-1 text-center">
-                      {row.isActive ? (
-                        <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[11px] text-emerald-700">
-                          да
-                        </span>
-                      ) : (
-                        <span className="rounded bg-zinc-200 px-1.5 py-0.5 text-[11px] text-zinc-600">
-                          нет
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-2 py-1 text-right text-zinc-700">{row.variantsCount}</td>
-                    <td className="px-2 py-1 text-right text-zinc-700">{row.imagesCount}</td>
-                    <td className="px-2 py-1 font-mono text-[11px] text-zinc-500">{row.modelKey || ""}</td>
-                    {attributes.map((attribute) => (
-                      <td
-                        key={attribute.id}
-                        className="whitespace-nowrap px-2 py-1 text-zinc-700"
-                      >
-                        {formatAttrValue(row.attributes?.[attribute.code])}
-                      </td>
-                    ))}
-                    <td className="max-w-md px-2 py-1 align-top">
-                      {row.imageUrls.length > 0 ? (
-                        <ul className="space-y-1">
-                          {row.imageUrls.map((url, index) => (
-                            <li key={`${row.id}-${index}-${url}`}>
-                              <a
-                                href={url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="block max-w-md truncate font-mono text-[11px] text-blue-700 underline hover:text-blue-900"
-                                title={url}
-                              >
-                                {url}
-                              </a>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <span className="text-zinc-400">—</span>
-                      )}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+      <section className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
+        <AdminProductsToolbar
+          selectedCount={selectedIds.size}
+          pageRowCount={rows.length}
+          allPageSelected={rows.length > 0 && rows.every((row) => selectedIds.has(row.id))}
+          onToggleSelectAll={toggleSelectAllPage}
+          onClearSelection={() => setSelectedIds(new Set())}
+          columnVisibility={columnVisibility}
+          onColumnVisibilityChange={setColumnVisibility}
+          compact={compact}
+          onCompactChange={(value) => {
+            setCompact(value);
+            if (!value) {
+              setColumnVisibility((prev) => {
+                const next = { ...prev, photos: true };
+                saveColumnVisibility(next);
+                return next;
+              });
+            }
+          }}
+          onBulkAction={(action) => void handleBulkAction(action)}
+          bulkLoading={bulkLoading}
+          loading={loading}
+        />
+
+        <AdminProductsTable
+          rows={rows}
+          attributes={attributes}
+          columnVisibility={columnVisibility}
+          compact={compact}
+          loading={loading}
+          selectedIds={selectedIds}
+          onToggleRow={toggleRow}
+          onSaved={triggerReload}
+        />
 
         {data && data.total > 0 ? (
-          <div className="flex flex-wrap items-center justify-between gap-2 border-t px-3 py-2 text-xs text-zinc-600">
-            <span>
-              Показано {rows.length} из {data.total} (страница {data.page} из {data.totalPages})
-            </span>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                disabled={data.page <= 1 || loading}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="rounded border border-zinc-200 bg-white px-2 py-1 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                ← Назад
-              </button>
-              <button
-                type="button"
-                disabled={data.page >= data.totalPages || loading}
-                onClick={() => setPage((p) => p + 1)}
-                className="rounded border border-zinc-200 bg-white px-2 py-1 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Вперёд →
-              </button>
-            </div>
-          </div>
+          <AdminProductsPagination
+            page={data.page}
+            totalPages={data.totalPages}
+            total={data.total}
+            shown={rows.length}
+            loading={loading}
+            onPageChange={setPage}
+          />
         ) : null}
       </section>
     </main>
-  );
-}
-
-function HitBadgeToggle({
-  productId,
-  checked,
-  onSaved,
-}: {
-  productId: number;
-  checked: boolean;
-  onSaved: () => void;
-}) {
-  const [saving, setSaving] = useState(false);
-
-  const toggle = async () => {
-    if (saving) return;
-    setSaving(true);
-    const nextBadges = checked ? [] : [PRODUCT_BADGE_HIT];
-    try {
-      const res = await fetch(`/api/admin/products/${productId}/badges`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ badges: nextBadges }),
-      });
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || `HTTP ${res.status}`);
-      }
-      onSaved();
-    } catch {
-      /* ignore — чекбокс откатится после reload */
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <input
-      type="checkbox"
-      checked={checked}
-      disabled={saving}
-      onChange={() => void toggle()}
-      aria-label="Бейдж «Хит»"
-      className="h-4 w-4 cursor-pointer disabled:cursor-wait"
-    />
-  );
-}
-
-function DisplayOrderInput({
-  productId,
-  displayOrder,
-  onSaved,
-}: {
-  productId: number;
-  displayOrder: number;
-  onSaved: () => void;
-}) {
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const commit = async () => {
-    const el = inputRef.current;
-    if (!el) return;
-    const n = Number(el.value);
-    const safe = Number.isFinite(n) ? Math.trunc(n) : 0;
-    if (safe === displayOrder) return;
-    try {
-      const res = await fetch(`/api/admin/products/${productId}/display-order`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ displayOrder: safe }),
-      });
-      if (!res.ok) {
-        const t = await res.text();
-        throw new Error(t || `HTTP ${res.status}`);
-      }
-      onSaved();
-    } catch {
-      el.value = String(displayOrder);
-    }
-  };
-
-  return (
-    <input
-      ref={inputRef}
-      key={`${productId}-${displayOrder}`}
-      type="number"
-      defaultValue={String(displayOrder)}
-      className="w-14 rounded border border-zinc-200 px-1 py-0.5 text-right font-mono text-[11px]"
-      onBlur={() => void commit()}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-      }}
-    />
   );
 }

@@ -7,6 +7,7 @@ import { CartNavLink } from "@/features/navigation/cart-nav-link";
 import { siteNavLinkClass, storefrontHeaderTripleGridClass } from "@/features/store/storefront-ui";
 
 const links = [
+  { href: "/", label: "Главная" },
   { href: "/catalog", label: "Каталог" },
   { href: "/contact", label: "Контакты" },
   { href: "/uslugi", label: "Доставка и монтаж" },
@@ -49,7 +50,10 @@ export function AppNav() {
         <div className="hidden items-center gap-3 md:flex lg:hidden">
           <div className="flex min-w-0 flex-1 items-center justify-center gap-0.5">
             {links.map((link) => {
-              const isActive = pathname === link.href;
+              const isActive =
+                link.href === "/"
+                  ? pathname === "/"
+                  : pathname === link.href || pathname?.startsWith(`${link.href}/`);
               return (
                 <Link
                   key={link.href}
@@ -69,7 +73,10 @@ export function AppNav() {
           <div aria-hidden="true" />
           <div className="flex items-center justify-center gap-0.5">
             {links.map((link) => {
-              const isActive = pathname === link.href;
+              const isActive =
+                link.href === "/"
+                  ? pathname === "/"
+                  : pathname === link.href || pathname?.startsWith(`${link.href}/`);
               return (
                 <Link
                   key={link.href}
@@ -92,7 +99,10 @@ export function AppNav() {
         <div id="mobile-primary-nav" className="border-t border-zinc-200 bg-white md:hidden">
           <div className="mx-auto flex w-full max-w-[1920px] flex-col px-4 py-2 sm:px-6 lg:px-8">
             {links.map((link) => {
-              const isActive = pathname === link.href;
+              const isActive =
+                link.href === "/"
+                  ? pathname === "/"
+                  : pathname === link.href || pathname?.startsWith(`${link.href}/`);
               return (
                 <Link
                   key={link.href}

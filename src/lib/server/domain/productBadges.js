@@ -1,6 +1,7 @@
 /** Коды бейджей на карточке товара (products.badges TEXT[]). */
 const PRODUCT_BADGE_DEFINITIONS = {
   hit: { code: "hit", label: "Хит" },
+  sale: { code: "sale", label: "Акция" },
 };
 
 const ALLOWED_BADGE_CODES = new Set(Object.keys(PRODUCT_BADGE_DEFINITIONS));
@@ -26,9 +27,16 @@ const resolveProductBadges = (raw) =>
     label: PRODUCT_BADGE_DEFINITIONS[code].label,
   }));
 
+const syncSaleBadge = (badges, isOnSale) => {
+  const normalized = normalizeProductBadges(badges).filter((code) => code !== "sale");
+  if (isOnSale) normalized.push("sale");
+  return normalized;
+};
+
 module.exports = {
   PRODUCT_BADGE_DEFINITIONS,
   ALLOWED_BADGE_CODES,
   normalizeProductBadges,
   resolveProductBadges,
+  syncSaleBadge,
 };

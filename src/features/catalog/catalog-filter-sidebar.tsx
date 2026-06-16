@@ -27,6 +27,8 @@ type CatalogFilterSidebarProps = {
   attrSelections: Record<string, string[]>;
   attrRanges: Record<string, NumericRange>;
   priceRange: NumericRange;
+  onSale: boolean;
+  onOnSaleChange: (value: boolean) => void;
   hasActiveFilters: boolean;
   isFilterSectionCollapsed: (sectionId: string) => boolean;
   onToggleFilterSection: (sectionId: string) => void;
@@ -56,6 +58,8 @@ export function CatalogFilterSidebar({
   attrSelections,
   attrRanges,
   priceRange,
+  onSale,
+  onOnSaleChange,
   hasActiveFilters,
   isFilterSectionCollapsed,
   onToggleFilterSection,
@@ -87,6 +91,22 @@ export function CatalogFilterSidebar({
         <option value="price-asc">Цена по возрастанию</option>
         <option value="price-desc">Цена по убыванию</option>
       </select>
+
+      <CollapsibleFilterSection
+        sectionId="promotions"
+        title="Акции"
+        collapsed={isFilterSectionCollapsed("promotions")}
+        onToggle={onToggleFilterSection}
+      >
+        <label className={catalogFilterOptionLabelClass}>
+          <input
+            type="checkbox"
+            checked={onSale}
+            onChange={(event) => onOnSaleChange(event.target.checked)}
+          />
+          Только акционные
+        </label>
+      </CollapsibleFilterSection>
 
       {meta.labels.length > 0 ? (
         <CollapsibleFilterSection

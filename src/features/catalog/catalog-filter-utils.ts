@@ -140,5 +140,71 @@ export const buildCatalogQuery = (
   });
   if (filters.priceRange.min.trim() !== "") params.set("minPrice", filters.priceRange.min.trim());
   if (filters.priceRange.max.trim() !== "") params.set("maxPrice", filters.priceRange.max.trim());
+  if (filters.onSale) params.set("onSale", "1");
   return params.toString();
+};
+
+const parseCsvParam = (value: string | undefined) =>
+  String(value || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+export const flattenSearchParams = (
+  searchParams: Record<string, string | string[] | undefined>,
+): Record<string, string> => {
+  const out: Record<string, string> = {};
+  for (const [key, raw] of Object.entries(searchParams)) {
+    if (raw === undefined) continue;
+    out[key] = Array.isArray(raw) ? String(raw[0] ?? "") : String(raw);
+  }
+  return out;
+};
+
+export const parseCatalogFilterStateFromSearchParams = (
+  flat: Record<string, string>,
+): CatalogFilterState => {
+  const attrSelections: Record<string, string[]> = {};
+  const attrRanges: Record<string, NumericRange> = {};
+
+  for (const [key, value] of Object.entries(flat)) {
+    if (!key.startsWith("attr_")) continue;
+    if (key.endsWith("_min")) {
+      const code = key.slice(5, -4);
+      const current = attrRanges[code] || { min: "", max: "" };
+      attrRanges[code] = { ...current, min: value };
+      continue;
+    }
+    if (key.endsWith("_max")) {
+      const code = key.slice(5, -4);
+      const current = attrRanges[code] || { min: "", max: "" };
+      attrRanges[code] = { ...current, max: value };
+      continue;
+    }
+    const code = key.slice(5);
+    attrSelections[code] = parseCsvParam(value);
+  }
+
+  return {
+    search: flat.search || "",
+    sort: flat.sort || "popularity",
+    categories: parseCsvParam(flat.categories),
+    subcategories: parseCsvParam(flat.subcategories),
+    attrSelections,
+    attrRanges,
+    priceRange: {
+      min: flat.minPrice || "",
+      max: flat.maxPrice || "",
+    },
+    onSale: flat.onSale === "1",
+  };
+};
+
+export const catalogQueryObjectFromQueryString = (queryString: string) => {
+  const params = new URLSearchParams(queryString);
+  const query: Record<string, string> = {};
+  params.forEach((value, key) => {
+    query[key] = value;
+  });
+  return query;
 };

@@ -8,26 +8,26 @@ import { ProductRelatedFittings } from "@/features/product/product-related-fitti
 import { ProductVariantSelectors } from "@/features/product/product-variant-selectors";
 import {
   buildCatalogBackHref,
+  resolveProductDisplayPrice,
   variantCartSuffix,
 } from "@/features/product/product-utils";
+import { ProductPageSkeleton } from "@/features/product/product-page-skeleton";
 import { useProductPage } from "@/features/product/use-product-page";
 import { ImageLightbox } from "@/features/store/image-lightbox";
 import { MeasureLeadForm } from "@/features/store/measure-lead-form";
-import { PriceTag } from "@/features/store/price-tag";
+import { ProductPrice } from "@/features/store/price-tag";
+import type { ProductData } from "@/lib/client/normalizers";
 
 type ProductPageClientProps = {
   params: Promise<{ slug: string }>;
+  initialProduct?: ProductData | null;
 };
 
-export function ProductPageClient({ params }: ProductPageClientProps) {
-  const page = useProductPage(params);
+export function ProductPageClient({ params, initialProduct }: ProductPageClientProps) {
+  const page = useProductPage(params, initialProduct);
 
   if (page.loading) {
-    return (
-      <main className="mx-auto w-full max-w-[1400px] px-4 py-6 sm:px-6 lg:px-8">
-        Загрузка...
-      </main>
-    );
+    return <ProductPageSkeleton />;
   }
 
   if (!page.product) {
@@ -42,7 +42,7 @@ export function ProductPageClient({ params }: ProductPageClientProps) {
   const image = page.displayedImage || page.targetImage;
   const galleryImages =
     product.images.length > 0 ? product.images : product.image ? [product.image] : [];
-  const price = page.selectedVariant?.price ?? product.price;
+  const price = resolveProductDisplayPrice(product, page.selectedVariant?.price);
   const relatedFittings = product.relatedFittings ?? {
     fixators: [],
     latches: [],
@@ -72,7 +72,12 @@ export function ProductPageClient({ params }: ProductPageClientProps) {
           />
           <div className="space-y-4">
             <h1 className="text-2xl font-semibold">{product.name}</h1>
-            <PriceTag price={price} className="text-lg" />
+            <ProductPrice
+              price={price}
+              compareAtPrice={product.compareAtPrice}
+              isOnSale={product.isOnSale}
+              className="text-lg"
+            />
             <p className="text-sm text-zinc-600">
               {product.category}
               {product.subcategory ? ` / ${product.subcategory}` : ""}

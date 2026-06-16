@@ -1,10 +1,18 @@
 const { query, withTransaction } = require("../db/postgres");
 const attributeRepository = require("./attributeRepository");
 const { loadRelatedFittingsForHandle } = require("../domain/fittingsRelated");
-const { normalizeProductBadges, resolveProductBadges } = require("../domain/productBadges");
+const { normalizeProductBadges, resolveProductBadges, syncSaleBadge } = require("../domain/productBadges");
+const {
+  applySaleRulesOn,
+  applySaleRulesOff,
+  readSaleBasePrice,
+  withSaleBasePrice,
+} = require("../domain/salePricing");
+const saleSettingsRepository = require("./saleSettingsRepository");
 const { allocateUniqueSlug } = require("../domain/productSlug");
 const {
   ensureProductBadgesColumn,
+  ensureProductSaleColumns,
   ensureProductSlugColumn,
   ensureLatinProductSlugs,
 } = require("../db/schemaPatches");
@@ -261,6 +269,12 @@ const buildScopeWhere = (filters, addParam) => {
     where.push(`p.price <= ${addParam(filters.maxPrice)}`);
   }
 
+  if (filters.onSale === true) {
+    where.push(`p.is_on_sale = TRUE`);
+    where.push(`p.compare_at_price IS NOT NULL`);
+    where.push(`p.compare_at_price > p.price`);
+  }
+
   where.push(storefrontListedProductPredicatesSql);
 
   return where;
@@ -335,6 +349,7 @@ const loadAttributeDefMap = async () => {
 
 const listProducts = async (filters) => {
   await ensureProductBadgesColumn();
+  await ensureProductSaleColumns();
   await ensureLatinProductSlugs();
   const params = [];
   const addParam = (value) => {
@@ -370,6 +385,8 @@ const listProducts = async (filters) => {
       p.slug,
       p.name,
       p.price,
+      p.is_on_sale AS "isOnSale",
+      p.compare_at_price AS "compareAtPrice",
       p.badges,
       p.attrs->>'color' AS color,
       (
@@ -431,6 +448,11 @@ const listProducts = async (filters) => {
           .filter((o) => Number.isInteger(o.id) && o.id > 0 && o.label);
       })(),
       price: Number(row.price),
+      isOnSale: row.isOnSale === true,
+      compareAtPrice:
+        row.compareAtPrice === null || row.compareAtPrice === undefined
+          ? null
+          : Number(row.compareAtPrice),
       badges: resolveProductBadges(row.badges),
       image: row.image || "",
       hoverImage: row.hoverImage || null,
@@ -766,6 +788,7 @@ const getProductBySlug = async (slug) => {
 
 const getProductById = async (id) => {
   await ensureProductBadgesColumn();
+  await ensureProductSaleColumns();
   await ensureLatinProductSlugs();
   const numericId = Number(id);
   if (!Number.isInteger(numericId) || numericId <= 0) return null;
@@ -778,6 +801,8 @@ const getProductById = async (id) => {
       p.slug,
       p.name,
       p.price,
+      p.is_on_sale AS "isOnSale",
+      p.compare_at_price AS "compareAtPrice",
       p.model_key AS "modelKey",
       p.badges,
       p.attrs,
@@ -1062,6 +1087,11 @@ const getProductById = async (id) => {
     slug: row.slug || null,
     name: row.name,
     price: Number(row.price),
+    isOnSale: row.isOnSale === true,
+    compareAtPrice:
+      row.compareAtPrice === null || row.compareAtPrice === undefined
+        ? null
+        : Number(row.compareAtPrice),
     image: primaryImage,
     images,
     category: taxonomy.category,
@@ -1287,8 +1317,11 @@ const listProductsTable = async ({
   subcategoryId = null,
   attributeFilters = {},
   manufacturer = null,
+  hit = null,
+  onSale = null,
 }) => {
   await ensureProductBadgesColumn();
+  await ensureProductSaleColumns();
   const safePage = Math.max(1, Number(page) || 1);
   const safeLimit = Math.min(500, Math.max(1, Number(limit) || 100));
   const offset = (safePage - 1) * safeLimit;
@@ -1328,6 +1361,18 @@ const listProductsTable = async ({
       whereParts.push(
         `LOWER(TRIM(COALESCE(p.attrs->>'manufacturer', ''))) = LOWER(${addParam(manufacturerTrimmed)})`,
       );
+    }
+
+    if (hit === true) {
+      whereParts.push(`COALESCE(p.badges, ARRAY[]::text[]) @> ARRAY['hit']::text[]`);
+    } else if (hit === false) {
+      whereParts.push(`NOT (COALESCE(p.badges, ARRAY[]::text[]) @> ARRAY['hit']::text[])`);
+    }
+
+    if (onSale === true) {
+      whereParts.push(`p.is_on_sale = TRUE`);
+    } else if (onSale === false) {
+      whereParts.push(`p.is_on_sale = FALSE`);
     }
 
     const whereSql = whereParts.length > 0 ? `WHERE ${whereParts.join(" AND ")}` : "";
@@ -1378,7 +1423,10 @@ const listProductsTable = async ({
       p.id,
       p.sku,
       p.name,
+      p.slug,
       p.price,
+      p.is_on_sale AS "isOnSale",
+      p.compare_at_price AS "compareAtPrice",
       p.attrs,
       p.badges,
       p.model_key AS "modelKey",
@@ -1444,7 +1492,13 @@ const listProductsTable = async ({
       id: Number(row.id),
       sku: row.sku,
       name: row.name,
+      slug: row.slug || null,
       price: Number(row.price),
+      isOnSale: row.isOnSale === true,
+      compareAtPrice:
+        row.compareAtPrice === null || row.compareAtPrice === undefined
+          ? null
+          : Number(row.compareAtPrice),
       modelKey: row.modelKey || null,
       category: row.category,
       subcategory: row.subcategory,
@@ -1876,6 +1930,108 @@ const patchProductBadges = async (id, badges) => {
   };
 };
 
+const patchProductSale = async (id, payload) => {
+  await ensureProductBadgesColumn();
+  await ensureProductSaleColumns();
+  const numericId = Number(id);
+  if (!Number.isInteger(numericId) || numericId <= 0) return null;
+
+  const currentRes = await query(
+    `SELECT price, badges, is_on_sale AS "isOnSale", compare_at_price AS "compareAtPrice", attrs
+     FROM products WHERE id = $1 LIMIT 1`,
+    [numericId],
+  );
+  if (!currentRes.rows[0]) return null;
+  const current = currentRes.rows[0];
+  const currentAttrs = ensureAttrs(current.attrs);
+  const saleBaseFromAttrs = readSaleBasePrice(currentAttrs);
+
+  const applyRules = payload.applySaleRules === true;
+  const togglingOn = payload.isOnSale === true && current.isOnSale !== true;
+  const togglingOff = payload.isOnSale === false && current.isOnSale === true;
+  const useRules =
+    applyRules ||
+    (togglingOn && payload.price === undefined && payload.compareAtPrice === undefined) ||
+    (togglingOff && payload.price === undefined);
+
+  let price =
+    payload.price !== undefined && payload.price !== null
+      ? Math.round(Number(payload.price))
+      : Number(current.price);
+  if (!Number.isFinite(price) || price < 0) price = Number(current.price);
+
+  let isOnSale =
+    payload.isOnSale !== undefined ? Boolean(payload.isOnSale) : current.isOnSale === true;
+
+  let compareAtPrice =
+    payload.compareAtPrice !== undefined && payload.compareAtPrice !== null
+      ? Math.round(Number(payload.compareAtPrice))
+      : current.compareAtPrice === null || current.compareAtPrice === undefined
+        ? null
+        : Number(current.compareAtPrice);
+
+  let nextAttrs = { ...currentAttrs };
+
+  if (useRules && togglingOn) {
+    const settings = await saleSettingsRepository.getSaleSettings();
+    const applied = applySaleRulesOn(price, settings);
+    if (applied.error) return { error: applied.error };
+    price = applied.price;
+    compareAtPrice = applied.compareAtPrice;
+    isOnSale = true;
+    nextAttrs = withSaleBasePrice(nextAttrs, applied.saleBasePrice);
+  } else if (useRules && togglingOff) {
+    const applied = applySaleRulesOff({
+      price,
+      compareAtPrice,
+      saleBasePrice: saleBaseFromAttrs,
+    });
+    price = applied.price;
+    compareAtPrice = applied.compareAtPrice;
+    isOnSale = false;
+    nextAttrs = withSaleBasePrice(nextAttrs, null);
+  } else if (!isOnSale) {
+    compareAtPrice = null;
+    nextAttrs = withSaleBasePrice(nextAttrs, null);
+  } else if (isOnSale && !Number.isFinite(compareAtPrice)) {
+    return { error: "Старая цена должна быть больше текущей" };
+  } else if (isOnSale) {
+    if (!Number.isFinite(compareAtPrice) || compareAtPrice <= price) {
+      return { error: "Старая цена должна быть больше текущей" };
+    }
+  }
+
+  const badges = syncSaleBadge(current.badges, isOnSale);
+
+  const res = await query(
+    `
+    UPDATE products
+    SET
+      price = $2,
+      is_on_sale = $3,
+      compare_at_price = $4,
+      badges = $5::text[],
+      attrs = $6::jsonb,
+      updated_at = NOW()
+    WHERE id = $1
+    RETURNING id, price, is_on_sale AS "isOnSale", compare_at_price AS "compareAtPrice", badges
+    `,
+    [numericId, price, isOnSale, compareAtPrice, badges, JSON.stringify(nextAttrs)],
+  );
+  if (!res.rows[0]) return null;
+  const row = res.rows[0];
+  return {
+    id: Number(row.id),
+    price: Number(row.price),
+    isOnSale: row.isOnSale === true,
+    compareAtPrice:
+      row.compareAtPrice === null || row.compareAtPrice === undefined
+        ? null
+        : Number(row.compareAtPrice),
+    badges: normalizeProductBadges(row.badges),
+  };
+};
+
 const patchProductDisplayOrder = async (id, rawOrder) => {
   const numericId = Number(id);
   if (!Number.isInteger(numericId) || numericId <= 0) return null;
@@ -1943,6 +2099,7 @@ module.exports = {
   updateProduct,
   upsertProductBySku,
   patchProductBadges,
+  patchProductSale,
   patchProductDisplayOrder,
   deleteAllProducts,
   deleteProductsByCategoryScope,

@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { CATALOG_CARD_IMAGE_HEIGHT } from "@/features/catalog/catalog-constants";
 import { AddToCartIconButton } from "@/features/store/add-to-cart-icon-button";
-import { PriceTag } from "@/features/store/price-tag";
+import { ProductPrice } from "@/features/store/price-tag";
 import { ProductCardBadges } from "@/features/store/product-card-badges";
 import { isPogonazhCategoryLabel } from "@/lib/client/cart-store";
 import { toPublicImageSrc } from "@/lib/client/image-src";
@@ -56,9 +56,19 @@ export function CatalogProductCard({
         </Link>
         <AddToCartIconButton productName={displayName} onClick={onAddToCart} />
       </div>
-      <Link href={productHref(item)} className="block" onClick={onNavigateToProduct}>
-        <h3 className="font-normal">{displayName}</h3>
-        <PriceTag price={item.price} className="mt-2 block text-base font-medium text-zinc-800" />
+      <Link
+        href={productHref(item)}
+        className="mt-1 flex flex-1 flex-col"
+        onClick={onNavigateToProduct}
+      >
+        <h3 className="line-clamp-2 min-h-[2.5rem] text-sm leading-snug text-zinc-900">{displayName}</h3>
+        <ProductPrice
+          price={item.price}
+          compareAtPrice={item.compareAtPrice}
+          isOnSale={item.isOnSale}
+          layout="stacked"
+          className="mt-2 text-base font-medium text-zinc-800"
+        />
       </Link>
     </article>
   );

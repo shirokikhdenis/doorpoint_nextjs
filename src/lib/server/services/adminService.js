@@ -4,6 +4,8 @@ const attributeRepository = require("../repositories/attributeRepository");
 const productRepository = require("../repositories/productRepository");
 const catalogPageRepository = require("../repositories/catalogPageRepository");
 const catalogPageLabelRepository = require("../repositories/catalogPageLabelRepository");
+const saleSettingsRepository = require("../repositories/saleSettingsRepository");
+const { describeSaleRule } = require("../domain/salePricing");
 
 const slugify = (value) =>
   String(value || "")
@@ -286,26 +288,60 @@ const deleteProductsByCategoryScope = async (query) =>
     subcategoryId: query.subcategoryId ? Number(query.subcategoryId) : null,
   });
 
-const getProductsTable = async (query) =>
-  productRepository.listProductsTable({
-    page: Number(query.page) || 1,
-    limit: Number(query.limit) || 100,
-    search: String(query.search || ""),
-    categoryId: query.categoryId ? Number(query.categoryId) : null,
-    subcategoryId: query.subcategoryId ? Number(query.subcategoryId) : null,
-    manufacturer: query.manufacturer ? String(query.manufacturer).trim() : null,
-    attributeFilters: Object.fromEntries(
-      Object.entries(query)
-        .filter(([key, value]) => key.startsWith("attr_") && String(value || "").trim())
-        .map(([key, value]) => [key.replace(/^attr_/, ""), String(value)])
-    )
-  });
+const getProductsTable = async (query) => {
+  const [table, saleSettings] = await Promise.all([
+    productRepository.listProductsTable({
+      page: Number(query.page) || 1,
+      limit: Number(query.limit) || 100,
+      search: String(query.search || ""),
+      categoryId: query.categoryId ? Number(query.categoryId) : null,
+      subcategoryId: query.subcategoryId ? Number(query.subcategoryId) : null,
+      manufacturer: query.manufacturer ? String(query.manufacturer).trim() : null,
+      hit: query.hit === "1" ? true : query.hit === "0" ? false : null,
+      onSale: query.onSale === "1" ? true : query.onSale === "0" ? false : null,
+      attributeFilters: Object.fromEntries(
+        Object.entries(query)
+          .filter(([key, value]) => key.startsWith("attr_") && String(value || "").trim())
+          .map(([key, value]) => [key.replace(/^attr_/, ""), String(value)]),
+      ),
+    }),
+    saleSettingsRepository.getSaleSettings(),
+  ]);
+
+  return {
+    ...table,
+    saleSettings,
+    saleRuleDescription: describeSaleRule(saleSettings),
+  };
+};
+
+const getSaleSettings = async () => {
+  const saleSettings = await saleSettingsRepository.getSaleSettings();
+  return {
+    ...saleSettings,
+    description: describeSaleRule(saleSettings),
+  };
+};
+
+const updateSaleSettings = async (body) => {
+  const saleSettings = await saleSettingsRepository.updateSaleSettings(body);
+  return {
+    ...saleSettings,
+    description: describeSaleRule(saleSettings),
+  };
+};
 
 const patchProductDisplayOrder = async (id, body) =>
   productRepository.patchProductDisplayOrder(Number(id), body?.displayOrder ?? body?.sortOrder);
 
 const patchProductBadges = async (id, body) =>
   productRepository.patchProductBadges(Number(id), body?.badges);
+
+const patchProductSale = async (id, body) => {
+  const result = await productRepository.patchProductSale(Number(id), body);
+  if (result && result.error) return { error: result.error };
+  return result;
+};
 
 const getProductAttributeDistinctValues = async (query) =>
   productRepository.listProductAttributeDistinctValues({
@@ -336,8 +372,11 @@ module.exports = {
   deleteAllProducts,
   deleteProductsByCategoryScope,
   getProductsTable,
+  getSaleSettings,
+  updateSaleSettings,
   patchProductDisplayOrder,
   patchProductBadges,
+  patchProductSale,
   getProductAttributeDistinctValues,
   listCatalogPageLabels,
   createCatalogPageLabel,

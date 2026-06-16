@@ -5,18 +5,42 @@ import { productHref } from "@/lib/client/product-url";
 import { serializeVariantAxes } from "@/features/product/product-utils";
 import { ProductData, Variant, normalizeProductData } from "@/lib/client/normalizers";
 
-export function useProductPage(params: Promise<{ slug: string }>) {
-  const [selectedRef, setSelectedRef] = useState<string | null>(null);
-  const [product, setProduct] = useState<ProductData | null>(null);
-  const [variantSku, setVariantSku] = useState("");
-  const [loading, setLoading] = useState(true);
+const seedProductCache = (
+  cache: Map<string, ProductData>,
+  data: ProductData,
+  ref: string,
+) => {
+  cache.set(ref, data);
+  if (data.slug) cache.set(data.slug, data);
+};
+
+export function useProductPage(
+  params: Promise<{ slug: string }>,
+  initialProduct?: ProductData | null,
+) {
+  const initialRef =
+    initialProduct?.slug?.trim() ||
+    (initialProduct?.id ? String(initialProduct.id) : null);
+
+  const [selectedRef, setSelectedRef] = useState<string | null>(initialRef);
+  const [product, setProduct] = useState<ProductData | null>(initialProduct ?? null);
+  const [variantSku, setVariantSku] = useState(
+    () => initialProduct?.variants[0]?.sku || "",
+  );
+  const [loading, setLoading] = useState(!initialProduct);
   const [error, setError] = useState("");
   const [displayedImage, setDisplayedImage] = useState("");
   const [isManualImageSelection, setIsManualImageSelection] = useState(false);
   const [imageLightboxOpen, setImageLightboxOpen] = useState(false);
 
   const cacheRef = useRef<Map<string, ProductData>>(new Map());
+  const cacheSeededRef = useRef(false);
   const inFlightRef = useRef<Set<string>>(new Set());
+
+  if (initialProduct && initialRef && !cacheSeededRef.current) {
+    cacheSeededRef.current = true;
+    seedProductCache(cacheRef.current, initialProduct, initialRef);
+  }
   const productRef = useRef<ProductData | null>(null);
   const variantSkuRef = useRef("");
 

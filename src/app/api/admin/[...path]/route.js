@@ -3,6 +3,7 @@ import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 const adminService = require("@/lib/server/services/adminService");
 const csvImportService = require("@/lib/server/services/csvImportService");
+const promotionService = require("@/lib/server/services/promotionService");
 const { withErrorHandling, json, empty, getQuery, readBody } = require("@/lib/server/http/handlers");
 const { requestHasAdminSession } = require("@/lib/server/auth/adminAuth");
 
@@ -126,6 +127,11 @@ const handle = async (request, context) =>
       const updated = await adminService.patchProductBadges(Number(path[1]), body);
       return updated ? json(updated) : json({ message: "Product not found" }, 404);
     }
+    if (path[0] === "products" && path.length === 3 && path[2] === "sale" && method === "PATCH") {
+      const updated = await adminService.patchProductSale(Number(path[1]), body);
+      if (updated?.error) return json({ message: updated.error }, 400);
+      return updated ? json(updated) : json({ message: "Product not found" }, 404);
+    }
     if (path[0] === "products" && path.length === 2 && method === "PUT") return json(await adminService.updateProduct(Number(path[1]), body));
     if (path[0] === "products" && path.length === 2 && method === "GET") {
       const product = await adminService.getProductForEdit(Number(path[1]));
@@ -133,6 +139,10 @@ const handle = async (request, context) =>
     }
 
     if (match(path, method, "GET", "products-table")) return json(await adminService.getProductsTable(query));
+    if (match(path, method, "GET", "sale-settings")) return json(await adminService.getSaleSettings());
+    if (match(path, method, "PATCH", "sale-settings")) {
+      return json(await adminService.updateSaleSettings(body));
+    }
     if (match(path, method, "GET", "product-attribute-values")) {
       if (!String(query.code || "").trim()) {
         return json({ message: "code is required" }, 400);
@@ -142,6 +152,29 @@ const handle = async (request, context) =>
     if (match(path, method, "POST", "import", "csv")) {
       if (!Array.isArray(body.rows)) return json({ message: "rows must be an array" }, 400);
       return json(await csvImportService.importRows(body.rows));
+    }
+
+    if (match(path, method, "GET", "promotions")) {
+      return json(await promotionService.listAllPromotions());
+    }
+    if (match(path, method, "POST", "promotions")) {
+      const result = await promotionService.createPromotion(body);
+      if (!result.ok) return json({ message: result.message }, 400);
+      return json(result.banner, 201);
+    }
+    if (path[0] === "promotions" && path.length === 2 && method === "PUT") {
+      const result = await promotionService.updatePromotion(Number(path[1]), body);
+      if (!result.ok) return json({ message: result.message }, result.status || 400);
+      return json(result.banner);
+    }
+    if (path[0] === "promotions" && path.length === 2 && method === "DELETE") {
+      const result = await promotionService.deletePromotion(Number(path[1]));
+      if (!result.ok) return json({ message: result.message }, result.status || 404);
+      return empty(204);
+    }
+    if (match(path, method, "PATCH", "promotions", "reorder")) {
+      const orderedIds = Array.isArray(body.orderedIds) ? body.orderedIds : [];
+      return json(await promotionService.reorderPromotions(orderedIds));
     }
 
     return json({ message: "Not found" }, 404);

@@ -7,6 +7,7 @@ import { CartItem, cartItemHasProductLink } from "@/lib/client/cart-store";
 import { formatPrice } from "@/lib/client/format";
 import { productHref } from "@/lib/client/product-url";
 import { useCart } from "@/lib/client/use-cart";
+import { CartLeadForm } from "@/features/store/cart-lead-form";
 import { SITE_EMAIL, SITE_PHONE_DISPLAY, SITE_PHONE_TEL } from "@/lib/site-contact";
 
 const formatToday = () => {
@@ -309,6 +310,8 @@ export default function CartPage() {
           Итого: {formatPrice(totalPrice)}
         </span>
       </div>
+
+      <CartLeadForm items={items} totalPrice={totalPrice} onSubmitted={clear} />
     </main>
   );
 }

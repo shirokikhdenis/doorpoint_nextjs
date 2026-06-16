@@ -51,6 +51,7 @@ const buildCatalogFilters = (query) => {
     attributeFilters,
     minPrice,
     maxPrice,
+    onSale: ["1", "true", "yes"].includes(String(query.onSale || "").trim().toLowerCase()),
     limit,
     offset: (page - 1) * limit,
     page,

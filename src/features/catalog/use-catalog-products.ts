@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { CATALOG_PAGE_LIMIT, emptyCatalogMeta } from "@/features/catalog/catalog-constants";
 import { applyLabelToSelections, dedupeProductsById } from "@/features/catalog/catalog-filter-utils";
-import { readCatalogScrollPayload } from "@/features/catalog/catalog-scroll-storage";
+import { readCatalogScrollPayload, resolveCatalogPageSlug } from "@/features/catalog/catalog-scroll-storage";
 import type { CatalogReturnSnapshot } from "@/features/catalog/catalog-types";
 import {
   CatalogMeta,
@@ -13,6 +13,7 @@ import {
   normalizeCatalogPages,
   normalizeProductsResponse,
 } from "@/lib/client/normalizers";
+import type { CatalogShellInitial } from "@/lib/server/catalog-shell";
 
 type UseCatalogProductsOptions = {
   catalogPage: string;
@@ -23,7 +24,28 @@ type UseCatalogProductsOptions = {
     React.SetStateAction<Record<string, { min: string; max: string }>>
   >;
   setMeta: React.Dispatch<React.SetStateAction<CatalogMeta>>;
+  initial?: CatalogShellInitial;
 };
+
+const shouldSkipInitialHydration = (initial?: CatalogShellInitial) => {
+  if (!initial || typeof window === "undefined") return true;
+  const scroll = readCatalogScrollPayload();
+  const urlPage = resolveCatalogPageSlug();
+  if (!scroll?.catalogPage || scroll.catalogPage !== urlPage) return false;
+  return Number(scroll.loadedPages) > 1;
+};
+
+const matchesInitialShell = (
+  initial: CatalogShellInitial | undefined,
+  query: string,
+  catalogPage: string,
+) =>
+  Boolean(
+    initial &&
+      query === initial.queryString &&
+      catalogPage === initial.catalogPage &&
+      !shouldSkipInitialHydration(initial),
+  );
 
 export function useCatalogProducts({
   catalogPage,
@@ -32,9 +54,13 @@ export function useCatalogProducts({
   setAttrSelections,
   setAttrRanges,
   setMeta,
+  initial,
 }: UseCatalogProductsOptions) {
   const catalogReturnSnapshotRef = useRef<CatalogReturnSnapshot | null>(null);
   const scrollRestoredRef = useRef(false);
+  const useInitialRef = useRef(matchesInitialShell(initial, query, catalogPage));
+  const skippedInitialMetaRef = useRef(false);
+  const skippedInitialPagesRef = useRef(false);
 
   useLayoutEffect(() => {
     if (typeof window === "undefined") return;
@@ -49,17 +75,28 @@ export function useCatalogProducts({
       loadedPages: Math.min(25, Math.max(1, Number(p.loadedPages) || 1)),
       scrollApplied: false,
     };
+    if (Number(p.loadedPages) > 1) {
+      useInitialRef.current = false;
+    }
   }, []);
 
-  const [catalogPages, setCatalogPages] = useState<CatalogPageItem[]>([]);
-  const [products, setProducts] = useState<ProductCard[]>([]);
-  const [total, setTotal] = useState(0);
+  const [catalogPages, setCatalogPages] = useState<CatalogPageItem[]>(() =>
+    useInitialRef.current && initial ? initial.catalogPages : [],
+  );
+  const [products, setProducts] = useState<ProductCard[]>(() =>
+    useInitialRef.current && initial ? initial.products : [],
+  );
+  const [total, setTotal] = useState(() =>
+    useInitialRef.current && initial ? initial.total : 0,
+  );
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!useInitialRef.current);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
 
-  const lastFetchedRef = useRef<{ query: string; page: number }>({ query: "", page: 0 });
+  const lastFetchedRef = useRef<{ query: string; page: number }>(
+    useInitialRef.current ? { query, page: 1 } : { query: "", page: 0 },
+  );
   const restoreCheckDoneRef = useRef(false);
 
   useEffect(() => {
@@ -98,6 +135,18 @@ export function useCatalogProducts({
   }, [loading, catalogPage]);
 
   useEffect(() => {
+    if (
+      initial &&
+      !skippedInitialPagesRef.current &&
+      useInitialRef.current &&
+      catalogPage === initial.catalogPage &&
+      initial.catalogPages.length > 0
+    ) {
+      skippedInitialPagesRef.current = true;
+      setCatalogPages(initial.catalogPages);
+      return;
+    }
+
     const run = async () => {
       const pagesRes = await fetch("/api/products/catalog-pages");
       if (!pagesRes.ok) throw new Error("Не удалось загрузить разделы каталога");
@@ -109,9 +158,19 @@ export function useCatalogProducts({
       }
     };
     run().catch((err: Error) => setError(err.message));
-  }, [catalogPage, setCatalogPage]);
+  }, [catalogPage, initial, setCatalogPage]);
 
   useEffect(() => {
+    if (
+      initial &&
+      !skippedInitialMetaRef.current &&
+      useInitialRef.current &&
+      catalogPage === initial.catalogPage
+    ) {
+      skippedInitialMetaRef.current = true;
+      return;
+    }
+
     let cancelled = false;
     setMeta(emptyCatalogMeta);
     (async () => {
@@ -143,7 +202,7 @@ export function useCatalogProducts({
     return () => {
       cancelled = true;
     };
-  }, [catalogPage, setAttrSelections, setAttrRanges, setMeta]);
+  }, [catalogPage, initial, setAttrSelections, setAttrRanges, setMeta]);
 
   useEffect(() => {
     setPage(1);

@@ -23,6 +23,7 @@ DROP TABLE IF EXISTS
   product_attribute_values,
   portfolio_images,
   portfolio_projects,
+  promotion_banners,
   product_images,
   product_variants,
   products,
@@ -74,6 +75,22 @@ CREATE TABLE catalog_page_labels (
 
 CREATE INDEX idx_catalog_page_labels_catalog_page_id ON catalog_page_labels(catalog_page_id);
 
+CREATE TABLE promotion_banners (
+  id BIGSERIAL PRIMARY KEY,
+  title TEXT NOT NULL,
+  subtitle TEXT NOT NULL DEFAULT '',
+  background_image_url TEXT NOT NULL,
+  catalog_page_slug TEXT NOT NULL DEFAULT 'all',
+  filter_manufacturer TEXT,
+  filter_collection TEXT,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_promotion_banners_active_sort ON promotion_banners(is_active, sort_order);
+
 CREATE TABLE attribute_definitions (
   id BIGSERIAL PRIMARY KEY,
   code TEXT NOT NULL UNIQUE,
@@ -97,6 +114,8 @@ CREATE TABLE products (
   price INTEGER NOT NULL,
   attrs JSONB NOT NULL DEFAULT '{}'::jsonb,
   badges TEXT[] NOT NULL DEFAULT '{}'::text[],
+  is_on_sale BOOLEAN NOT NULL DEFAULT FALSE,
+  compare_at_price INTEGER,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

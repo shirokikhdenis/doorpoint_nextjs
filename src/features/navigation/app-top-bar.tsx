@@ -42,7 +42,7 @@ export function AppTopBar() {
 
           <div className="order-1 flex justify-center lg:order-2">
             <Link
-              href="/catalog"
+              href="/"
               className="inline-flex rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
               aria-label="На главную"
             >

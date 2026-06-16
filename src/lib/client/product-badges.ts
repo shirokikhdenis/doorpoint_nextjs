@@ -4,6 +4,7 @@ export type ProductBadge = {
 };
 
 export const PRODUCT_BADGE_HIT = "hit";
+export const PRODUCT_BADGE_SALE = "sale";
 
 export const parseProductBadges = (value: unknown): ProductBadge[] => {
   if (!Array.isArray(value)) return [];

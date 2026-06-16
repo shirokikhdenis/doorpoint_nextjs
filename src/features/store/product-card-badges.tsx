@@ -4,6 +4,9 @@ const badgeClassName = (code: string) => {
   if (code === "hit") {
     return "bg-amber-500 text-white";
   }
+  if (code === "sale") {
+    return "bg-rose-600 text-white";
+  }
   return "bg-zinc-800 text-white";
 };
 

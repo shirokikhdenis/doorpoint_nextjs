@@ -42,9 +42,24 @@ export type ProductCard = {
   category?: string;
   categorySlug?: string;
   price: number;
+  isOnSale?: boolean;
+  compareAtPrice?: number | null;
   /** Варианты стекла той же модели (тот же model_key + name, тот же color); для чипов в выдаче. */
   glassOptions?: ProductGlassOption[];
   badges?: ProductBadge[];
+};
+
+export type PromotionBanner = {
+  id: number;
+  title: string;
+  subtitle: string;
+  backgroundImageUrl: string;
+  catalogPageSlug: string;
+  filterManufacturer?: string;
+  filterCollection?: string;
+  sortOrder: number;
+  isActive: boolean;
+  href: string;
 };
 
 export type VariantAttribute = {
@@ -104,6 +119,8 @@ export type ProductData = {
   slug?: string;
   name: string;
   price: number;
+  isOnSale?: boolean;
+  compareAtPrice?: number | null;
   image?: string;
   images: string[];
   category?: string;
@@ -224,6 +241,11 @@ export const normalizeProductsResponse = (value: unknown): ProductCard[] => {
     category: item.category ? String(item.category) : undefined,
     categorySlug: item.categorySlug ? String(item.categorySlug) : undefined,
     price: Number(item.price) || 0,
+    isOnSale: item.isOnSale === true,
+    compareAtPrice:
+      item.compareAtPrice === null || item.compareAtPrice === undefined
+        ? null
+        : Number(item.compareAtPrice),
     glassOptions: parseGlassOptions(item.glassOptions),
     badges: parseProductBadges(item.badges),
   }));
@@ -266,6 +288,11 @@ export const normalizeProductData = (value: unknown): ProductData => {
     slug: source.slug ? String(source.slug) : undefined,
     name: String(source.name || ""),
     price: Number(source.price) || 0,
+    isOnSale: source.isOnSale === true,
+    compareAtPrice:
+      source.compareAtPrice === null || source.compareAtPrice === undefined
+        ? null
+        : Number(source.compareAtPrice),
     image: source.image ? toPublicImageSrc(String(source.image)) : undefined,
     images: asArray<string>(source.images)
       .map((url) => toPublicImageSrc(String(url)))
@@ -310,6 +337,20 @@ export const normalizeProductData = (value: unknown): ProductData => {
     badges: parseProductBadges(source.badges),
   };
 };
+
+export const normalizePromotionBanners = (value: unknown): PromotionBanner[] =>
+  asArray<Record<string, unknown>>(value).map((entry) => ({
+    id: Number(entry.id) || 0,
+    title: String(entry.title || ""),
+    subtitle: String(entry.subtitle || ""),
+    backgroundImageUrl: toPublicImageSrc(String(entry.backgroundImageUrl || "")),
+    catalogPageSlug: String(entry.catalogPageSlug || "all"),
+    filterManufacturer: entry.filterManufacturer ? String(entry.filterManufacturer) : "",
+    filterCollection: entry.filterCollection ? String(entry.filterCollection) : "",
+    sortOrder: Number(entry.sortOrder) || 0,
+    isActive: entry.isActive !== false,
+    href: String(entry.href || ""),
+  }));
 
 export const normalizeAdminBootstrap = (value: unknown): AdminBootstrap => {
   const source = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;

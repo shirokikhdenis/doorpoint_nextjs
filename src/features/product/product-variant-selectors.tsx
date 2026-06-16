@@ -1,6 +1,6 @@
 "use client";
 
-import { variantAxesLabel } from "@/features/product/product-utils";
+import { resolveProductDisplayPrice, variantAxesLabel } from "@/features/product/product-utils";
 import { VariantChip } from "@/features/product/variant-chip";
 import { formatPrice } from "@/lib/client/format";
 import type { ProductData, Variant } from "@/lib/client/normalizers";
@@ -92,7 +92,8 @@ export function ProductVariantSelectors({
               >
                 {product.variants.map((variant: Variant) => (
                   <option key={variant.sku} value={variant.sku}>
-                    {variantAxesLabel(variant)} — {formatPrice(variant.price)}
+                    {variantAxesLabel(variant)} —{" "}
+                    {formatPrice(resolveProductDisplayPrice(product, variant.price))}
                   </option>
                 ))}
               </select>

@@ -11,11 +11,56 @@ import {
   labelMatchesSelections,
   rangeToFilterState,
 } from "@/features/catalog/catalog-filter-utils";
-import { buildInitialCatalogFilters, resolveCatalogPageSlug } from "@/features/catalog/catalog-scroll-storage";
+import { buildInitialCatalogFilters, readCatalogScrollPayload, resolveCatalogPageSlug } from "@/features/catalog/catalog-scroll-storage";
 import type { CatalogFilterState, NumericRange } from "@/features/catalog/catalog-types";
 import type { CatalogLabel, CatalogMeta } from "@/lib/client/normalizers";
 
 const SEARCH_DEBOUNCE_MS = 300;
+
+type UseCatalogFiltersOptions = {
+  initialCatalogPage?: string;
+  initialFilterState?: CatalogFilterState;
+};
+
+const defaultFilterState = (): CatalogFilterState => ({
+  search: "",
+  sort: "popularity",
+  categories: [],
+  subcategories: [],
+  attrSelections: {},
+  attrRanges: {},
+  priceRange: { min: "", max: "" },
+  onSale: false,
+});
+
+const resolveCatalogBootstrap = (options?: UseCatalogFiltersOptions) => {
+  const scroll =
+    typeof window !== "undefined" ? readCatalogScrollPayload() : null;
+  const urlPage =
+    typeof window !== "undefined"
+      ? resolveCatalogPageSlug()
+      : options?.initialCatalogPage || "all";
+
+  if (scroll?.catalogPage && scroll.catalogPage === urlPage) {
+    return {
+      catalogPage: scroll.catalogPage,
+      filters: buildInitialCatalogFilters(),
+    };
+  }
+
+  if (options?.initialFilterState && options.initialCatalogPage) {
+    return {
+      catalogPage: options.initialCatalogPage,
+      filters: options.initialFilterState,
+    };
+  }
+
+  return {
+    catalogPage: urlPage,
+    filters:
+      typeof window !== "undefined" ? buildInitialCatalogFilters() : defaultFilterState(),
+  };
+};
 
 function useDebouncedValue<T>(value: T, delayMs: number): T {
   const [debounced, setDebounced] = useState(value);
@@ -26,23 +71,24 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
   return debounced;
 }
 
-export function useCatalogFilters(meta: CatalogMeta) {
-  const [initialFilters] = useState(buildInitialCatalogFilters);
-  const [catalogPage, setCatalogPage] = useState(() => resolveCatalogPageSlug());
+export function useCatalogFilters(meta: CatalogMeta, options?: UseCatalogFiltersOptions) {
+  const [bootstrap] = useState(() => resolveCatalogBootstrap(options));
+  const [catalogPage, setCatalogPage] = useState(() => bootstrap.catalogPage);
 
-  const [searchInput, setSearchInput] = useState(initialFilters.search);
+  const [searchInput, setSearchInput] = useState(bootstrap.filters.search);
   const debouncedSearch = useDebouncedValue(searchInput, SEARCH_DEBOUNCE_MS);
 
-  const [sort, setSort] = useState(initialFilters.sort);
-  const [categories, setCategories] = useState<string[]>(initialFilters.categories);
-  const [subcategories, setSubcategories] = useState<string[]>(initialFilters.subcategories);
+  const [sort, setSort] = useState(bootstrap.filters.sort);
+  const [categories, setCategories] = useState<string[]>(bootstrap.filters.categories);
+  const [subcategories, setSubcategories] = useState<string[]>(bootstrap.filters.subcategories);
   const [attrSelections, setAttrSelections] = useState<Record<string, string[]>>(
-    initialFilters.attrSelections,
+    bootstrap.filters.attrSelections,
   );
   const [attrRanges, setAttrRanges] = useState<Record<string, NumericRange>>(
-    initialFilters.attrRanges,
+    bootstrap.filters.attrRanges,
   );
-  const [priceRange, setPriceRange] = useState<NumericRange>(initialFilters.priceRange);
+  const [priceRange, setPriceRange] = useState<NumericRange>(bootstrap.filters.priceRange);
+  const [onSale, setOnSale] = useState(bootstrap.filters.onSale);
 
   const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
   const [collapsedFilterSections, setCollapsedFilterSections] = useState<Set<string>>(
@@ -59,8 +105,9 @@ export function useCatalogFilters(meta: CatalogMeta) {
       attrSelections,
       attrRanges,
       priceRange,
+      onSale,
     }),
-    [debouncedSearch, sort, categories, subcategories, attrSelections, attrRanges, priceRange],
+    [debouncedSearch, sort, categories, subcategories, attrSelections, attrRanges, priceRange, onSale],
   );
 
   const query = useMemo(
@@ -75,7 +122,8 @@ export function useCatalogFilters(meta: CatalogMeta) {
     Object.keys(attrSelections).length > 0 ||
     Object.keys(attrRanges).length > 0 ||
     priceRange.min.trim() !== "" ||
-    priceRange.max.trim() !== "";
+    priceRange.max.trim() !== "" ||
+    onSale;
 
   const isFilterSectionCollapsed = (sectionId: string) => collapsedFilterSections.has(sectionId);
 
@@ -94,6 +142,7 @@ export function useCatalogFilters(meta: CatalogMeta) {
     setAttrSelections({});
     setAttrRanges({});
     setPriceRange({ min: "", max: "" });
+    setOnSale(false);
   }, []);
 
   const clearAllFilters = useCallback(() => {
@@ -168,26 +217,54 @@ export function useCatalogFilters(meta: CatalogMeta) {
   }, [catalogPage]);
 
   const searchParams = useSearchParams();
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const fromUrl: Record<string, string[]> = {};
+    params.forEach((value, key) => {
+      if (!key.startsWith("attr_") || key.endsWith("_min") || key.endsWith("_max")) return;
+      const code = key.slice(5);
+      const values = value
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+      if (values.length) fromUrl[code] = values;
+    });
+    if (Object.keys(fromUrl).length === 0) return;
+    setAttrSelections((prev) => {
+      const same =
+        Object.keys(fromUrl).length === Object.keys(prev).length &&
+        Object.entries(fromUrl).every(([code, values]) => {
+          const current = prev[code] || [];
+          return current.length === values.length && current.every((v, i) => v === values[i]);
+        });
+      return same ? prev : fromUrl;
+    });
+  }, [catalogPage, searchParams]);
+
   useEffect(() => {
     if (!searchParams) return;
     const next = searchParams.get("catalogPage");
-    if (!next || next === catalogPage) return;
-    setCatalogPage(next);
-    setCategories([]);
-    setSubcategories([]);
-    setAttrSelections({});
-    setAttrRanges({});
-    setPriceRange({ min: "", max: "" });
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      params.delete("catalogLabel");
-      const qs = params.toString();
-      window.history.replaceState(
-        null,
-        "",
-        qs ? `${window.location.pathname}?${qs}` : window.location.pathname,
-      );
+    if (next && next !== catalogPage) {
+      setCatalogPage(next);
+      setCategories([]);
+      setSubcategories([]);
+      setAttrSelections({});
+      setAttrRanges({});
+      setPriceRange({ min: "", max: "" });
+      if (typeof window !== "undefined") {
+        const params = new URLSearchParams(window.location.search);
+        params.delete("catalogLabel");
+        const qs = params.toString();
+        window.history.replaceState(
+          null,
+          "",
+          qs ? `${window.location.pathname}?${qs}` : window.location.pathname,
+        );
+      }
     }
+    setOnSale(searchParams.get("onSale") === "1");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
@@ -217,12 +294,14 @@ export function useCatalogFilters(meta: CatalogMeta) {
     const params = new URLSearchParams(window.location.search);
     if (matching) params.set("catalogLabel", String(matching.id));
     else params.delete("catalogLabel");
+    if (onSale) params.set("onSale", "1");
+    else params.delete("onSale");
     if (params.get("catalogPage") !== catalogPage) params.set("catalogPage", catalogPage);
     const qs = params.toString();
     const nextUrl = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
     const cur = window.location.pathname + window.location.search;
     if (nextUrl !== cur) window.history.replaceState(null, "", nextUrl);
-  }, [attrSelections, meta.labels, catalogPage]);
+  }, [attrSelections, meta.labels, catalogPage, onSale]);
 
   return {
     catalogPage,
@@ -240,6 +319,8 @@ export function useCatalogFilters(meta: CatalogMeta) {
     attrRanges,
     setAttrRanges,
     priceRange,
+    onSale,
+    setOnSale,
     filterState,
     query,
     hasActiveFilters,

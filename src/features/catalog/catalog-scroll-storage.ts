@@ -27,6 +27,7 @@ export const buildInitialCatalogFilters = (): CatalogFilterState => {
     attrSelections: {},
     attrRanges: {},
     priceRange: { min: "", max: "" },
+    onSale: false,
   };
   const payload = readCatalogScrollPayload();
   if (!payload?.catalogPage || payload.catalogPage !== resolveCatalogPageSlug()) {
@@ -67,6 +68,7 @@ export const buildInitialCatalogFilters = (): CatalogFilterState => {
             max: typeof payload.priceRange.max === "string" ? payload.priceRange.max : "",
           }
         : defaults.priceRange,
+    onSale: payload.onSale === true,
   };
 };
 

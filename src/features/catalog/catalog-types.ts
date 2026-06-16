@@ -12,6 +12,7 @@ export type CatalogScrollPayload = {
   attrSelections?: Record<string, string[]>;
   attrRanges?: Record<string, NumericRange>;
   priceRange?: NumericRange;
+  onSale?: boolean;
 };
 
 /** Снимок состояния при уходе в карточку товара (читаем один раз в layout). */
@@ -30,4 +31,5 @@ export type CatalogFilterState = {
   attrSelections: Record<string, string[]>;
   attrRanges: Record<string, NumericRange>;
   priceRange: NumericRange;
+  onSale: boolean;
 };

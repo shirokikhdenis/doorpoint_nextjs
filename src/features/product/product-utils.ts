@@ -1,5 +1,28 @@
 import type { Variant } from "@/lib/client/normalizers";
 
+type SalePriceSource = {
+  price: number;
+  isOnSale?: boolean;
+  compareAtPrice?: number | null;
+};
+
+export const isProductSaleActive = (product: SalePriceSource): boolean =>
+  product.isOnSale === true &&
+  product.compareAtPrice != null &&
+  Number.isFinite(product.compareAtPrice) &&
+  product.compareAtPrice > product.price;
+
+/** Акция на уровне товара: показываем products.price, не цену варианта. */
+export const resolveProductDisplayPrice = (
+  product: SalePriceSource,
+  variantPrice?: number | null,
+): number => {
+  if (isProductSaleActive(product)) {
+    return product.price;
+  }
+  return variantPrice ?? product.price;
+};
+
 export const variantAxesLabel = (variant: Variant): string => {
   const axes = variant.attributes.filter((attribute) => attribute.isVariantAxis);
   const source = axes.length > 0 ? axes : variant.attributes;

@@ -144,6 +144,12 @@ export default function AdminPage() {
         <h1 className="text-2xl font-semibold">Admin</h1>
         <div className="flex flex-wrap items-center gap-2">
           <Link
+            href="/admin/promotions"
+            className="rounded border border-zinc-200 bg-white px-3 py-1.5 text-sm hover:bg-zinc-100"
+          >
+            Акции на главной →
+          </Link>
+          <Link
             href="/admin/catalog-pages"
             className="rounded border border-zinc-200 bg-white px-3 py-1.5 text-sm hover:bg-zinc-100"
           >
