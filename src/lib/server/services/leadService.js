@@ -1,7 +1,10 @@
 const leadRepository = require("../repositories/leadRepository");
 const {
   validateAdminOrderPayload,
+  validateCartLeadPayload,
+  validateMeasureLeadPayload,
   validateLeadPatch,
+  LEAD_TYPES,
 } = require("../domain/leadValidation");
 
 const createAdminOrder = async (body) => {
@@ -14,12 +17,37 @@ const createAdminOrder = async (body) => {
   return { ok: true, lead };
 };
 
+const createCartLead = async (body, meta = {}) => {
+  const validation = validateCartLeadPayload(body, meta);
+  if (!validation.ok) {
+    return { ok: false, status: 400, message: validation.message };
+  }
+
+  const lead = await leadRepository.createLeadWithItems(validation.data, validation.data.items);
+  return { ok: true, lead };
+};
+
+const createMeasureLead = async (body, meta = {}) => {
+  const validation = validateMeasureLeadPayload(body, meta);
+  if (!validation.ok) {
+    return { ok: false, status: 400, message: validation.message };
+  }
+
+  const lead = await leadRepository.createLeadWithItems(validation.data, validation.data.items);
+  return { ok: true, lead };
+};
+
 const listLeads = async (query = {}) => {
   const status = query.status ? String(query.status).trim() : undefined;
+  const type = query.type ? String(query.type).trim() : undefined;
+  if (type && !LEAD_TYPES.includes(type)) {
+    return { ok: false, status: 400, message: "Некорректный тип заявки" };
+  }
+
   const limit = query.limit;
   const offset = query.offset;
-  const items = await leadRepository.listLeads({ status, limit, offset });
-  return { items };
+  const items = await leadRepository.listLeads({ status, type, limit, offset });
+  return { ok: true, items };
 };
 
 const getLeadById = async (id) => {
@@ -47,6 +75,8 @@ const deleteLead = async (id) => {
 
 module.exports = {
   createAdminOrder,
+  createCartLead,
+  createMeasureLead,
   listLeads,
   getLeadById,
   updateLead,

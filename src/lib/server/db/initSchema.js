@@ -21,6 +21,8 @@ DROP TABLE IF EXISTS
   audit_log,
   product_variant_attribute_values,
   product_attribute_values,
+  service_rows,
+  service_sections,
   portfolio_images,
   portfolio_projects,
   promotion_banners,
@@ -171,6 +173,25 @@ CREATE TABLE portfolio_images (
 );
 
 CREATE INDEX idx_portfolio_images_project_id ON portfolio_images(project_id);
+
+CREATE TABLE service_sections (
+  id BIGSERIAL PRIMARY KEY,
+  title TEXT NOT NULL,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE service_rows (
+  id BIGSERIAL PRIMARY KEY,
+  section_id BIGINT NOT NULL REFERENCES service_sections(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  price TEXT NOT NULL DEFAULT '',
+  notes TEXT NOT NULL DEFAULT '',
+  sort_order INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX idx_service_rows_section_id ON service_rows(section_id);
 `;
 
 const slugify = (value) =>
@@ -547,6 +568,28 @@ const seedDemoProducts = async (client, { rootIds, childIds }) => {
   }
 };
 
+const seedServices = async (client) => {
+  const { DEFAULT_SERVICE_SECTIONS } = require("../domain/defaultServices");
+  for (const section of DEFAULT_SERVICE_SECTIONS) {
+    const sectionRes = await client.query(
+      `INSERT INTO service_sections(title, sort_order) VALUES ($1, $2) RETURNING id`,
+      [section.title, section.sortOrder],
+    );
+    const sectionId = Number(sectionRes.rows[0].id);
+    let rowOrder = 0;
+    for (const row of section.rows) {
+      rowOrder += 10;
+      await client.query(
+        `
+        INSERT INTO service_rows(section_id, name, price, notes, sort_order)
+        VALUES ($1, $2, $3, $4, $5)
+        `,
+        [sectionId, row.name, row.price, row.notes, rowOrder],
+      );
+    }
+  }
+};
+
 const initSchema = async () => {
   await withTransaction(async (client) => {
     await client.query(dropLegacySql);
@@ -555,6 +598,7 @@ const initSchema = async () => {
     await seedAttributes(client);
     await seedCatalogPages(client);
     await seedDemoProducts(client, taxonomy);
+    await seedServices(client);
   });
 };
 

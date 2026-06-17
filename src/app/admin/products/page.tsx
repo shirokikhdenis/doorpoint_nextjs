@@ -465,7 +465,7 @@ export default function AdminProductsPage() {
 
       {error ? <AdminNotice variant="error">{error}</AdminNotice> : null}
 
-      <section className="overflow-hidden border border-zinc-200 bg-white shadow-sm">
+      <section className="overflow-hidden border border-admin-border bg-admin-surface shadow-sm">
         <AdminProductsToolbar
           selectedCount={selectedIds.size}
           pageRowCount={rows.length}

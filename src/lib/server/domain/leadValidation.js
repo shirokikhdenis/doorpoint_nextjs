@@ -1,5 +1,9 @@
 const LEAD_STATUSES = ["new", "in_progress", "done", "cancelled"];
 const ADMIN_ORDER_TYPE = "admin_order";
+const CART_LEAD_TYPE = "cart_lead";
+const MEASURE_LEAD_TYPE = "measure_lead";
+const LEAD_TYPES = [ADMIN_ORDER_TYPE, CART_LEAD_TYPE, MEASURE_LEAD_TYPE];
+const measureLeadService = require("../services/measureLeadService");
 const { formatCartItemName } = require("../../cart-item-name");
 
 const normalizePhone = (value) => String(value || "").replace(/[^\d+]/g, "").trim();
@@ -88,7 +92,66 @@ const validateAdminOrderPayload = (body) => {
       contractNumber: String(body?.contractNumber || "").trim(),
       contractDate: contractDateResult.value,
       totalPrice: computeItemsTotal(items),
+      clientComment: "",
+      sourcePage: "",
       items,
+    },
+  };
+};
+
+const validateCartLeadPayload = (body, meta = {}) => {
+  const validated = measureLeadService.validateCartPayload(body);
+  if (validated.error) {
+    return { ok: false, message: validated.error };
+  }
+
+  const { name, phone, comment, items: rawItems } = validated.data;
+  const items = [];
+  for (let index = 0; index < rawItems.length; index += 1) {
+    const itemResult = normalizeLeadItem(rawItems[index], index);
+    if (itemResult.error) {
+      return { ok: false, message: itemResult.error };
+    }
+    items.push(itemResult.value);
+  }
+
+  return {
+    ok: true,
+    data: {
+      type: CART_LEAD_TYPE,
+      customerName: name,
+      address: "",
+      phone,
+      contractNumber: "",
+      contractDate: null,
+      clientComment: comment,
+      sourcePage: String(meta.sourcePage || "").trim(),
+      totalPrice: computeItemsTotal(items),
+      items,
+    },
+  };
+};
+
+const validateMeasureLeadPayload = (body, meta = {}) => {
+  const validated = measureLeadService.validatePayload(body);
+  if (validated.error) {
+    return { ok: false, message: validated.error };
+  }
+
+  const { name, phone, comment } = validated.data;
+  return {
+    ok: true,
+    data: {
+      type: MEASURE_LEAD_TYPE,
+      customerName: name,
+      address: "",
+      phone,
+      contractNumber: "",
+      contractDate: null,
+      clientComment: comment,
+      sourcePage: String(meta.sourcePage || "").trim(),
+      totalPrice: 0,
+      items: [],
     },
   };
 };
@@ -167,12 +230,17 @@ const validateLeadPatch = (body) => {
 
 module.exports = {
   LEAD_STATUSES,
+  LEAD_TYPES,
   ADMIN_ORDER_TYPE,
+  CART_LEAD_TYPE,
+  MEASURE_LEAD_TYPE,
   normalizePhone,
   parseContractDate,
   normalizeLeadItem,
   computeItemsTotal,
   validateAdminOrderPayload,
+  validateCartLeadPayload,
+  validateMeasureLeadPayload,
   validateLeadStatusUpdate,
   validateLeadPatch,
 };

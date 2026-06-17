@@ -29,12 +29,12 @@ export default function AdminLoginPage() {
   const oauthHref = `/api/admin/oauth/yandex?next=${encodeURIComponent(nextPath)}`;
 
   return (
-    <main className="admin-panel flex min-h-screen items-center justify-center px-4 py-12">
+    <main className="flex min-h-screen items-center justify-center px-4 py-12">
       <Card className="w-full max-w-md shadow-md">
         <CardHeader className="space-y-2">
           <div className="flex items-center gap-2">
-            <span className="text-lg font-semibold text-zinc-900">Doorpoint</span>
-            <span className="rounded bg-zinc-900 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white">
+            <span className="text-lg font-semibold text-admin-text">Doorpoint</span>
+            <span className="rounded bg-[var(--admin-badge-bg)] px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[var(--admin-badge-text)]">
               Admin
             </span>
           </div>

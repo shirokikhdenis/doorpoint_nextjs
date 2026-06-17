@@ -28,10 +28,10 @@ export function AdminPage({
       {!hideTitle ? (
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0 space-y-1">
-            <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 sm:text-3xl">
+            <h1 className="text-2xl font-semibold tracking-tight text-admin-text sm:text-3xl">
               {title}
             </h1>
-            {description ? <p className="max-w-2xl text-sm text-zinc-500">{description}</p> : null}
+            {description ? <p className="max-w-2xl text-sm text-admin-text-muted">{description}</p> : null}
           </div>
           {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
         </div>

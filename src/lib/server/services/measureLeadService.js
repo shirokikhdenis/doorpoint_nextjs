@@ -149,8 +149,11 @@ const submitMeasureLead = async (body, meta = {}) => {
 
   const { name, phone, comment } = validated.data;
   const sourcePage = String(meta.sourcePage || "").trim();
-  const text = formatLeadText({ name, phone, comment, sourcePage });
+  return sendMeasureLeadMail({ name, phone, comment, sourcePage });
+};
 
+const sendMeasureLeadMail = async ({ name, phone, comment, sourcePage }) => {
+  const text = formatLeadText({ name, phone, comment, sourcePage });
   return sendLeadMail({
     subject: `Заявка на замер — ${name}, ${phone}`,
     text,
@@ -163,9 +166,12 @@ const submitCartLead = async (body, meta = {}) => {
 
   const { name, phone, comment, items } = validated.data;
   const sourcePage = String(meta.sourcePage || "").trim();
+  return sendCartLeadMail({ name, phone, comment, items, sourcePage });
+};
+
+const sendCartLeadMail = async ({ name, phone, comment, items, sourcePage }) => {
   const text = formatCartLeadText({ name, phone, comment, items, sourcePage });
   const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-
   return sendLeadMail({
     subject: `Заявка из корзины — ${name}, ${formatMoney(total)} ₽`,
     text,
@@ -175,5 +181,11 @@ const submitCartLead = async (body, meta = {}) => {
 module.exports = {
   submitMeasureLead,
   submitCartLead,
+  sendMeasureLeadMail,
+  sendCartLeadMail,
+  formatLeadText,
+  formatCartLeadText,
+  validatePayload,
+  validateCartPayload,
   normalizePhone,
 };

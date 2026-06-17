@@ -14,11 +14,11 @@ type AdminFormFieldProps = {
 export function AdminFormField({ label, htmlFor, hint, className, children }: AdminFormFieldProps) {
   return (
     <div className={cn("space-y-1.5", className)}>
-      <Label htmlFor={htmlFor} className="text-sm font-medium text-zinc-800">
+      <Label htmlFor={htmlFor} className="text-sm font-medium text-admin-text-secondary">
         {label}
       </Label>
       {children}
-      {hint ? <p className="text-xs text-zinc-500">{hint}</p> : null}
+      {hint ? <p className="text-xs text-admin-text-muted">{hint}</p> : null}
     </div>
   );
 }
@@ -78,7 +78,7 @@ export function AdminSelectField({
       <select
         id={id}
         className={cn(
-          "flex h-10 w-full border border-zinc-200 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+          "flex h-10 w-full border border-admin-input-border bg-admin-input-bg px-3 py-2 text-sm text-admin-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-focus-ring)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
           className,
         )}
         {...props}

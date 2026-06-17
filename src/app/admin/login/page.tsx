@@ -5,9 +5,9 @@ export default function AdminLoginRoute() {
   return (
     <Suspense
       fallback={
-        <main className="admin-panel mx-auto w-full max-w-md p-6">
-          <div className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
-            <p className="text-sm text-zinc-600">Загрузка...</p>
+        <main className="mx-auto w-full max-w-md p-6">
+          <div className="border border-admin-border bg-admin-surface p-5 shadow-sm">
+            <p className="text-sm text-admin-text-secondary">Загрузка...</p>
           </div>
         </main>
       }

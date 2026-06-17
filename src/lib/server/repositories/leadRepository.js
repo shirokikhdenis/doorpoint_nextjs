@@ -15,6 +15,8 @@ const leadSelectFields = `
   discount_value AS "discountValue",
   status,
   manager_notes AS "managerNotes",
+  client_comment AS "clientComment",
+  source_page AS "sourcePage",
   created_at AS "createdAt",
   updated_at AS "updatedAt"
 `;
@@ -32,6 +34,8 @@ const mapLeadRow = (row) => ({
   discountValue: Number(row.discountValue) || 0,
   status: String(row.status || "new"),
   managerNotes: String(row.managerNotes || ""),
+  clientComment: String(row.clientComment || ""),
+  sourcePage: String(row.sourcePage || ""),
   createdAt: row.createdAt,
   updatedAt: row.updatedAt,
 });
@@ -74,10 +78,12 @@ const createLeadWithItems = async (lead, items) => {
         total_price,
         status,
         manager_notes,
+        client_comment,
+        source_page,
         discount_kind,
         discount_value
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, 'new', '', 'none', 0)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, 'new', '', $8, $9, 'none', 0)
       RETURNING ${leadSelectFields}
       `,
       [
@@ -88,6 +94,8 @@ const createLeadWithItems = async (lead, items) => {
         lead.contractNumber,
         lead.contractDate,
         lead.totalPrice,
+        lead.clientComment || "",
+        lead.sourcePage || "",
       ],
     );
 
@@ -137,23 +145,32 @@ const createLeadWithItems = async (lead, items) => {
   });
 };
 
-const listLeads = async ({ limit = 50, offset = 0, status } = {}) => {
+const listLeads = async ({ limit = 50, offset = 0, status, type } = {}) => {
   await ensureLeadTables();
   const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 200);
   const safeOffset = Math.max(Number(offset) || 0, 0);
   const params = [safeLimit, safeOffset];
-  let statusClause = "";
+  const clauses = [];
+  let paramIndex = 3;
 
-  if (status) {
-    params.push(String(status));
-    statusClause = `WHERE status = $3`;
+  if (type) {
+    clauses.push(`type = $${paramIndex}`);
+    params.push(String(type));
+    paramIndex += 1;
   }
+  if (status) {
+    clauses.push(`status = $${paramIndex}`);
+    params.push(String(status));
+    paramIndex += 1;
+  }
+
+  const whereClause = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
 
   const res = await query(
     `
     SELECT ${leadSelectFields}
     FROM leads
-    ${statusClause}
+    ${whereClause}
     ORDER BY created_at DESC, id DESC
     LIMIT $1 OFFSET $2
     `,

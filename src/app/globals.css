@@ -15,7 +15,431 @@
   --admin-content-max-width-narrow: 76.8rem;
 }
 
-/* Админка: прямоугольные рамки (без скругления), кроме pill/toggle (rounded-full) */
+/* --- Admin design tokens (light default) --- */
+.admin-panel {
+  --admin-bg: #fafafa;
+  --admin-surface: #ffffff;
+  --admin-surface-muted: #fafafa;
+  --admin-border: #e4e4e7;
+  --admin-border-subtle: #f4f4f5;
+  --admin-text: #18181b;
+  --admin-text-secondary: #52525b;
+  --admin-text-muted: #71717a;
+  --admin-text-faint: #a1a1aa;
+  --admin-hover: #f4f4f5;
+  --admin-row-hover: rgb(250 250 250 / 0.8);
+  --admin-selected: rgb(240 249 255 / 0.6);
+  --admin-overlay: rgb(0 0 0 / 0.4);
+  --admin-badge-bg: #18181b;
+  --admin-badge-text: #ffffff;
+  --admin-header-bg: rgb(255 255 255 / 0.95);
+  --admin-primary: #18181b;
+  --admin-primary-hover: #27272a;
+  --admin-primary-fg: #ffffff;
+  --admin-input-bg: #ffffff;
+  --admin-input-border: #e4e4e7;
+  --admin-input-disabled: #fafafa;
+  --admin-focus-ring: #a1a1aa;
+  --admin-chip-bg: #f4f4f5;
+  --admin-chip-text: #52525b;
+  --admin-code-bg: #f4f4f5;
+  --admin-disabled: #d4d4d8;
+  --admin-success-text: #047857;
+  --admin-success-border: #a7f3d0;
+  --admin-success-bg: #ecfdf5;
+  --admin-error-text: #be123c;
+  --admin-error-border: #fecaca;
+  --admin-error-bg: #fff1f2;
+  --admin-emerald-badge-bg: #d1fae5;
+  --admin-emerald-badge-text: #065f46;
+  --admin-toggle-off: #d4d4d8;
+  --admin-shadow-sticky: 2px 0 4px -2px rgb(0 0 0 / 0.08);
+  --admin-shadow-sticky-soft: 2px 0 4px -2px rgb(0 0 0 / 0.06);
+  color: var(--admin-text);
+  background-color: var(--admin-bg);
+}
+
+.admin-panel[data-admin-theme="dark"] {
+  --admin-bg: #09090b;
+  --admin-surface: #18181b;
+  --admin-surface-muted: #27272a;
+  --admin-border: #3f3f46;
+  --admin-border-subtle: #27272a;
+  --admin-text: #fafafa;
+  --admin-text-secondary: #d4d4d8;
+  --admin-text-muted: #a1a1aa;
+  --admin-text-faint: #71717a;
+  --admin-hover: #27272a;
+  --admin-row-hover: rgb(39 39 42 / 0.85);
+  --admin-selected: rgb(12 74 110 / 0.35);
+  --admin-overlay: rgb(0 0 0 / 0.65);
+  --admin-badge-bg: #fafafa;
+  --admin-badge-text: #18181b;
+  --admin-header-bg: rgb(24 24 27 / 0.95);
+  --admin-primary: #fafafa;
+  --admin-primary-hover: #e4e4e7;
+  --admin-primary-fg: #18181b;
+  --admin-input-bg: #27272a;
+  --admin-input-border: #3f3f46;
+  --admin-input-disabled: #27272a;
+  --admin-focus-ring: #71717a;
+  --admin-chip-bg: #27272a;
+  --admin-chip-text: #d4d4d8;
+  --admin-code-bg: #27272a;
+  --admin-disabled: #52525b;
+  --admin-success-text: #6ee7b7;
+  --admin-success-border: #065f46;
+  --admin-success-bg: rgb(6 78 59 / 0.35);
+  --admin-error-text: #fda4af;
+  --admin-error-border: #9f1239;
+  --admin-error-bg: rgb(136 19 55 / 0.35);
+  --admin-emerald-badge-bg: rgb(6 78 59 / 0.5);
+  --admin-emerald-badge-text: #a7f3d0;
+  --admin-toggle-off: #52525b;
+  --admin-shadow-sticky: 2px 0 4px -2px rgb(0 0 0 / 0.45);
+  --admin-shadow-sticky-soft: 2px 0 4px -2px rgb(0 0 0 / 0.35);
+}
+
+/* Windows XP — зелёно-голубая Luna */
+.admin-panel[data-admin-theme="xp"] {
+  --admin-bg: #5a9fd4;
+  --admin-surface: #ece9d8;
+  --admin-surface-muted: #d4e8c4;
+  --admin-border: #0054e3;
+  --admin-border-subtle: #7aa2e3;
+  --admin-text: #000080;
+  --admin-text-secondary: #003399;
+  --admin-text-muted: #336699;
+  --admin-text-faint: #6699cc;
+  --admin-hover: #c1e7c1;
+  --admin-row-hover: rgb(193 231 193 / 0.9);
+  --admin-selected: rgb(49 106 197 / 0.28);
+  --admin-overlay: rgb(0 0 80 / 0.35);
+  --admin-badge-bg: #003399;
+  --admin-badge-text: #ffffff;
+  --admin-header-bg: #0053ee;
+  --admin-primary: #316ac5;
+  --admin-primary-hover: #1e4f8c;
+  --admin-primary-fg: #ffffff;
+  --admin-input-bg: #ffffff;
+  --admin-input-border: #7aa2e3;
+  --admin-input-disabled: #d4e8c4;
+  --admin-focus-ring: #316ac5;
+  --admin-chip-bg: #c1e7c1;
+  --admin-chip-text: #003399;
+  --admin-code-bg: #e8f4e8;
+  --admin-disabled: #9eb8d9;
+  --admin-success-text: #006400;
+  --admin-success-border: #6bb86b;
+  --admin-success-bg: #e8ffe8;
+  --admin-error-text: #cc0000;
+  --admin-error-border: #ff9999;
+  --admin-error-bg: #ffe8e8;
+  --admin-emerald-badge-bg: #b8e6b8;
+  --admin-emerald-badge-text: #006400;
+  --admin-toggle-off: #9eb8d9;
+  --admin-shadow-sticky: 2px 0 4px -2px rgb(0 0 128 / 0.2);
+  --admin-shadow-sticky-soft: 2px 0 4px -2px rgb(0 0 128 / 0.15);
+  --color-brand: #0054e3;
+  --color-brand-hover: #003399;
+  font-family: "Comic Sans MS", "Comic Sans", cursive, sans-serif;
+}
+
+.admin-panel[data-admin-theme="xp"] aside {
+  background: linear-gradient(180deg, #b8e6b8 0%, #6bb86b 28%, #4aa02c 55%, #3c8d3c 100%);
+  border-right-color: #2d5016 !important;
+  color: #ffffff;
+}
+
+.admin-panel[data-admin-theme="xp"] aside .text-admin-text-faint,
+.admin-panel[data-admin-theme="xp"] aside .text-admin-text-secondary,
+.admin-panel[data-admin-theme="xp"] aside .text-admin-text,
+.admin-panel[data-admin-theme="xp"] aside a {
+  color: #ffffff !important;
+}
+
+.admin-panel[data-admin-theme="xp"] aside a:hover,
+.admin-panel[data-admin-theme="xp"] aside a.bg-brand\/10 {
+  background-color: rgb(255 255 255 / 0.22) !important;
+  color: #ffffcc !important;
+}
+
+.admin-panel[data-admin-theme="xp"] aside > div:first-child {
+  background: linear-gradient(180deg, #0997ff 0%, #0053ee 100%);
+  border-bottom-color: #003c74 !important;
+}
+
+.admin-panel[data-admin-theme="xp"] aside > div:first-child .text-admin-text {
+  color: #ffffff !important;
+  font-weight: 700;
+}
+
+.admin-panel[data-admin-theme="xp"] aside + div > header {
+  background: linear-gradient(180deg, #0997ff 0%, #0053ee 55%, #0050ee 100%) !important;
+  border-bottom-color: #003c74 !important;
+  color: #ffffff;
+}
+
+.admin-panel[data-admin-theme="xp"] aside + div > header .text-admin-text,
+.admin-panel[data-admin-theme="xp"] aside + div > header .text-admin-text-muted,
+.admin-panel[data-admin-theme="xp"] aside + div > header a {
+  color: #ffffff !important;
+}
+
+.admin-panel[data-admin-theme="xp"] aside + div > header a:hover {
+  color: #c1ffc1 !important;
+}
+
+.admin-panel[data-admin-theme="xp"] :is(button, input, select, textarea, .border-admin-border) {
+  box-shadow:
+    inset 1px 1px 0 #ffffff,
+    inset -1px -1px 0 #808080,
+    1px 1px 0 #404040;
+}
+
+.admin-panel[data-admin-theme="xp"] :where(
+  .rounded:not(.rounded-full),
+  .rounded-sm,
+  .rounded-md,
+  .rounded-lg,
+  .rounded-xl,
+  .rounded-2xl
+) {
+  border-radius: 3px !important;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-brand: var(--color-brand);
+  --color-brand-hover: var(--color-brand-hover);
+  --color-admin-bg: var(--admin-bg);
+  --color-admin-surface: var(--admin-surface);
+  --color-admin-surface-muted: var(--admin-surface-muted);
+  --color-admin-border: var(--admin-border);
+  --color-admin-border-subtle: var(--admin-border-subtle);
+  --color-admin-text: var(--admin-text);
+  --color-admin-text-secondary: var(--admin-text-secondary);
+  --color-admin-text-muted: var(--admin-text-muted);
+  --color-admin-text-faint: var(--admin-text-faint);
+  --color-admin-hover: var(--admin-hover);
+  --color-admin-selected: var(--admin-selected);
+  --color-admin-primary: var(--admin-primary);
+  --color-admin-primary-hover: var(--admin-primary-hover);
+  --color-admin-primary-fg: var(--admin-primary-fg);
+  --color-admin-input-bg: var(--admin-input-bg);
+  --color-admin-input-border: var(--admin-input-border);
+  --color-admin-chip-bg: var(--admin-chip-bg);
+  --color-admin-chip-text: var(--admin-chip-text);
+  --color-admin-code-bg: var(--admin-code-bg);
+  --color-admin-disabled: var(--admin-disabled);
+  --color-admin-success-text: var(--admin-success-text);
+  --color-admin-success-border: var(--admin-success-border);
+  --color-admin-success-bg: var(--admin-success-bg);
+  --color-admin-error-text: var(--admin-error-text);
+  --color-admin-error-border: var(--admin-error-border);
+  --color-admin-error-bg: var(--admin-error-bg);
+  --color-admin-emerald-badge-bg: var(--admin-emerald-badge-bg);
+  --color-admin-emerald-badge-text: var(--admin-emerald-badge-text);
+  --font-sans: var(--font-geometria);
+  --font-mono: var(--font-geist-mono);
+}
+
+/* Shadcn controls inside admin */
+.admin-panel :is(input:not([type="checkbox"]):not([type="radio"]), textarea, select) {
+  background-color: var(--admin-input-bg);
+  border-color: var(--admin-input-border);
+  color: var(--admin-text);
+}
+
+.admin-panel :is(input, textarea, select):disabled {
+  background-color: var(--admin-input-disabled);
+}
+
+.admin-panel :is(input, textarea, select)::placeholder {
+  color: var(--admin-text-faint);
+}
+
+.admin-panel .rounded-xl.border.border-zinc-200.bg-white {
+  border-color: var(--admin-border);
+  background-color: var(--admin-surface);
+  color: var(--admin-text);
+}
+
+.admin-panel .text-zinc-500:where(.text-sm) {
+  color: var(--admin-text-muted);
+}
+
+/* Dark theme: remap legacy Tailwind zinc utilities inside admin */
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) .bg-white {
+  background-color: var(--admin-surface) !important;
+}
+
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) .bg-zinc-50 {
+  background-color: var(--admin-bg) !important;
+}
+
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) .bg-zinc-50\/50 {
+  background-color: color-mix(in srgb, var(--admin-bg) 50%, transparent) !important;
+}
+
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) .bg-zinc-100 {
+  background-color: var(--admin-chip-bg) !important;
+}
+
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) .bg-zinc-900 {
+  background-color: var(--admin-primary) !important;
+}
+
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) .bg-black {
+  background-color: var(--admin-primary) !important;
+}
+
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) .bg-sky-50\/60 {
+  background-color: var(--admin-selected) !important;
+}
+
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) .bg-emerald-50 {
+  background-color: var(--admin-success-bg) !important;
+}
+
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) .bg-emerald-100 {
+  background-color: var(--admin-emerald-badge-bg) !important;
+}
+
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) .bg-rose-50 {
+  background-color: var(--admin-error-bg) !important;
+}
+
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) .hover\:bg-zinc-50:hover,
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) .hover\:bg-zinc-50\/80:hover {
+  background-color: var(--admin-hover) !important;
+}
+
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) .hover\:bg-zinc-100:hover {
+  background-color: var(--admin-hover) !important;
+}
+
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) .hover\:bg-white:hover {
+  background-color: var(--admin-surface) !important;
+}
+
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) .hover\:bg-zinc-800:hover {
+  background-color: var(--admin-primary-hover) !important;
+}
+
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) .group:hover .group-hover\:bg-zinc-50 {
+  background-color: var(--admin-hover) !important;
+}
+
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) .text-zinc-900,
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) .text-zinc-950 {
+  color: var(--admin-text) !important;
+}
+
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) .text-zinc-800,
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) .text-zinc-700 {
+  color: var(--admin-text-secondary) !important;
+}
+
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) .text-zinc-600 {
+  color: var(--admin-text-secondary) !important;
+}
+
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) .text-zinc-500 {
+  color: var(--admin-text-muted) !important;
+}
+
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) .text-zinc-400 {
+  color: var(--admin-text-faint) !important;
+}
+
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) .text-white {
+  color: var(--admin-primary-fg) !important;
+}
+
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) .text-emerald-700,
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) .text-emerald-800 {
+  color: var(--admin-success-text) !important;
+}
+
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) .text-rose-700,
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) .text-rose-900 {
+  color: var(--admin-error-text) !important;
+}
+
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) .border-zinc-100,
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) .border-zinc-200,
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) .border-zinc-300 {
+  border-color: var(--admin-border) !important;
+}
+
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) .border-rose-200,
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) .border-rose-300 {
+  border-color: var(--admin-error-border) !important;
+}
+
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) .border-emerald-200 {
+  border-color: var(--admin-success-border) !important;
+}
+
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) .divide-zinc-100 > :not([hidden]) ~ :not([hidden]),
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) .divide-zinc-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--admin-border-subtle) !important;
+}
+
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) .disabled\:bg-zinc-300:disabled {
+  background-color: var(--admin-disabled) !important;
+}
+
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) .hover\:text-zinc-800:hover,
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) .hover\:text-zinc-900:hover {
+  color: var(--admin-text) !important;
+}
+
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) code.rounded.bg-zinc-100 {
+  background-color: var(--admin-code-bg) !important;
+  color: var(--admin-text-secondary) !important;
+}
+
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) .sticky.top-0.z-10.bg-zinc-50,
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) .sticky.left-0.z-20.bg-zinc-50,
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) .sticky.left-10.z-20.bg-zinc-50,
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) thead.sticky.top-0.bg-zinc-50,
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) thead.sticky.top-0.z-\[1\].bg-zinc-50 {
+  background-color: var(--admin-surface-muted) !important;
+}
+
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) .sticky.left-0.z-\[5\].bg-white,
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) .sticky.left-10.z-\[5\].bg-white {
+  background-color: var(--admin-surface) !important;
+}
+
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) .\!bg-sky-50\/60 {
+  background-color: var(--admin-selected) !important;
+}
+
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) .shadow-lg,
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) .shadow-xl {
+  --tw-shadow-color: rgb(0 0 0 / 0.45);
+}
+
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) button.border-zinc-200.bg-white {
+  background-color: var(--admin-surface) !important;
+  border-color: var(--admin-border) !important;
+  color: var(--admin-text-secondary) !important;
+}
+
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) button.border-zinc-200.bg-white:hover {
+  background-color: var(--admin-hover) !important;
+}
+
+.admin-panel:is([data-admin-theme="dark"], [data-admin-theme="xp"]) button.border-zinc-900.bg-zinc-900 {
+  background-color: var(--admin-primary) !important;
+  border-color: var(--admin-primary) !important;
+  color: var(--admin-primary-fg) !important;
+}
+
 .admin-panel :where(
   .rounded:not(.rounded-full),
   .rounded-sm,
@@ -25,15 +449,6 @@
   .rounded-2xl
 ) {
   border-radius: 0 !important;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-brand: var(--color-brand);
-  --color-brand-hover: var(--color-brand-hover);
-  --font-sans: var(--font-geometria);
-  --font-mono: var(--font-geist-mono);
 }
 
 body {

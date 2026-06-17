@@ -184,7 +184,9 @@ const handle = async (request, context) =>
       return json(result.lead, 201);
     }
     if (match(path, method, "GET", "leads")) {
-      return json(await leadService.listLeads(query));
+      const result = await leadService.listLeads(query);
+      if (!result.ok) return json({ message: result.message }, result.status || 400);
+      return json({ items: result.items });
     }
     if (path[0] === "leads" && path.length === 2 && method === "GET") {
       const result = await leadService.getLeadById(Number(path[1]));

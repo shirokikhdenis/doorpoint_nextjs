@@ -8,6 +8,7 @@ let productSlugLatinEnsured = false;
 let portfolioTablesEnsured = false;
 let promotionTablesEnsured = false;
 let leadTablesEnsured = false;
+let servicesTablesEnsured = false;
 
 const ensureProductBadgesColumn = async () => {
   if (productBadgesColumnEnsured) return;
@@ -154,6 +155,18 @@ const ensureLeadTables = async () => {
     ALTER TABLE leads
     ADD COLUMN IF NOT EXISTS discount_value INTEGER NOT NULL DEFAULT 0
   `);
+  await query(`
+    ALTER TABLE leads
+    ADD COLUMN IF NOT EXISTS client_comment TEXT NOT NULL DEFAULT ''
+  `);
+  await query(`
+    ALTER TABLE leads
+    ADD COLUMN IF NOT EXISTS source_page TEXT NOT NULL DEFAULT ''
+  `);
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_leads_type_created_at
+    ON leads(type, created_at DESC)
+  `);
   leadTablesEnsured = true;
 };
 
@@ -166,6 +179,34 @@ const ensureSaleSettingsTable = async () => {
   saleSettingsTableEnsured = true;
 };
 
+const ensureServicesTables = async () => {
+  if (servicesTablesEnsured) return;
+  await query(`
+    CREATE TABLE IF NOT EXISTS service_sections (
+      id BIGSERIAL PRIMARY KEY,
+      title TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await query(`
+    CREATE TABLE IF NOT EXISTS service_rows (
+      id BIGSERIAL PRIMARY KEY,
+      section_id BIGINT NOT NULL REFERENCES service_sections(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      price TEXT NOT NULL DEFAULT '',
+      notes TEXT NOT NULL DEFAULT '',
+      sort_order INTEGER NOT NULL DEFAULT 0
+    )
+  `);
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_service_rows_section_id
+    ON service_rows(section_id)
+  `);
+  servicesTablesEnsured = true;
+};
+
 module.exports = {
   ensureProductBadgesColumn,
   ensureProductSaleColumns,
@@ -175,4 +216,5 @@ module.exports = {
   ensurePromotionTables,
   ensureLeadTables,
   ensureSaleSettingsTable,
+  ensureServicesTables,
 };

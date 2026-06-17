@@ -32,7 +32,10 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
   },
   {
     label: "Контент",
-    items: [{ href: "/admin/portfolio", label: "Портфолио" }],
+    items: [
+      { href: "/admin/portfolio", label: "Портфолио" },
+      { href: "/admin/services", label: "Услуги" },
+    ],
   },
   {
     label: "Структура",
@@ -40,6 +43,10 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       { href: "/admin", label: "Категории", exact: true },
       { href: "/admin/attributes", label: "Атрибуты" },
     ],
+  },
+  {
+    label: "Система",
+    items: [{ href: "/admin/settings", label: "Настройки" }],
   },
 ];
 
@@ -52,7 +59,9 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin/catalog-labels": "Ярлыки витрин",
   "/admin/promotions": "Акции на главной",
   "/admin/portfolio": "Портфолио",
+  "/admin/services": "Услуги",
   "/admin/attributes": "Атрибуты",
+  "/admin/settings": "Настройки",
 };
 
 export const isAdminNavItemActive = (item: AdminNavItem, pathname: string) => {
