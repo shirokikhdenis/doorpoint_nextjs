@@ -24,6 +24,10 @@
 .DS_Store
 *.pem
 
+# database backups (local / VPS)
+/backups/
+*.dump
+
 # debug
 npm-debug.log*
 yarn-debug.log*

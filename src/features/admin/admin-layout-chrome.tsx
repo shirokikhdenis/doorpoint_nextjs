@@ -37,6 +37,12 @@ export function AdminLayoutChrome({ children }: { children: React.ReactNode }) {
             >
               На сайт
             </Link>
+            <Link
+              href="/admin/leads"
+              className="rounded border border-zinc-300 px-2.5 py-1 text-sm hover:bg-zinc-100"
+            >
+              Заявки
+            </Link>
           </div>
           <button
             type="button"

@@ -180,6 +180,12 @@ export default function AdminPage() {
             Портфолио →
           </Link>
           <Link
+            href="/admin/leads"
+            className="rounded border border-zinc-200 bg-white px-3 py-1.5 text-sm hover:bg-zinc-100"
+          >
+            Заявки →
+          </Link>
+          <Link
             href="/admin/import"
             className="rounded border border-zinc-200 bg-white px-3 py-1.5 text-sm hover:bg-zinc-100"
           >

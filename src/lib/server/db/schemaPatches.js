@@ -7,6 +7,7 @@ let productSlugColumnEnsured = false;
 let productSlugLatinEnsured = false;
 let portfolioTablesEnsured = false;
 let promotionTablesEnsured = false;
+let leadTablesEnsured = false;
 
 const ensureProductBadgesColumn = async () => {
   if (productBadgesColumnEnsured) return;
@@ -102,6 +103,60 @@ const ensurePortfolioTables = async () => {
   portfolioTablesEnsured = true;
 };
 
+const ensureLeadTables = async () => {
+  if (leadTablesEnsured) return;
+  await query(`
+    CREATE TABLE IF NOT EXISTS leads (
+      id BIGSERIAL PRIMARY KEY,
+      type TEXT NOT NULL DEFAULT 'admin_order',
+      customer_name TEXT NOT NULL,
+      address TEXT NOT NULL DEFAULT '',
+      phone TEXT NOT NULL,
+      contract_number TEXT NOT NULL DEFAULT '',
+      contract_date DATE,
+      total_price INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'new',
+      manager_notes TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await query(`
+    CREATE TABLE IF NOT EXISTS lead_items (
+      id BIGSERIAL PRIMARY KEY,
+      lead_id BIGINT NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+      product_id INTEGER,
+      name TEXT NOT NULL DEFAULT '',
+      sku TEXT NOT NULL DEFAULT '',
+      color TEXT NOT NULL DEFAULT '',
+      price INTEGER NOT NULL DEFAULT 0,
+      quantity INTEGER NOT NULL DEFAULT 1,
+      sort_order INTEGER NOT NULL DEFAULT 0
+    )
+  `);
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_leads_created_at
+    ON leads(created_at DESC)
+  `);
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_leads_status
+    ON leads(status)
+  `);
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_lead_items_lead_id
+    ON lead_items(lead_id)
+  `);
+  await query(`
+    ALTER TABLE leads
+    ADD COLUMN IF NOT EXISTS discount_kind TEXT NOT NULL DEFAULT 'none'
+  `);
+  await query(`
+    ALTER TABLE leads
+    ADD COLUMN IF NOT EXISTS discount_value INTEGER NOT NULL DEFAULT 0
+  `);
+  leadTablesEnsured = true;
+};
+
 const saleSettingsRepository = require("../repositories/saleSettingsRepository");
 
 let saleSettingsTableEnsured = false;
@@ -118,5 +173,6 @@ module.exports = {
   ensureLatinProductSlugs,
   ensurePortfolioTables,
   ensurePromotionTables,
+  ensureLeadTables,
   ensureSaleSettingsTable,
 };
