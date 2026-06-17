@@ -4,6 +4,7 @@ const require = createRequire(import.meta.url);
 const adminService = require("@/lib/server/services/adminService");
 const csvImportService = require("@/lib/server/services/csvImportService");
 const promotionService = require("@/lib/server/services/promotionService");
+const leadService = require("@/lib/server/services/leadService");
 const { withErrorHandling, json, empty, getQuery, readBody } = require("@/lib/server/http/handlers");
 const { requestHasAdminSession } = require("@/lib/server/auth/adminAuth");
 
@@ -175,6 +176,30 @@ const handle = async (request, context) =>
     if (match(path, method, "PATCH", "promotions", "reorder")) {
       const orderedIds = Array.isArray(body.orderedIds) ? body.orderedIds : [];
       return json(await promotionService.reorderPromotions(orderedIds));
+    }
+
+    if (match(path, method, "POST", "leads")) {
+      const result = await leadService.createAdminOrder(body);
+      if (!result.ok) return json({ message: result.message }, 400);
+      return json(result.lead, 201);
+    }
+    if (match(path, method, "GET", "leads")) {
+      return json(await leadService.listLeads(query));
+    }
+    if (path[0] === "leads" && path.length === 2 && method === "GET") {
+      const result = await leadService.getLeadById(Number(path[1]));
+      if (!result.ok) return json({ message: result.message }, result.status || 404);
+      return json(result.lead);
+    }
+    if (path[0] === "leads" && path.length === 2 && method === "PATCH") {
+      const result = await leadService.updateLead(Number(path[1]), body);
+      if (!result.ok) return json({ message: result.message }, result.status || 400);
+      return json(result.lead);
+    }
+    if (path[0] === "leads" && path.length === 2 && method === "DELETE") {
+      const result = await leadService.deleteLead(Number(path[1]));
+      if (!result.ok) return json({ message: result.message }, result.status || 404);
+      return empty(204);
     }
 
     return json({ message: "Not found" }, 404);

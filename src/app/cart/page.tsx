@@ -2,11 +2,15 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { formatCartItemName } from "@/lib/client/cart-item-name";
+import { downloadCartCsv } from "@/lib/client/cart-csv-export";
 import { CartItem, cartItemHasProductLink } from "@/lib/client/cart-store";
 import { formatPrice } from "@/lib/client/format";
 import { productHref } from "@/lib/client/product-url";
 import { useCart } from "@/lib/client/use-cart";
 import { CartLeadForm } from "@/features/store/cart-lead-form";
+import { AdminCartLeadForm } from "@/features/store/admin-cart-lead-form";
+import { useAdminSession } from "@/lib/client/use-admin-session";
 import { SITE_EMAIL, SITE_PHONE_DISPLAY, SITE_PHONE_TEL } from "@/lib/site-contact";
 
 const formatToday = () => {
@@ -112,6 +116,8 @@ function CartLineQuantity({
 
 export default function CartPage() {
   const { items, totalPrice, totalQuantity, setQuantity, removeItem, clear } = useCart();
+  const { isAdmin, loading: adminLoading } = useAdminSession();
+  const [isExporting, setIsExporting] = useState(false);
 
   const handleClear = () => {
     if (items.length === 0) return;
@@ -122,6 +128,16 @@ export default function CartPage() {
 
   const handlePrint = () => {
     if (typeof window !== "undefined") window.print();
+  };
+
+  const handleExportCsv = async () => {
+    if (items.length === 0 || isExporting) return;
+    setIsExporting(true);
+    try {
+      await downloadCartCsv(items);
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   if (items.length === 0) {
@@ -140,8 +156,38 @@ export default function CartPage() {
     <main className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6">
       {/* Заголовок страницы и панель действий (на печати действия скрыты). */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">Корзина</h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-2xl font-semibold">Корзина</h1>
+          {!adminLoading && isAdmin ? (
+            <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 print:hidden">
+              Режим администратора
+            </span>
+          ) : null}
+        </div>
         <div className="flex flex-wrap items-center gap-2 print:hidden">
+          <button
+            type="button"
+            onClick={handleExportCsv}
+            disabled={isExporting}
+            className="inline-flex items-center gap-2 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-800 transition hover:border-zinc-500 hover:bg-zinc-50 disabled:cursor-wait disabled:opacity-60"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-4 w-4"
+              aria-hidden="true"
+            >
+              <path d="M12 3v12" />
+              <path d="m7 10 5 5 5-5" />
+              <path d="M5 19h14" />
+            </svg>
+            {isExporting ? "Экспорт…" : "Экспорт CSV"}
+          </button>
           <button
             type="button"
             onClick={handlePrint}
@@ -216,16 +262,13 @@ export default function CartPage() {
                       href={productHref(item)}
                       className="font-medium leading-snug text-zinc-900 underline-offset-2 hover:text-brand hover:underline"
                     >
-                      {item.name}
+                      {formatCartItemName(item.name, item.color)}
                     </Link>
                   ) : (
-                    <p className="font-medium leading-snug text-zinc-900">{item.name}</p>
-                  )}
-                  {item.color ? (
-                    <p className="mt-0.5 text-xs text-zinc-500 print:text-zinc-700">
-                      Цвет: {item.color}
+                    <p className="font-medium leading-snug text-zinc-900">
+                      {formatCartItemName(item.name, item.color)}
                     </p>
-                  ) : null}
+                  )}
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 align-middle font-medium">
                   {formatPrice(item.price)}
@@ -276,7 +319,11 @@ export default function CartPage() {
         </span>
       </div>
 
-      <CartLeadForm items={items} totalPrice={totalPrice} onSubmitted={clear} />
+      {!adminLoading && isAdmin ? (
+        <AdminCartLeadForm items={items} totalPrice={totalPrice} />
+      ) : (
+        <CartLeadForm items={items} totalPrice={totalPrice} onSubmitted={clear} />
+      )}
     </main>
   );
 }

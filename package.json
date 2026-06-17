@@ -11,17 +11,22 @@
     "db:init": "node src/scripts/dbInit.js",
     "db:seed": "node src/scripts/dbInit.js",
     "db:migrate:attribute-visible": "node scripts/run-sql-file.js scripts/add-attribute-is-visible-on-product.sql",
-    "admin:hash-password": "node scripts/hash-admin-password.js"
+    "admin:hash-password": "node scripts/hash-admin-password.js",
+    "contract:template": "node scripts/create-contract-template.js",
+    "db:backup": "bash scripts/backup-db.sh",
+    "db:restore": "bash scripts/restore-db.sh"
   },
   "dependencies": {
     "@radix-ui/react-label": "^2.1.8",
     "@radix-ui/react-slot": "^1.2.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "docxtemplater": "^3.68.7",
     "dotenv": "^17.4.2",
     "next": "16.2.6",
     "nodemailer": "^9.0.0",
     "pg": "^8.20.0",
+    "pizzip": "^3.2.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "tailwind-merge": "^3.6.0"
