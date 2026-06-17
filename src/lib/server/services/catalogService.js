@@ -3,6 +3,17 @@ const catalogPageRepository = require("../repositories/catalogPageRepository");
 const catalogPageLabelRepository = require("../repositories/catalogPageLabelRepository");
 const subcategoryRepository = require("../repositories/subcategoryRepository");
 
+const HANDLES_SUBCATEGORY_SLUGS = ["handles", "ручки"];
+
+const shuffle = (items) => {
+  const copy = [...items];
+  for (let i = copy.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+};
+
 const parseCsv = (value) =>
   String(value || "")
     .split(",")
@@ -172,12 +183,38 @@ const getFilterMeta = async (query = {}) => {
 };
 
 const listCatalogPages = async () => catalogPageRepository.listCatalogPages();
+
+const pickRandomHandles = async ({ count = 4, excludeIds = [] } = {}) => {
+  const limit = Math.min(64, Math.max(count * 8, 24));
+  const exclude = new Set(excludeIds.map((id) => Number(id)).filter((id) => id > 0));
+  const result = await getProducts({
+    categories: "fittings",
+    subcategories: HANDLES_SUBCATEGORY_SLUGS.join(","),
+    limit,
+    page: 1,
+    sort: "popularity",
+  });
+  const pool = result.items.filter((item) => !exclude.has(Number(item.id)));
+  return shuffle(pool).slice(0, count);
+};
+
+const INTERIOR_DOORS_CATEGORY_SLUG = "interior-doors";
+
+const attachSuggestedHandles = async (product) => {
+  if (!product || product.categorySlug !== INTERIOR_DOORS_CATEGORY_SLUG) {
+    return product;
+  }
+  const suggestedHandles = await pickRandomHandles({ count: 4 });
+  return { ...product, suggestedHandles };
+};
+
 const getProductById = async (id) => {
   const numericId = Number(id);
   if (!Number.isInteger(numericId) || numericId <= 0) {
     return null;
   }
-  return productRepository.getProductById(numericId);
+  const product = await productRepository.getProductById(numericId);
+  return product ? attachSuggestedHandles(product) : null;
 };
 
 const getProductByRef = async (ref) => {
@@ -186,7 +223,8 @@ const getProductByRef = async (ref) => {
   if (/^\d+$/.test(raw)) {
     return getProductById(raw);
   }
-  return productRepository.getProductBySlug(raw);
+  const product = await productRepository.getProductBySlug(raw);
+  return product ? attachSuggestedHandles(product) : null;
 };
 
 const listActiveProductSlugs = async () => productRepository.listActiveProductSlugs();
@@ -198,5 +236,7 @@ module.exports = {
   listActiveProductSlugs,
   getProductById,
   getProductByRef,
-  buildCatalogFilters
+  buildCatalogFilters,
+  pickRandomHandles,
+  HANDLES_SUBCATEGORY_SLUGS,
 };

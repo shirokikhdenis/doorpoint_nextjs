@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { downloadCartCsv } from "@/lib/client/cart-csv-export";
 import { CartItem, cartItemHasProductLink } from "@/lib/client/cart-store";
 import { formatPrice } from "@/lib/client/format";
 import { productHref } from "@/lib/client/product-url";
@@ -113,7 +112,6 @@ function CartLineQuantity({
 
 export default function CartPage() {
   const { items, totalPrice, totalQuantity, setQuantity, removeItem, clear } = useCart();
-  const [isExporting, setIsExporting] = useState(false);
 
   const handleClear = () => {
     if (items.length === 0) return;
@@ -124,16 +122,6 @@ export default function CartPage() {
 
   const handlePrint = () => {
     if (typeof window !== "undefined") window.print();
-  };
-
-  const handleExportCsv = async () => {
-    if (items.length === 0 || isExporting) return;
-    setIsExporting(true);
-    try {
-      await downloadCartCsv(items);
-    } finally {
-      setIsExporting(false);
-    }
   };
 
   if (items.length === 0) {
@@ -154,29 +142,6 @@ export default function CartPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Корзина</h1>
         <div className="flex flex-wrap items-center gap-2 print:hidden">
-          <button
-            type="button"
-            onClick={handleExportCsv}
-            disabled={isExporting}
-            className="inline-flex items-center gap-2 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-800 transition hover:border-zinc-500 hover:bg-zinc-50 disabled:cursor-wait disabled:opacity-60"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-4 w-4"
-              aria-hidden="true"
-            >
-              <path d="M12 3v12" />
-              <path d="m7 10 5 5 5-5" />
-              <path d="M5 19h14" />
-            </svg>
-            {isExporting ? "Экспорт…" : "Экспорт CSV"}
-          </button>
           <button
             type="button"
             onClick={handlePrint}

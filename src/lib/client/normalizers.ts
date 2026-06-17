@@ -131,6 +131,7 @@ export type ProductData = {
   glassVariants: GlassVariant[];
   accessories: AccessoryItem[];
   relatedFittings: RelatedFittings;
+  suggestedHandles?: ProductCard[];
   badges?: ProductBadge[];
 };
 
@@ -334,6 +335,7 @@ export const normalizeProductData = (value: unknown): ProductData => {
       })),
     })),
     relatedFittings: normalizeRelatedFittings(source.relatedFittings),
+    suggestedHandles: normalizeProductsResponse({ items: source.suggestedHandles }),
     badges: parseProductBadges(source.badges),
   };
 };

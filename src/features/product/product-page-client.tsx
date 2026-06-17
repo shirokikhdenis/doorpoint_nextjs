@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { ProductAccessoriesTable } from "@/features/product/product-accessories-table";
 import { ProductAddToCart } from "@/features/product/product-add-to-cart";
 import { ProductGallery } from "@/features/product/product-gallery";
 import { ProductRelatedFittings } from "@/features/product/product-related-fittings";
+import { ProductSuggestedHandles } from "@/features/product/product-suggested-handles";
 import { ProductVariantSelectors } from "@/features/product/product-variant-selectors";
 import {
   buildCatalogBackHref,
@@ -56,9 +58,29 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
   return (
     <>
       <main className="mx-auto w-full max-w-[1400px] px-4 py-6 sm:px-6 lg:px-8">
-        <Link href={buildCatalogBackHref()} className="text-sm underline">
-          Назад в каталог
-        </Link>
+        <Button
+          variant="outline"
+          size="sm"
+          asChild
+          className="border-zinc-300 text-zinc-800 hover:border-brand/35 hover:bg-brand/5 hover:text-brand"
+        >
+          <Link href={buildCatalogBackHref()}>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M19 12H5" />
+              <path d="m12 19-7-7 7-7" />
+            </svg>
+            Назад в каталог
+          </Link>
+        </Button>
         <div className="mt-4 grid gap-6 md:grid-cols-2">
           <ProductGallery
             productName={product.name}
@@ -120,6 +142,7 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
           accessories={product.accessories}
           doorColor={page.cartColorLabel}
         />
+        <ProductSuggestedHandles handles={product.suggestedHandles ?? []} />
       </main>
       <ImageLightbox
         src={image}
