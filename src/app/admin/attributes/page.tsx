@@ -1,7 +1,18 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { AdminCard } from "@/features/admin/ui/admin-card";
+import { AdminEmptyState } from "@/features/admin/ui/admin-empty-state";
+import { AdminNotice } from "@/features/admin/ui/admin-notice";
+import { AdminPage } from "@/features/admin/ui/admin-page";
+import {
+  AdminTable,
+  AdminTableBody,
+  AdminTableCell,
+  AdminTableHead,
+  AdminTableRow,
+} from "@/features/admin/ui/admin-table";
 
 type AttributeRow = {
   id: number;
@@ -111,45 +122,30 @@ export default function AdminAttributesPage() {
   };
 
   return (
-    <main className="mx-auto w-full max-w-5xl p-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <Link href="/admin" className="text-sm text-zinc-600 underline">
-            ← Admin
-          </Link>
-          <h1 className="mt-2 text-2xl font-semibold">Атрибуты</h1>
-          <p className="mt-1 text-sm text-zinc-600">
-            Справочник характеристик без значений. Порядок фильтров в каталоге задаётся для
-            атрибутов с фильтрацией; на отдельной витрине его можно переопределить в настройках
-            витрины.
-          </p>
-        </div>
-      </div>
+    <AdminPage
+      title="Атрибуты"
+      description="Справочник характеристик без значений. Порядок фильтров в каталоге задаётся для атрибутов с фильтрацией; на отдельной витрине его можно переопределить в настройках витрины."
+    >
+      {notice ? <AdminNotice variant="error">{notice}</AdminNotice> : null}
 
-      {notice ? (
-        <p className="mt-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          {notice}
-        </p>
-      ) : null}
-
-      <div className="mt-6 overflow-x-auto rounded-lg border border-zinc-200 bg-white">
+      <AdminCard>
         {loading ? (
-          <p className="p-6 text-sm text-zinc-600">Загрузка…</p>
+          <p className="py-8 text-center text-sm text-zinc-500">Загрузка…</p>
         ) : items.length === 0 ? (
-          <p className="p-6 text-sm text-zinc-600">Атрибутов нет.</p>
+          <AdminEmptyState title="Атрибутов нет" />
         ) : (
-          <table className="w-full min-w-[720px] text-left text-sm">
-            <thead className="border-b border-zinc-200 bg-zinc-50 text-xs uppercase tracking-wide text-zinc-500">
-              <tr>
-                <th className="px-4 py-3 font-medium">Код</th>
-                <th className="px-4 py-3 font-medium">Название</th>
-                <th className="px-4 py-3 font-medium">Тип</th>
-                <th className="px-4 py-3 font-medium">Область</th>
-                <th className="px-4 py-3 font-medium">Порядок в фильтрах</th>
-                <th className="px-4 py-3 font-medium">На карточке товара</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-100">
+          <AdminTable className="border-0">
+            <AdminTableHead>
+              <AdminTableRow>
+                <AdminTableCell header>Код</AdminTableCell>
+                <AdminTableCell header>Название</AdminTableCell>
+                <AdminTableCell header>Тип</AdminTableCell>
+                <AdminTableCell header>Область</AdminTableCell>
+                <AdminTableCell header>Порядок в фильтрах</AdminTableCell>
+                <AdminTableCell header>На карточке товара</AdminTableCell>
+              </AdminTableRow>
+            </AdminTableHead>
+            <AdminTableBody>
               {items.map((row) => {
                 const showCheckbox = row.scope === "product";
                 const checked = row.isVisibleOnProduct !== false;
@@ -157,41 +153,43 @@ export default function AdminAttributesPage() {
                 const filterIndex = filterableItems.findIndex((item) => item.id === row.id);
                 const busy = savingId === row.id;
                 return (
-                  <tr key={row.id} className="hover:bg-zinc-50/80">
-                    <td className="px-4 py-2.5 font-mono text-xs text-zinc-800">{row.code}</td>
-                    <td className="px-4 py-2.5 text-zinc-900">{row.name}</td>
-                    <td className="px-4 py-2.5 text-zinc-600">{row.type}</td>
-                    <td className="px-4 py-2.5 text-zinc-600">{scopeLabel(row.scope)}</td>
-                    <td className="px-4 py-2.5">
+                  <AdminTableRow key={row.id}>
+                    <AdminTableCell className="font-mono text-xs">{row.code}</AdminTableCell>
+                    <AdminTableCell>{row.name}</AdminTableCell>
+                    <AdminTableCell className="text-zinc-600">{row.type}</AdminTableCell>
+                    <AdminTableCell className="text-zinc-600">{scopeLabel(row.scope)}</AdminTableCell>
+                    <AdminTableCell>
                       {isFilterable ? (
                         <div className="flex items-center gap-1">
-                          <button
+                          <Button
                             type="button"
+                            variant="outline"
+                            size="sm"
                             disabled={busy || filterIndex <= 0}
                             onClick={() => void moveFilterOrder(row, -1)}
-                            className="rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-xs hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40"
                             title="Выше в каталоге"
                           >
                             ↑
-                          </button>
-                          <button
+                          </Button>
+                          <Button
                             type="button"
-                            disabled={busy || filterIndex < 0 || filterIndex >= filterableItems.length - 1}
+                            variant="outline"
+                            size="sm"
+                            disabled={
+                              busy || filterIndex < 0 || filterIndex >= filterableItems.length - 1
+                            }
                             onClick={() => void moveFilterOrder(row, 1)}
-                            className="rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-xs hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40"
                             title="Ниже в каталоге"
                           >
                             ↓
-                          </button>
-                          {busy ? (
-                            <span className="ml-1 text-xs text-zinc-500">…</span>
-                          ) : null}
+                          </Button>
+                          {busy ? <span className="ml-1 text-xs text-zinc-500">…</span> : null}
                         </div>
                       ) : (
                         <span className="text-zinc-400">—</span>
                       )}
-                    </td>
-                    <td className="px-4 py-2.5">
+                    </AdminTableCell>
+                    <AdminTableCell>
                       {showCheckbox ? (
                         <label className="inline-flex cursor-pointer items-center gap-2">
                           <input
@@ -208,14 +206,14 @@ export default function AdminAttributesPage() {
                       ) : (
                         <span className="text-zinc-400">—</span>
                       )}
-                    </td>
-                  </tr>
+                    </AdminTableCell>
+                  </AdminTableRow>
                 );
               })}
-            </tbody>
-          </table>
+            </AdminTableBody>
+          </AdminTable>
         )}
-      </div>
-    </main>
+      </AdminCard>
+    </AdminPage>
   );
 }

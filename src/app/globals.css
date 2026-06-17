@@ -8,6 +8,23 @@
   --color-brand-hover: #252599;
   /* Высота липкой шапки (AppNav) — для колонки фильтров каталога */
   --storefront-sticky-offset: 3.5rem;
+  --admin-sidebar-width: 15rem;
+  /* 7xl (80rem) + 20% */
+  --admin-content-max-width: 96rem;
+  /* 5xl (64rem) + 20% — узкие страницы */
+  --admin-content-max-width-narrow: 76.8rem;
+}
+
+/* Админка: прямоугольные рамки (без скругления), кроме pill/toggle (rounded-full) */
+.admin-panel :where(
+  .rounded:not(.rounded-full),
+  .rounded-sm,
+  .rounded-md,
+  .rounded-lg,
+  .rounded-xl,
+  .rounded-2xl
+) {
+  border-radius: 0 !important;
 }
 
 @theme inline {

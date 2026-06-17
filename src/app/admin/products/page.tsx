@@ -2,6 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { AdminNotice } from "@/features/admin/ui/admin-notice";
+import { AdminPage } from "@/features/admin/ui/admin-page";
 import { AdminProductsSaleRules } from "@/features/admin/products/admin-products-sale-rules";
 import { AdminProductsFilters } from "@/features/admin/products/admin-products-filters";
 import { AdminProductsPagination } from "@/features/admin/products/admin-products-pagination";
@@ -373,30 +376,20 @@ export default function AdminProductsPage() {
   };
 
   return (
-    <main className="mx-auto flex w-full max-w-[1920px] flex-col gap-4 p-4 sm:p-6">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-semibold text-zinc-900">Товары</h1>
-          <p className="mt-1 max-w-3xl text-sm text-zinc-600">
-            Управление каталогом: фильтры, массовые действия, настройка колонок и быстрое редактирование
-            цен и статусов.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Link
-            href="/admin/import"
-            className="rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50"
-          >
-            Импорт CSV →
-          </Link>
-          <Link
-            href="/admin"
-            className="rounded-md border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
-          >
-            ← К админке
-          </Link>
-        </div>
-      </header>
+    <AdminPage
+      title="Товары"
+      description="Управление каталогом: фильтры, массовые действия, настройка колонок и быстрое редактирование цен и статусов."
+      actions={
+        <Button variant="outline" size="sm" asChild>
+          <Link href="/admin/import">Импорт CSV</Link>
+        </Button>
+      }
+    >
+      {notice ? (
+        <AdminNotice variant="info" onDismiss={() => setNotice("")}>
+          {notice}
+        </AdminNotice>
+      ) : null}
 
       <AdminProductsSaleRules
         settings={saleSettings}
@@ -470,18 +463,9 @@ export default function AdminProductsPage() {
         canDeleteByCategory={Boolean(categoryId || subcategoryId)}
       />
 
-      {error ? (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
-          {error}
-        </div>
-      ) : null}
-      {notice ? (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-          {notice}
-        </div>
-      ) : null}
+      {error ? <AdminNotice variant="error">{error}</AdminNotice> : null}
 
-      <section className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
+      <section className="overflow-hidden border border-zinc-200 bg-white shadow-sm">
         <AdminProductsToolbar
           selectedCount={selectedIds.size}
           pageRowCount={rows.length}
@@ -528,6 +512,6 @@ export default function AdminProductsPage() {
           />
         ) : null}
       </section>
-    </main>
+    </AdminPage>
   );
 }

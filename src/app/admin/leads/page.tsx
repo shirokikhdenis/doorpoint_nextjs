@@ -2,7 +2,22 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { AdminCard } from "@/features/admin/ui/admin-card";
+import { AdminConfirmButton } from "@/features/admin/ui/admin-confirm-button";
+import { AdminEmptyState } from "@/features/admin/ui/admin-empty-state";
+import { AdminNotice } from "@/features/admin/ui/admin-notice";
+import { AdminPage } from "@/features/admin/ui/admin-page";
+import { AdminSelectField } from "@/features/admin/ui/admin-form-field";
+import {
+  AdminTable,
+  AdminTableBody,
+  AdminTableCell,
+  AdminTableHead,
+  AdminTableRow,
+} from "@/features/admin/ui/admin-table";
 import { formatPrice } from "@/lib/client/format";
+import { cn } from "@/lib/utils";
 
 type LeadListItem = {
   id: number;
@@ -20,6 +35,13 @@ const STATUS_LABELS: Record<string, string> = {
   in_progress: "В работе",
   done: "Завершена",
   cancelled: "Отменена",
+};
+
+const STATUS_BADGE: Record<string, string> = {
+  new: "bg-sky-100 text-sky-800",
+  in_progress: "bg-amber-100 text-amber-800",
+  done: "bg-emerald-100 text-emerald-800",
+  cancelled: "bg-zinc-100 text-zinc-600",
 };
 
 const formatDateTime = (value: string) => {
@@ -76,9 +98,6 @@ export default function AdminLeadsPage() {
   }, [reload]);
 
   const handleDelete = async (item: LeadListItem) => {
-    const label = item.customerName || `№${item.id}`;
-    if (!window.confirm(`Удалить заявку «${label}»? Действие нельзя отменить.`)) return;
-
     setDeletingId(item.id);
     setError("");
     try {
@@ -96,93 +115,87 @@ export default function AdminLeadsPage() {
   };
 
   return (
-    <main className="mx-auto w-full max-w-7xl p-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Заявки</h1>
-          <p className="mt-1 text-sm text-zinc-600">Заявки, созданные администратором из корзины.</p>
+    <AdminPage
+      title="Заявки"
+      description="Заявки, созданные администратором из корзины."
+    >
+      {error ? <AdminNotice variant="error">{error}</AdminNotice> : null}
+
+      <AdminCard>
+        <div className="mb-4 max-w-xs">
+          <AdminSelectField
+            id="lead-status-filter"
+            label="Статус"
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value)}
+          >
+            <option value="">Все</option>
+            <option value="new">Новые</option>
+            <option value="in_progress">В работе</option>
+            <option value="done">Завершённые</option>
+            <option value="cancelled">Отменённые</option>
+          </AdminSelectField>
         </div>
-        <Link href="/admin" className="rounded border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-100">
-          ← Admin
-        </Link>
-      </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <label className="text-sm text-zinc-600" htmlFor="lead-status-filter">
-          Статус:
-        </label>
-        <select
-          id="lead-status-filter"
-          className="rounded border px-3 py-1.5 text-sm"
-          value={statusFilter}
-          onChange={(event) => setStatusFilter(event.target.value)}
-        >
-          <option value="">Все</option>
-          <option value="new">Новые</option>
-          <option value="in_progress">В работе</option>
-          <option value="done">Завершённые</option>
-          <option value="cancelled">Отменённые</option>
-        </select>
-      </div>
-
-      {error ? <p className="mt-4 text-sm text-rose-700">{error}</p> : null}
-
-      <div className="mt-6 overflow-x-auto rounded border bg-white">
-        <table className="w-full min-w-[720px] text-sm">
-          <thead className="bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500">
-            <tr>
-              <th className="px-4 py-2 font-medium">Дата</th>
-              <th className="px-4 py-2 font-medium">ФИО</th>
-              <th className="px-4 py-2 font-medium">Телефон</th>
-              <th className="px-4 py-2 font-medium">№ договора</th>
-              <th className="px-4 py-2 font-medium">Сумма</th>
-              <th className="px-4 py-2 font-medium">Статус</th>
-              <th className="px-4 py-2 font-medium" />
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-zinc-100">
-            {loading ? (
-              <tr>
-                <td colSpan={7} className="px-4 py-6 text-center text-zinc-500">
-                  Загрузка…
-                </td>
-              </tr>
-            ) : items.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="px-4 py-6 text-center text-zinc-500">
-                  Заявок пока нет.
-                </td>
-              </tr>
-            ) : (
-              items.map((item) => (
-                <tr key={item.id} className="hover:bg-zinc-50/60">
-                  <td className="whitespace-nowrap px-4 py-3">{formatDateTime(item.createdAt)}</td>
-                  <td className="px-4 py-3">{item.customerName}</td>
-                  <td className="whitespace-nowrap px-4 py-3">{item.phone}</td>
-                  <td className="px-4 py-3">{item.contractNumber || "—"}</td>
-                  <td className="whitespace-nowrap px-4 py-3">{formatPrice(item.totalPrice)}</td>
-                  <td className="px-4 py-3">{STATUS_LABELS[item.status] || item.status}</td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex items-center justify-end gap-3">
-                      <Link href={`/admin/leads/${item.id}`} className="text-sm underline">
-                        Открыть
-                      </Link>
-                      <button
-                        type="button"
-                        onClick={() => void handleDelete(item)}
+        {loading ? (
+          <p className="py-8 text-center text-sm text-zinc-500">Загрузка…</p>
+        ) : items.length === 0 ? (
+          <AdminEmptyState title="Заявок пока нет" />
+        ) : (
+          <AdminTable>
+            <AdminTableHead>
+              <AdminTableRow>
+                <AdminTableCell header>Дата</AdminTableCell>
+                <AdminTableCell header>ФИО</AdminTableCell>
+                <AdminTableCell header>Телефон</AdminTableCell>
+                <AdminTableCell header>№ договора</AdminTableCell>
+                <AdminTableCell header>Сумма</AdminTableCell>
+                <AdminTableCell header>Статус</AdminTableCell>
+                <AdminTableCell header />
+              </AdminTableRow>
+            </AdminTableHead>
+            <AdminTableBody>
+              {items.map((item) => (
+                <AdminTableRow key={item.id}>
+                  <AdminTableCell className="whitespace-nowrap">
+                    {formatDateTime(item.createdAt)}
+                  </AdminTableCell>
+                  <AdminTableCell>{item.customerName}</AdminTableCell>
+                  <AdminTableCell className="whitespace-nowrap">{item.phone}</AdminTableCell>
+                  <AdminTableCell>{item.contractNumber || "—"}</AdminTableCell>
+                  <AdminTableCell className="whitespace-nowrap font-medium">
+                    {formatPrice(item.totalPrice)}
+                  </AdminTableCell>
+                  <AdminTableCell>
+                    <span
+                      className={cn(
+                        "inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium",
+                        STATUS_BADGE[item.status] || STATUS_BADGE.cancelled,
+                      )}
+                    >
+                      {STATUS_LABELS[item.status] || item.status}
+                    </span>
+                  </AdminTableCell>
+                  <AdminTableCell className="text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <Button variant="outline" size="sm" asChild>
+                        <Link href={`/admin/leads/${item.id}`}>Открыть</Link>
+                      </Button>
+                      <AdminConfirmButton
+                        confirmMessage={`Удалить заявку «${item.customerName || `№${item.id}`}»? Действие нельзя отменить.`}
                         disabled={deletingId === item.id}
-                        className="text-sm text-rose-700 hover:underline disabled:opacity-60"
+                        onConfirm={() => handleDelete(item)}
                       >
                         {deletingId === item.id ? "Удаление…" : "Удалить"}
-                      </button>
+                      </AdminConfirmButton>
                     </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-    </main>
+                  </AdminTableCell>
+                </AdminTableRow>
+              ))}
+            </AdminTableBody>
+          </AdminTable>
+        )}
+      </AdminCard>
+    </AdminPage>
   );
 }

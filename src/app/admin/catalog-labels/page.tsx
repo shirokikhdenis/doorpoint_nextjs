@@ -2,6 +2,10 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { AdminCard } from "@/features/admin/ui/admin-card";
+import { AdminNotice } from "@/features/admin/ui/admin-notice";
+import { AdminPage } from "@/features/admin/ui/admin-page";
 import { AdminBootstrap, AdminCatalogPage, normalizeAdminBootstrap } from "@/lib/client/normalizers";
 
 type AttributeDef = {
@@ -280,40 +284,25 @@ export default function AdminCatalogLabelsPage() {
   };
 
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-6">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-semibold">Ярлыки витрин</h1>
-          <p className="mt-1 text-sm text-zinc-600">
-            Быстрые фильтры над выдачей на странице каталога: заголовок, картинка и один или несколько
-            атрибутов витрины (как в её фильтрах).
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link
-            href="/admin/catalog-pages"
-            className="rounded border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-100"
-          >
-            ← Витрины
-          </Link>
-          <Link href="/admin" className="rounded border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-100">
-            К админке
-          </Link>
-        </div>
-      </header>
-
-      {notice ? (
-        <div className="rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{notice}</div>
-      ) : null}
-      {error ? (
-        <div className="rounded border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">{error}</div>
-      ) : null}
+    <AdminPage
+      title="Ярлыки витрин"
+      description="Быстрые фильтры над выдачей на странице каталога: заголовок, картинка и один или несколько атрибутов витрины (как в её фильтрах)."
+      actions={
+        <Button variant="outline" size="sm" asChild>
+          <Link href="/admin/catalog-pages">Витрины каталога</Link>
+        </Button>
+      }
+    >
+      {notice ? <AdminNotice variant="success">{notice}</AdminNotice> : null}
+      {error ? <AdminNotice variant="error">{error}</AdminNotice> : null}
 
       {loading ? (
-        <div className="rounded border bg-white p-6 text-sm text-zinc-500">Загрузка…</div>
+        <AdminCard className="p-6">
+          <p className="text-sm text-zinc-500">Загрузка…</p>
+        </AdminCard>
       ) : (
         <>
-          <div className="rounded-lg border bg-white p-4">
+          <AdminCard className="p-4">
             <label className="flex max-w-md flex-col gap-1 text-xs text-zinc-600">
               Витрина
               <select
@@ -339,11 +328,12 @@ export default function AdminCatalogLabelsPage() {
                 каталога».
               </p>
             ) : null}
-          </div>
+          </AdminCard>
 
           {selectedPageId ? (
             <>
-              <form onSubmit={submitCreate} className="space-y-3 rounded-lg border bg-white p-4">
+              <AdminCard className="p-4">
+              <form onSubmit={submitCreate} className="space-y-3">
                 <h2 className="text-sm font-semibold text-zinc-800">Новый ярлык</h2>
                 <div className="flex flex-wrap gap-3">
                   <label className="flex flex-col gap-1 text-xs text-zinc-600">
@@ -425,8 +415,9 @@ export default function AdminCatalogLabelsPage() {
                   {creating ? "Создаём…" : "Создать ярлык"}
                 </button>
               </form>
+              </AdminCard>
 
-              <section className="rounded-lg border bg-white p-4">
+              <AdminCard className="p-4">
                 <h2 className="text-sm font-semibold text-zinc-800">Ярлыки витрины</h2>
                 {labelsLoading ? (
                   <p className="mt-2 text-sm text-zinc-500">Загрузка списка…</p>
@@ -591,11 +582,11 @@ export default function AdminCatalogLabelsPage() {
                     ))}
                   </ul>
                 )}
-              </section>
+              </AdminCard>
             </>
           ) : null}
         </>
       )}
-    </main>
+    </AdminPage>
   );
 }

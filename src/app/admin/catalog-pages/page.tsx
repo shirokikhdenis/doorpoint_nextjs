@@ -2,6 +2,10 @@
 
 import Link from "next/link";
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { AdminCard } from "@/features/admin/ui/admin-card";
+import { AdminNotice } from "@/features/admin/ui/admin-notice";
+import { AdminPage } from "@/features/admin/ui/admin-page";
 import {
   AdminBootstrap,
   AdminCatalogPage,
@@ -137,45 +141,20 @@ export default function AdminCatalogPagesPage() {
   };
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-6">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-semibold">Витрины каталога</h1>
-          <p className="mt-1 text-sm text-zinc-600">
-            Кнопки наверху страницы <code className="rounded bg-zinc-100 px-1">/catalog</code> — это
-            витрины из таблицы <code className="rounded bg-zinc-100 px-1">catalog_pages</code>.
-            Здесь можно задать, какие категории/подкатегории попадают в витрину и какие фильтры
-            доступны пользователю.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link
-            href="/admin/catalog-labels"
-            className="rounded border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-100"
-          >
-            Ярлыки витрин →
-          </Link>
-          <Link
-            href="/admin"
-            className="rounded border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-100"
-          >
-            ← К админке
-          </Link>
-        </div>
-      </header>
+    <AdminPage
+      title="Витрины каталога"
+      description="Кнопки наверху страницы /catalog — это витрины из таблицы catalog_pages. Здесь можно задать, какие категории/подкатегории попадают в витрину и какие фильтры доступны пользователю."
+      actions={
+        <Button variant="outline" size="sm" asChild>
+          <Link href="/admin/catalog-labels">Ярлыки витрин →</Link>
+        </Button>
+      }
+    >
+      {notice ? <AdminNotice variant="success">{notice}</AdminNotice> : null}
+      {error ? <AdminNotice variant="error">{error}</AdminNotice> : null}
 
-      {notice ? (
-        <div className="rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-          {notice}
-        </div>
-      ) : null}
-      {error ? (
-        <div className="rounded border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
-          {error}
-        </div>
-      ) : null}
-
-      <form onSubmit={submitNew} className="flex flex-wrap items-end gap-2 rounded-lg border bg-white p-4">
+      <AdminCard className="p-4">
+      <form onSubmit={submitNew} className="flex flex-wrap items-end gap-2">
         <label className="flex flex-col gap-1 text-xs text-zinc-600">
           Название
           <input
@@ -206,17 +185,18 @@ export default function AdminCatalogPagesPage() {
           выбрать, какие категории и подкатегории она показывает.
         </p>
       </form>
+      </AdminCard>
 
       {loading ? (
-        <div className="rounded border border-zinc-200 bg-white p-6 text-sm text-zinc-500">
-          Загрузка…
-        </div>
+        <AdminCard className="p-6">
+          <p className="text-sm text-zinc-500">Загрузка…</p>
+        </AdminCard>
       ) : (
         <section className="space-y-4">
           {bootstrap.catalogPages.length === 0 ? (
-            <p className="rounded border border-zinc-200 bg-white p-6 text-sm text-zinc-500">
-              Витрин пока нет.
-            </p>
+            <AdminCard className="p-6">
+              <p className="text-sm text-zinc-500">Витрин пока нет.</p>
+            </AdminCard>
           ) : (
             bootstrap.catalogPages.map((page) => (
               <CatalogPageEditor
@@ -242,7 +222,7 @@ export default function AdminCatalogPagesPage() {
           )}
         </section>
       )}
-    </main>
+    </AdminPage>
   );
 }
 
@@ -356,7 +336,8 @@ function CatalogPageEditor({ page, bootstrap, onSaved, onDeleted, onError }: Edi
   };
 
   return (
-    <form onSubmit={save} className="space-y-4 rounded-lg border bg-white p-4">
+    <AdminCard className="p-4">
+    <form onSubmit={save} className="space-y-4">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div className="flex flex-wrap items-end gap-3">
           <label className="flex flex-col gap-1 text-xs text-zinc-600">
@@ -592,5 +573,6 @@ function CatalogPageEditor({ page, bootstrap, onSaved, onDeleted, onError }: Edi
         </p>
       ) : null}
     </form>
+    </AdminCard>
   );
 }

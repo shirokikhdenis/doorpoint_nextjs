@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { AdminNotice } from "@/features/admin/ui/admin-notice";
 
 const ERROR_MESSAGES: Record<string, string> = {
   access_denied: "У этого Яндекс-аккаунта нет доступа в админку.",
@@ -27,22 +29,30 @@ export default function AdminLoginPage() {
   const oauthHref = `/api/admin/oauth/yandex?next=${encodeURIComponent(nextPath)}`;
 
   return (
-    <main className="mx-auto w-full max-w-md p-6">
-      <div className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
-        <h1 className="text-2xl font-semibold">Вход в админку</h1>
-        <p className="mt-2 text-sm text-zinc-600">
-          Войдите через Яндекс ID. Доступ только для администратора сайта.
-        </p>
-
-        {error ? <p className="mt-4 text-sm text-red-600">{error}</p> : null}
-
-        <Link
-          href={oauthHref}
-          className="mt-5 flex w-full items-center justify-center gap-2 rounded-md bg-[#fc3f1d] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#e43718]"
-        >
-          Войти через Яндекс
-        </Link>
-      </div>
+    <main className="admin-panel flex min-h-screen items-center justify-center px-4 py-12">
+      <Card className="w-full max-w-md shadow-md">
+        <CardHeader className="space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="text-lg font-semibold text-zinc-900">Doorpoint</span>
+            <span className="rounded bg-zinc-900 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white">
+              Admin
+            </span>
+          </div>
+          <CardTitle className="text-2xl">Вход в админку</CardTitle>
+          <CardDescription>
+            Войдите через Яндекс ID. Доступ только для администратора сайта.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {error ? <AdminNotice variant="error">{error}</AdminNotice> : null}
+          <Link
+            href={oauthHref}
+            className="flex w-full items-center justify-center gap-2 rounded-md bg-[#fc3f1d] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#e43718]"
+          >
+            Войти через Яндекс
+          </Link>
+        </CardContent>
+      </Card>
     </main>
   );
 }

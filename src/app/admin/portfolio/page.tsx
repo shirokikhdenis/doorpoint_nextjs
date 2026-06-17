@@ -1,8 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
+import { AdminCard } from "@/features/admin/ui/admin-card";
+import { AdminNotice } from "@/features/admin/ui/admin-notice";
+import { AdminPage } from "@/features/admin/ui/admin-page";
 import {
   PortfolioImageReorder,
   reorderImagesList,
@@ -224,33 +226,15 @@ export default function AdminPortfolioPage() {
   };
 
   return (
-    <main className="mx-auto w-full max-w-7xl p-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Портфолио</h1>
-          <p className="mt-1 text-sm text-zinc-600">
-            Карточки на странице{" "}
-            <Link href="/portfolio" className="text-brand underline-offset-2 hover:underline">
-              /portfolio
-            </Link>
-          </p>
-        </div>
-        <Link
-          href="/admin"
-          className="rounded border border-zinc-200 bg-white px-3 py-1.5 text-sm hover:bg-zinc-100"
-        >
-          ← Admin
-        </Link>
-      </div>
+    <AdminPage
+      title="Портфолио"
+      description="Карточки на странице /portfolio"
+    >
+      {notice ? <AdminNotice variant="success">{notice}</AdminNotice> : null}
+      {error ? <AdminNotice variant="error">{error}</AdminNotice> : null}
 
-      {notice ? <p className="mt-3 text-sm text-emerald-700">{notice}</p> : null}
-      {error ? <p className="mt-3 text-sm text-red-700">{error}</p> : null}
-
-      <form
-        onSubmit={handleCreate}
-        className="mt-6 space-y-3 rounded border border-zinc-200 bg-white p-4"
-      >
-        <h2 className="font-medium">Новая карточка</h2>
+      <AdminCard title="Новая карточка">
+        <form onSubmit={handleCreate} className="space-y-3">
         <input
           className="w-full rounded border px-3 py-2 text-sm"
           value={createForm.title}
@@ -304,10 +288,11 @@ export default function AdminPortfolioPage() {
         >
           {creating ? "Создание…" : "Создать карточку"}
         </button>
-      </form>
+        </form>
+      </AdminCard>
 
-      <section className="mt-8 space-y-4">
-        <h2 className="font-medium">Карточки ({items.length})</h2>
+      <AdminCard title={`Карточки (${items.length})`}>
+        <div className="space-y-4">
         {loading ? <p className="text-sm text-zinc-500">Загрузка…</p> : null}
         {!loading && items.length === 0 ? (
           <p className="text-sm text-zinc-500">Пока нет карточек портфолио.</p>
@@ -456,7 +441,8 @@ export default function AdminPortfolioPage() {
             </article>
           );
         })}
-      </section>
-    </main>
+        </div>
+      </AdminCard>
+    </AdminPage>
   );
 }

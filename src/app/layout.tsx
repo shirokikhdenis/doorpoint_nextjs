@@ -3,9 +3,7 @@ import { Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { geometria } from "@/fonts/geometria-font";
 import { YandexMetrika } from "@/features/analytics/yandex-metrika";
-import { AppTopBar } from "@/features/navigation/app-top-bar";
-import { AppNav } from "@/features/navigation/app-nav";
-import { PublicStorefrontChrome } from "@/features/store/public-storefront-chrome";
+import { StorefrontLayoutGate } from "@/features/navigation/storefront-layout-gate";
 import {
   defaultOpenGraph,
   getMetadataBase,
@@ -46,9 +44,7 @@ export default function RootLayout({
     >
       <body className="min-h-full overflow-x-hidden bg-zinc-50 font-sans text-zinc-900">
         <YandexMetrika />
-        <AppTopBar />
-        <AppNav />
-        <PublicStorefrontChrome>{children}</PublicStorefrontChrome>
+        <StorefrontLayoutGate>{children}</StorefrontLayoutGate>
       </body>
     </html>
   );

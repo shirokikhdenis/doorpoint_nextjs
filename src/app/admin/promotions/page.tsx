@@ -3,6 +3,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { AdminCard } from "@/features/admin/ui/admin-card";
+import { AdminNotice } from "@/features/admin/ui/admin-notice";
+import { AdminPage } from "@/features/admin/ui/admin-page";
 import { AdminBootstrap, normalizeAdminBootstrap } from "@/lib/client/normalizers";
 
 type PromotionRow = {
@@ -218,10 +221,12 @@ export default function AdminPromotionsPage() {
   const [reordering, setReordering] = useState(false);
 
   const catalogPageOptions = useMemo(() => {
-    const pages = bootstrap.catalogPages.map((page) => ({
-      slug: page.slug,
-      name: page.name,
-    }));
+    const pages = bootstrap.catalogPages
+      .filter((page) => page.slug !== "all")
+      .map((page) => ({
+        slug: page.slug,
+        name: page.name,
+      }));
     return [{ slug: "all", name: "Весь каталог" }, ...pages];
   }, [bootstrap.catalogPages]);
 
@@ -415,40 +420,30 @@ export default function AdminPromotionsPage() {
   };
 
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-6">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-semibold">Акции на главной</h1>
-          <p className="mt-1 text-sm text-zinc-600">
-            Баннеры в слайдере на главной. Ссылка ведёт в каталог с фильтром акционных товаров и, при
-            необходимости, по производителю и коллекции.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/" className="rounded border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-100">
-            На главную →
-          </Link>
-          <Link href="/admin" className="rounded border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-100">
-            К админке
-          </Link>
-        </div>
-      </header>
-
-      {notice ? (
-        <div className="rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-          {notice}
-        </div>
-      ) : null}
-      {error ? (
-        <div className="rounded border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">{error}</div>
-      ) : null}
+    <AdminPage
+      className="max-w-[var(--admin-content-max-width-narrow)]"
+      title="Акции на главной"
+      description="Баннеры в слайдере на главной. Ссылка ведёт в каталог с фильтром акционных товаров и, при необходимости, по производителю и коллекции."
+      actions={
+        <Link
+          href="/"
+          className="rounded border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-100"
+        >
+          На главную →
+        </Link>
+      }
+    >
+      {notice ? <AdminNotice variant="success">{notice}</AdminNotice> : null}
+      {error ? <AdminNotice variant="error">{error}</AdminNotice> : null}
 
       {loading ? (
-        <div className="rounded border bg-white p-6 text-sm text-zinc-500">Загрузка…</div>
+        <AdminCard>
+          <p className="text-sm text-zinc-500">Загрузка…</p>
+        </AdminCard>
       ) : (
         <>
-          <form onSubmit={submitCreate} className="space-y-4 rounded-lg border bg-white p-4">
-            <h2 className="text-sm font-semibold text-zinc-800">Новая акция</h2>
+          <AdminCard title="Новая акция">
+            <form onSubmit={submitCreate} className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="flex flex-col gap-1 text-xs text-zinc-600">
                 Заголовок
@@ -515,10 +510,10 @@ export default function AdminPromotionsPage() {
             >
               {creating ? "Создание…" : "Добавить акцию"}
             </button>
-          </form>
+            </form>
+          </AdminCard>
 
-          <section className="rounded-lg border bg-white p-4">
-            <h2 className="mb-3 text-sm font-semibold text-zinc-800">Список акций ({banners.length})</h2>
+          <AdminCard title={`Список акций (${banners.length})`}>
             {banners.length === 0 ? (
               <p className="text-sm text-zinc-500">Пока нет баннеров — на главной показывается заглушка.</p>
             ) : (
@@ -696,9 +691,9 @@ export default function AdminPromotionsPage() {
                 })}
               </ul>
             )}
-          </section>
+          </AdminCard>
         </>
       )}
-    </main>
+    </AdminPage>
   );
 }

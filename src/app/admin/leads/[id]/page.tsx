@@ -3,6 +3,11 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { AdminCard } from "@/features/admin/ui/admin-card";
+import { AdminConfirmButton } from "@/features/admin/ui/admin-confirm-button";
+import { AdminNotice } from "@/features/admin/ui/admin-notice";
+import { AdminPage } from "@/features/admin/ui/admin-page";
 import { formatCartItemName } from "@/lib/client/cart-item-name";
 import { formatPrice } from "@/lib/client/format";
 import { computeLeadTotals, type DiscountKind } from "@/lib/client/lead-pricing";
@@ -230,8 +235,6 @@ export default function AdminLeadDetailPage({ params }: { params: Promise<{ id: 
 
   const onDelete = async () => {
     if (!leadId || deleting) return;
-    const label = lead?.customerName || `№${leadId}`;
-    if (!window.confirm(`Удалить заявку «${label}»? Действие нельзя отменить.`)) return;
 
     setDeleting(true);
     setNotice("");
@@ -252,55 +255,48 @@ export default function AdminLeadDetailPage({ params }: { params: Promise<{ id: 
 
   if (loading) {
     return (
-      <main className="mx-auto w-full max-w-5xl p-6">
+      <AdminPage title="Заявка">
         <p className="text-zinc-600">Загрузка…</p>
-      </main>
+      </AdminPage>
     );
   }
 
   if (!lead) {
     return (
-      <main className="mx-auto w-full max-w-5xl p-6">
-        <p className="text-rose-700">{error || "Заявка не найдена"}</p>
-        <Link href="/admin/leads" className="mt-3 inline-block text-sm underline">
-          ← К списку заявок
-        </Link>
-      </main>
+      <AdminPage title="Заявка">
+        <AdminNotice variant="error">{error || "Заявка не найдена"}</AdminNotice>
+        <Button variant="outline" size="sm" asChild>
+          <Link href="/admin/leads">К списку заявок</Link>
+        </Button>
+      </AdminPage>
     );
   }
 
-  return (
-    <main className="mx-auto w-full max-w-5xl p-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Заявка №{lead.id}</h1>
-          <p className="mt-1 text-sm text-zinc-600">
-            Создана {formatDateTime(lead.createdAt)}
-            {lead.updatedAt !== lead.createdAt ? ` · обновлена ${formatDateTime(lead.updatedAt)}` : ""}
-          </p>
-        </div>
-        <Link href="/admin/leads" className="rounded border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-100">
-          ← К списку
-        </Link>
-        <a
-          href={`/api/admin/leads/${lead.id}/contract`}
-          className="rounded border border-zinc-900 bg-zinc-900 px-3 py-1.5 text-sm text-white hover:bg-zinc-800"
-        >
-          Скачать договор (.docx)
-        </a>
-        <button
-          type="button"
-          onClick={() => void onDelete()}
-          disabled={deleting}
-          className="rounded border border-rose-300 px-3 py-1.5 text-sm text-rose-700 hover:bg-rose-50 disabled:opacity-60"
-        >
-          {deleting ? "Удаление…" : "Удалить"}
-        </button>
-      </div>
+  const leadDescription = `Создана ${formatDateTime(lead.createdAt)}${
+    lead.updatedAt !== lead.createdAt ? ` · обновлена ${formatDateTime(lead.updatedAt)}` : ""
+  }`;
 
-      <section className="mt-6 rounded border bg-white p-4">
-        <h2 className="font-medium">Клиент</h2>
-        <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+  return (
+    <AdminPage
+      title={`Заявка №${lead.id}`}
+      description={leadDescription}
+      actions={
+        <>
+          <Button size="sm" asChild>
+            <a href={`/api/admin/leads/${lead.id}/contract`}>Скачать договор (.docx)</a>
+          </Button>
+          <AdminConfirmButton
+            confirmMessage={`Удалить заявку «${lead.customerName || `№${lead.id}`}»? Действие нельзя отменить.`}
+            disabled={deleting}
+            onConfirm={() => void onDelete()}
+          >
+            {deleting ? "Удаление…" : "Удалить"}
+          </AdminConfirmButton>
+        </>
+      }
+    >
+      <AdminCard title="Клиент">
+        <dl className="grid gap-2 text-sm sm:grid-cols-2">
           <div>
             <dt className="text-zinc-500">ФИО</dt>
             <dd>{lead.customerName}</dd>
@@ -322,11 +318,10 @@ export default function AdminLeadDetailPage({ params }: { params: Promise<{ id: 
             <dd>{formatDate(lead.contractDate)}</dd>
           </div>
         </dl>
-      </section>
+      </AdminCard>
 
-      <form onSubmit={(event) => void onSave(event)} className="mt-6 space-y-6">
-        <section className="overflow-x-auto rounded border bg-white">
-          <h2 className="border-b px-4 py-3 font-medium">Позиции</h2>
+      <form onSubmit={(event) => void onSave(event)} className="space-y-6">
+        <AdminCard title="Позиции" contentClassName="overflow-x-auto p-0">
           <table className="w-full min-w-[640px] text-sm">
             <thead className="bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500">
               <tr>
@@ -433,51 +428,52 @@ export default function AdminLeadDetailPage({ params }: { params: Promise<{ id: 
               </div>
             </div>
           </div>
-        </section>
+        </AdminCard>
 
-        <section className="space-y-4 rounded border bg-white p-4">
-          <h2 className="font-medium">Управление</h2>
-          <div className="space-y-2">
-            <label className="text-sm text-zinc-600" htmlFor="lead-status">
-              Статус
-            </label>
-            <select
-              id="lead-status"
-              className="w-full max-w-xs rounded border px-3 py-2 text-sm"
-              value={status}
-              onChange={(event) => setStatus(event.target.value)}
+        <AdminCard title="Управление">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm text-zinc-600" htmlFor="lead-status">
+                Статус
+              </label>
+              <select
+                id="lead-status"
+                className="w-full max-w-xs rounded border px-3 py-2 text-sm"
+                value={status}
+                onChange={(event) => setStatus(event.target.value)}
+                disabled={saving}
+              >
+                {STATUS_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm text-zinc-600" htmlFor="lead-notes">
+                Заметки менеджера
+              </label>
+              <textarea
+                id="lead-notes"
+                className="min-h-24 w-full rounded border px-3 py-2 text-sm"
+                value={managerNotes}
+                onChange={(event) => setManagerNotes(event.target.value)}
+                disabled={saving}
+              />
+            </div>
+            {notice ? <AdminNotice variant="success">{notice}</AdminNotice> : null}
+            {error ? <AdminNotice variant="error">{error}</AdminNotice> : null}
+            <button
+              type="submit"
               disabled={saving}
+              className="rounded bg-black px-4 py-2 text-sm text-white disabled:opacity-60"
             >
-              {STATUS_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+              {saving ? "Сохранение…" : "Сохранить"}
+            </button>
           </div>
-          <div className="space-y-2">
-            <label className="text-sm text-zinc-600" htmlFor="lead-notes">
-              Заметки менеджера
-            </label>
-            <textarea
-              id="lead-notes"
-              className="min-h-24 w-full rounded border px-3 py-2 text-sm"
-              value={managerNotes}
-              onChange={(event) => setManagerNotes(event.target.value)}
-              disabled={saving}
-            />
-          </div>
-          {notice ? <p className="text-sm text-emerald-700">{notice}</p> : null}
-          {error ? <p className="text-sm text-rose-700">{error}</p> : null}
-          <button
-            type="submit"
-            disabled={saving}
-            className="rounded bg-black px-4 py-2 text-sm text-white disabled:opacity-60"
-          >
-            {saving ? "Сохранение…" : "Сохранить"}
-          </button>
-        </section>
+        </AdminCard>
       </form>
-    </main>
+    </AdminPage>
   );
 }

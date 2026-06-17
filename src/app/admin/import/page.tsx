@@ -1,7 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AdminCard } from "@/features/admin/ui/admin-card";
+import { AdminNotice } from "@/features/admin/ui/admin-notice";
+import { AdminPage } from "@/features/admin/ui/admin-page";
 import { CsvRow, parseCsv } from "@/lib/client/csv-parse";
 import {
   AttributeDef,
@@ -195,25 +197,10 @@ export default function AdminImportPage() {
   const previewRows = mappedRows.slice(0, 10);
 
   return (
-    <main className="mx-auto flex w-full max-w-7xl flex-col gap-4 p-6">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-semibold">Импорт CSV</h1>
-          <p className="mt-1 text-sm text-zinc-600">
-            Загрузка товаров и характеристик пакетно. Файл парсится в браузере и отправляется на{" "}
-            <code className="rounded bg-zinc-100 px-1">POST /api/admin/import/csv</code>. Подробный
-            гайд по полям и вариантам — в файле{" "}
-            <code className="rounded bg-zinc-100 px-1">docs/csv-import.md</code>.
-          </p>
-        </div>
-        <Link
-          href="/admin"
-          className="rounded border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-100"
-        >
-          ← К админке
-        </Link>
-      </header>
-
+    <AdminPage
+      title="Импорт CSV"
+      description="Загрузка товаров и характеристик пакетно. Файл парсится в браузере и отправляется на POST /api/admin/import/csv. Подробный гайд по полям и вариантам — в файле docs/csv-import.md."
+    >
       <section className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-3">
           <div className="flex flex-wrap items-center gap-2">
@@ -265,14 +252,10 @@ export default function AdminImportPage() {
             spellCheck={false}
           />
 
-          {parseError ? (
-            <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-              {parseError}
-            </div>
-          ) : null}
+          {parseError ? <AdminNotice variant="error">{parseError}</AdminNotice> : null}
 
           {!skuMapped && rawRows.length > 0 ? (
-            <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            <AdminNotice variant="error">
               Ни одна колонка не сопоставлена с обязательным полем <code className="font-mono">sku</code>.{" "}
               <button
                 type="button"
@@ -281,7 +264,7 @@ export default function AdminImportPage() {
               >
                 Открыть сопоставление
               </button>
-            </div>
+            </AdminNotice>
           ) : null}
 
           <div className="flex items-center gap-3">
@@ -305,7 +288,8 @@ export default function AdminImportPage() {
           </div>
         </div>
 
-        <aside className="space-y-3 rounded-lg border bg-white p-4 text-sm leading-6">
+        <AdminCard className="text-sm leading-6">
+          <div className="space-y-3 p-4">
           <h3 className="font-semibold text-zinc-900">Текущее сопоставление</h3>
           {csvHeaders.length === 0 ? (
             <p className="text-xs text-zinc-500">
@@ -341,11 +325,12 @@ export default function AdminImportPage() {
               Изменить сопоставление
             </button>
           ) : null}
-        </aside>
+          </div>
+        </AdminCard>
       </section>
 
       {mappedRows.length > 0 ? (
-        <section className="rounded-lg border bg-white">
+        <AdminCard className="overflow-hidden p-0">
           <div className="flex items-center justify-between border-b px-3 py-2 text-xs text-zinc-500">
             <span>
               Предпросмотр после сопоставления: {previewRows.length} из {mappedRows.length} строк,{" "}
@@ -381,22 +366,22 @@ export default function AdminImportPage() {
               </tbody>
             </table>
           </div>
-        </section>
+        </AdminCard>
       ) : null}
 
       {result && result.errors.length > 0 ? (
-        <section className="rounded-lg border border-rose-200 bg-rose-50 p-4">
-          <h3 className="mb-2 text-sm font-semibold text-rose-800">
+        <AdminNotice variant="error">
+          <h3 className="mb-2 text-sm font-semibold">
             Сообщения сервера ({result.errors.length})
           </h3>
-          <ul className="max-h-72 space-y-1 overflow-auto text-xs text-rose-900">
+          <ul className="max-h-72 space-y-1 overflow-auto text-xs">
             {result.errors.map((error, idx) => (
               <li key={idx} className="font-mono">
                 {error}
               </li>
             ))}
           </ul>
-        </section>
+        </AdminNotice>
       ) : null}
 
       {mappingOpen ? (
@@ -414,7 +399,7 @@ export default function AdminImportPage() {
           computeAutoMapping={() => autoDetectMapping(csvHeaders, attributes)}
         />
       ) : null}
-    </main>
+    </AdminPage>
   );
 }
 
@@ -481,7 +466,7 @@ function MappingDialog({
       onClick={onCancel}
     >
       <div
-        className="flex max-h-[90vh] w-full max-w-[min(100vw-2rem,1280px)] flex-col overflow-hidden rounded-lg bg-white shadow-xl"
+        className="flex max-h-[90vh] w-full max-w-[min(100vw-2rem,var(--admin-content-max-width))] flex-col overflow-hidden bg-white shadow-xl"
         onClick={(event) => event.stopPropagation()}
       >
         <header className="flex items-start justify-between border-b px-5 py-3">
