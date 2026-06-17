@@ -9,15 +9,16 @@ import { ProductRelatedFittings } from "@/features/product/product-related-fitti
 import { ProductSuggestedHandles } from "@/features/product/product-suggested-handles";
 import { ProductVariantSelectors } from "@/features/product/product-variant-selectors";
 import {
-  buildCatalogBackHref,
+  computeInteriorKitPrice,
   resolveProductDisplayPrice,
   variantCartSuffix,
 } from "@/features/product/product-utils";
+import { useCatalogBackHref } from "@/features/product/use-catalog-back-href";
+import { ProductPricingBlock } from "@/features/product/product-pricing-block";
 import { ProductPageSkeleton } from "@/features/product/product-page-skeleton";
 import { useProductPage } from "@/features/product/use-product-page";
 import { ImageLightbox } from "@/features/store/image-lightbox";
 import { MeasureLeadForm } from "@/features/store/measure-lead-form";
-import { ProductPrice } from "@/features/store/price-tag";
 import type { ProductData } from "@/lib/client/normalizers";
 
 type ProductPageClientProps = {
@@ -27,6 +28,7 @@ type ProductPageClientProps = {
 
 export function ProductPageClient({ params, initialProduct }: ProductPageClientProps) {
   const page = useProductPage(params, initialProduct);
+  const catalogBackHref = useCatalogBackHref();
 
   if (page.loading) {
     return <ProductPageSkeleton />;
@@ -45,6 +47,7 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
   const galleryImages =
     product.images.length > 0 ? product.images : product.image ? [product.image] : [];
   const price = resolveProductDisplayPrice(product, page.selectedVariant?.price);
+  const kitPrice = computeInteriorKitPrice(price, product.kitPricing);
   const relatedFittings = product.relatedFittings ?? {
     fixators: [],
     latches: [],
@@ -64,7 +67,7 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
           asChild
           className="border-zinc-300 text-zinc-800 hover:border-brand/35 hover:bg-brand/5 hover:text-brand"
         >
-          <Link href={buildCatalogBackHref()}>
+          <Link href={catalogBackHref}>
             <svg
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 24 24"
@@ -93,17 +96,18 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
             }}
           />
           <div className="space-y-4">
-            <h1 className="text-2xl font-semibold">{product.name}</h1>
-            <ProductPrice
-              price={price}
-              compareAtPrice={product.compareAtPrice}
-              isOnSale={product.isOnSale}
-              className="text-lg"
-            />
             <p className="text-sm text-zinc-600">
               {product.category}
               {product.subcategory ? ` / ${product.subcategory}` : ""}
             </p>
+            <h1 className="text-2xl font-semibold">{product.name}</h1>
+            <ProductPricingBlock
+              price={price}
+              compareAtPrice={product.compareAtPrice}
+              isOnSale={product.isOnSale}
+              kitPrice={kitPrice}
+              kitPricing={product.kitPricing}
+            />
             <ProductVariantSelectors
               product={product}
               selectedNumericId={page.selectedNumericId}

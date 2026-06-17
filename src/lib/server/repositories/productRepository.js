@@ -1,6 +1,11 @@
 const { query, withTransaction } = require("../db/postgres");
 const attributeRepository = require("./attributeRepository");
 const { loadRelatedFittingsForHandle } = require("../domain/fittingsRelated");
+const {
+  INTERIOR_DOORS_CATEGORY_SLUG,
+  computeInteriorKitPrice,
+  loadInteriorKitParts,
+} = require("../domain/interiorKitPrice");
 const { normalizeProductBadges, resolveProductBadges, syncSaleBadge } = require("../domain/productBadges");
 const {
   applySaleRulesOn,
@@ -1081,6 +1086,16 @@ const getProductById = async (id) => {
     attrDefs,
   });
 
+  let kitPricing = null;
+  let kitPrice = null;
+  if (taxonomy.categorySlug === INTERIOR_DOORS_CATEGORY_SLUG && pogonazhIds.length > 0) {
+    kitPricing = await loadInteriorKitParts({
+      pogonazhIds,
+      excludeRootCategoryId: currentRootCategoryId,
+    });
+    kitPrice = computeInteriorKitPrice(Number(row.price), kitPricing);
+  }
+
   return {
     id: numericId,
     sku: row.sku,
@@ -1106,6 +1121,8 @@ const getProductById = async (id) => {
     accessories,
     relatedFittings,
     pogonazhIds,
+    kitPricing,
+    kitPrice,
     badges: resolveProductBadges(row.badges),
   };
 };

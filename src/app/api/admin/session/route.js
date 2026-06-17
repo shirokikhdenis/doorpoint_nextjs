@@ -3,27 +3,14 @@ import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
 const {
-  ADMIN_SESSION_COOKIE,
-  createAdminSessionToken,
-  getSessionTtlSeconds,
+  setAdminSessionCookie,
+  clearAdminSessionCookie,
+} = require("@/lib/server/auth/adminSessionCookie");
+const {
   verifyAdminCredentials,
   requestHasAdminSession,
 } = require("@/lib/server/auth/adminAuth");
-
-const secureCookie = process.env.NODE_ENV === "production";
-
-const withSessionCookie = (response, value, maxAge) => {
-  response.cookies.set({
-    name: ADMIN_SESSION_COOKIE,
-    value,
-    httpOnly: true,
-    secure: secureCookie,
-    sameSite: "lax",
-    path: "/",
-    maxAge,
-  });
-  return response;
-};
+const { isYandexOAuthConfigured } = require("@/lib/server/auth/yandexOAuth");
 
 export async function GET(request) {
   if (!requestHasAdminSession(request)) {
@@ -33,6 +20,13 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
+  if (isYandexOAuthConfigured()) {
+    return NextResponse.json(
+      { message: "Вход через пароль отключён. Используйте Яндекс ID." },
+      { status: 403 },
+    );
+  }
+
   let body = {};
   try {
     body = await request.json();
@@ -46,12 +40,11 @@ export async function POST(request) {
     return NextResponse.json({ message: "Неверный логин или пароль" }, { status: 401 });
   }
 
-  const ttlSeconds = getSessionTtlSeconds();
   const response = NextResponse.json({ ok: true });
-  return withSessionCookie(response, createAdminSessionToken(), ttlSeconds);
+  return setAdminSessionCookie(response);
 }
 
 export async function DELETE() {
   const response = NextResponse.json({ ok: true });
-  return withSessionCookie(response, "", 0);
+  return clearAdminSessionCookie(response);
 }

@@ -3,9 +3,17 @@ import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
 const { requestHasAdminSession } = require("@/lib/server/auth/adminAuth");
+const { buildRequestUrl } = require("@/lib/server/http/requestOrigin");
 
 const ADMIN_LOGIN_PATH = "/admin/login";
 const ADMIN_SESSION_API_PATH = "/api/admin/session";
+const ADMIN_OAUTH_YANDEX_PATH = "/api/admin/oauth/yandex";
+const ADMIN_OAUTH_YANDEX_CALLBACK_PATH = "/api/admin/oauth/yandex/callback";
+
+const isPublicAdminApiPath = (pathname) =>
+  pathname === ADMIN_SESSION_API_PATH ||
+  pathname === ADMIN_OAUTH_YANDEX_PATH ||
+  pathname === ADMIN_OAUTH_YANDEX_CALLBACK_PATH;
 
 const isAdminUiPath = (pathname) => pathname === "/admin" || pathname.startsWith("/admin/");
 const isAdminApiPath = (pathname) =>
@@ -17,13 +25,13 @@ export function proxy(request) {
   const adminApi = isAdminApiPath(pathname);
   if (!adminUi && !adminApi) return NextResponse.next();
 
-  if (pathname === ADMIN_SESSION_API_PATH) {
+  if (isPublicAdminApiPath(pathname)) {
     return NextResponse.next();
   }
 
   if (pathname === ADMIN_LOGIN_PATH) {
     if (requestHasAdminSession(request)) {
-      return NextResponse.redirect(new URL("/admin", request.url));
+      return NextResponse.redirect(buildRequestUrl(request, "/admin"));
     }
     return NextResponse.next();
   }
@@ -37,7 +45,7 @@ export function proxy(request) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
-  const loginUrl = new URL(ADMIN_LOGIN_PATH, request.url);
+  const loginUrl = buildRequestUrl(request, ADMIN_LOGIN_PATH);
   if (pathname !== ADMIN_LOGIN_PATH) {
     loginUrl.searchParams.set("next", pathname);
   }

@@ -113,6 +113,19 @@ export type RelatedFittings = {
   latches: RelatedFittingItem[];
   hinges: RelatedFittingItem[];
 };
+export type KitPart = {
+  id: number;
+  sku: string;
+  name: string;
+  price: number;
+};
+export type KitPricing = {
+  available: boolean;
+  korobkaQty: number;
+  nalichnikQty: number;
+  korobka: KitPart | null;
+  nalichnik: KitPart | null;
+};
 export type ProductData = {
   id: number;
   sku?: string;
@@ -133,6 +146,8 @@ export type ProductData = {
   relatedFittings: RelatedFittings;
   suggestedHandles?: ProductCard[];
   badges?: ProductBadge[];
+  kitPricing?: KitPricing | null;
+  kitPrice?: number | null;
 };
 
 export type AdminCatalogPage = {
@@ -281,6 +296,31 @@ const normalizeRelatedFittings = (value: unknown): RelatedFittings => {
   };
 };
 
+const normalizeKitPart = (value: unknown): KitPart | null => {
+  if (!value || typeof value !== "object") return null;
+  const source = value as Record<string, unknown>;
+  const id = Number(source.id);
+  if (!Number.isInteger(id) || id <= 0) return null;
+  return {
+    id,
+    sku: String(source.sku || ""),
+    name: String(source.name || ""),
+    price: Number(source.price) || 0,
+  };
+};
+
+const normalizeKitPricing = (value: unknown): KitPricing | null => {
+  if (!value || typeof value !== "object") return null;
+  const source = value as Record<string, unknown>;
+  return {
+    available: source.available === true,
+    korobkaQty: Number(source.korobkaQty) || 2.5,
+    nalichnikQty: Number(source.nalichnikQty) || 5,
+    korobka: normalizeKitPart(source.korobka),
+    nalichnik: normalizeKitPart(source.nalichnik),
+  };
+};
+
 export const normalizeProductData = (value: unknown): ProductData => {
   const source = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
   return {
@@ -337,6 +377,11 @@ export const normalizeProductData = (value: unknown): ProductData => {
     relatedFittings: normalizeRelatedFittings(source.relatedFittings),
     suggestedHandles: normalizeProductsResponse({ items: source.suggestedHandles }),
     badges: parseProductBadges(source.badges),
+    kitPricing: normalizeKitPricing(source.kitPricing),
+    kitPrice:
+      source.kitPrice === null || source.kitPrice === undefined
+        ? null
+        : Number(source.kitPrice) || null,
   };
 };
 
