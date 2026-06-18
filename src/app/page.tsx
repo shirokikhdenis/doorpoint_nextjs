@@ -7,6 +7,7 @@ import { LocalBusinessJsonLd } from "@/features/store/local-business-json-ld";
 import { MeasureLeadForm } from "@/features/store/measure-lead-form";
 import { normalizeProductsResponse, normalizePromotionBanners } from "@/lib/client/normalizers";
 import { CATALOG_PAGE_SLUG } from "@/lib/catalog-page-slugs";
+import { catalogPagePath } from "@/lib/catalog-url";
 import { SEO_COPY } from "@/lib/seo-copy";
 import { absoluteUrl, defaultOpenGraph } from "@/lib/site-seo";
 
@@ -60,13 +61,13 @@ export default async function HomePage() {
         <HomeProductHits
           title="Межкомнатные хиты продаж"
           catalogPage={CATALOG_PAGE_SLUG.interiorDoors}
-          catalogHref={`/catalog?catalogPage=${CATALOG_PAGE_SLUG.interiorDoors}`}
+          catalogHref={catalogPagePath(CATALOG_PAGE_SLUG.interiorDoors)}
           products={interiorHits}
         />
         <HomeProductHits
           title="Входные хиты продаж"
           catalogPage={CATALOG_PAGE_SLUG.entryDoors}
-          catalogHref={`/catalog?catalogPage=${CATALOG_PAGE_SLUG.entryDoors}`}
+          catalogHref={catalogPagePath(CATALOG_PAGE_SLUG.entryDoors)}
           products={entryHits}
         />
       </main>

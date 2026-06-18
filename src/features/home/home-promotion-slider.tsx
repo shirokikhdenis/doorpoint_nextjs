@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { CATALOG_PAGE_SLUG } from "@/lib/catalog-page-slugs";
+import { buildCatalogPublicHref } from "@/lib/catalog-url";
 import { cn } from "@/lib/utils";
 import { PromotionHighlightText } from "@/features/home/promotion-highlight-text";
 import type { PromotionBanner } from "@/lib/client/normalizers";
@@ -63,7 +64,16 @@ function SlideContent({
 }
 
 function StaticPromoFallback() {
-  const promoHref = `/catalog?catalogPage=${CATALOG_PAGE_SLUG.interiorDoors}&onSale=1`;
+  const promoHref = buildCatalogPublicHref(CATALOG_PAGE_SLUG.interiorDoors, {
+    search: "",
+    sort: "popularity",
+    categories: [],
+    subcategories: [],
+    attrSelections: {},
+    attrRanges: {},
+    priceRange: { min: "", max: "" },
+    onSale: true,
+  });
   return (
     <Link
       href={promoHref}

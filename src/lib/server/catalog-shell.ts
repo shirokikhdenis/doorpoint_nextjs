@@ -2,7 +2,7 @@ import { createRequire } from "node:module";
 import { CATALOG_PAGE_LIMIT } from "@/features/catalog/catalog-constants";
 import {
   applyLabelToSelections,
-  buildCatalogQuery,
+  buildCatalogApiQuery,
   catalogQueryObjectFromQueryString,
   flattenSearchParams,
   parseCatalogFilterStateFromSearchParams,
@@ -16,7 +16,7 @@ import {
   type CatalogPageItem,
   type ProductCard,
 } from "@/lib/client/normalizers";
-import { isLegacyCatalogPageSlug, resolveCatalogPageSlug } from "@/lib/catalog-page-slugs";
+import { resolveCatalogPageSlug } from "@/lib/catalog-page-slugs";
 
 const require = createRequire(import.meta.url);
 const catalogService = require("@/lib/server/services/catalogService") as {
@@ -36,15 +36,14 @@ export type CatalogShellInitial = {
   catalogPage: string;
   queryString: string;
   filterState: CatalogFilterState;
-  legacyCatalogPageRedirect?: string;
 };
 
 export async function getCatalogShell(
   searchParams: Record<string, string | string[] | undefined>,
+  options: { catalogPage: string },
 ): Promise<CatalogShellInitial> {
   const flat = flattenSearchParams(searchParams);
-  const rawCatalogPage = flat.catalogPage?.trim() || "all";
-  const catalogPage = resolveCatalogPageSlug(rawCatalogPage);
+  const catalogPage = resolveCatalogPageSlug(options.catalogPage);
   let filterState = parseCatalogFilterStateFromSearchParams(flat);
 
   const metaRaw = await catalogService.getFilterMeta({ catalogPage });
@@ -62,11 +61,7 @@ export async function getCatalogShell(
     }
   }
 
-  const queryString = buildCatalogQuery(catalogPage, filterState);
-  const legacyCatalogPageRedirect =
-    rawCatalogPage !== catalogPage && isLegacyCatalogPageSlug(rawCatalogPage)
-      ? queryString
-      : undefined;
+  const queryString = buildCatalogApiQuery(catalogPage, filterState);
   const productQuery = {
     ...catalogQueryObjectFromQueryString(queryString),
     page: "1",
@@ -86,7 +81,5 @@ export async function getCatalogShell(
     catalogPage,
     queryString,
     filterState,
-    legacyCatalogPageRedirect,
   };
 }
-

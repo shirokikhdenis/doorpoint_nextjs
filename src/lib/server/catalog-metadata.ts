@@ -4,6 +4,7 @@ import { flattenSearchParams } from "@/features/catalog/catalog-filter-utils";
 import { buildCatalogSeoCopy } from "@/lib/seo-copy";
 import { isPogonazhCatalogPageSlug } from "@/lib/pogonazh-category";
 import { resolveCatalogPageSlug } from "@/lib/catalog-page-slugs";
+import { catalogPagePath } from "@/lib/catalog-page-paths";
 import { absoluteUrl, defaultOpenGraph } from "@/lib/site-seo";
 
 const require = createRequire(import.meta.url);
@@ -16,10 +17,7 @@ const catalogService = require("@/lib/server/services/catalogService") as {
   } | null>;
 };
 
-const catalogPageCanonicalPath = (catalogPage: string): string => {
-  if (!catalogPage || catalogPage === "all") return "/catalog";
-  return `/catalog?catalogPage=${encodeURIComponent(catalogPage)}`;
-};
+const catalogPageCanonicalPath = (catalogPage: string): string => catalogPagePath(catalogPage);
 
 /** URL with filters, pagination or search should not compete in search index. */
 export const catalogHasSeoNoise = (flat: Record<string, string>): boolean => {
@@ -40,9 +38,10 @@ export const catalogHasSeoNoise = (flat: Record<string, string>): boolean => {
 
 export async function buildCatalogMetadata(
   searchParams: Record<string, string | string[] | undefined>,
+  options: { catalogPage: string },
 ): Promise<Metadata> {
   const flat = flattenSearchParams(searchParams);
-  const catalogPage = resolveCatalogPageSlug(flat.catalogPage?.trim() || "all");
+  const catalogPage = resolveCatalogPageSlug(options.catalogPage);
 
   let pageName = "Каталог дверей";
   let seoOverrides: { seoTitle?: string | null; seoDescription?: string | null } | undefined;

@@ -1,4 +1,6 @@
 import type { CatalogFilterState, CatalogScrollPayload } from "@/features/catalog/catalog-types";
+import { catalogPageFromPathname } from "@/lib/catalog-page-paths";
+import { resolveCatalogPageSlug as resolveLegacyCatalogPageSlug } from "@/lib/catalog-page-slugs";
 
 export const readCatalogScrollPayload = (): CatalogScrollPayload | null => {
   if (typeof window === "undefined") return null;
@@ -11,11 +13,15 @@ export const readCatalogScrollPayload = (): CatalogScrollPayload | null => {
   }
 };
 
-export const resolveCatalogPageSlug = () => {
+/** Active vitrine slug from path, legacy query, or sessionStorage. */
+export const resolveCatalogPageSlug = (): string => {
   if (typeof window === "undefined") return "all";
-  const fromUrl = new URLSearchParams(window.location.search).get("catalogPage");
+  const fromPath = catalogPageFromPathname(window.location.pathname);
+  if (fromPath !== "all") return fromPath;
+  const fromQuery = new URLSearchParams(window.location.search).get("catalogPage");
+  if (fromQuery) return resolveLegacyCatalogPageSlug(fromQuery);
   const fromStorage = window.sessionStorage.getItem("lastCatalogPage");
-  return fromUrl || fromStorage || "all";
+  return fromStorage || "all";
 };
 
 export const buildInitialCatalogFilters = (): CatalogFilterState => {

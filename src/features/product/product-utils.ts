@@ -56,13 +56,55 @@ export const variantCartSuffix = (variant: Variant): string => {
   return axes.map((attribute) => attribute.value).join(", ");
 };
 
+import { CATALOG_PAGE_SLUG } from "@/lib/catalog-page-slugs";
+import { buildCatalogPublicHrefFromFlat, catalogPagePath } from "@/lib/catalog-url";
+
+/** Корневая категория товара → slug витрины каталога. */
+const PRODUCT_CATEGORY_TO_CATALOG_PAGE: Record<string, string> = {
+  "entry-doors": CATALOG_PAGE_SLUG.entryDoors,
+  "interior-doors": CATALOG_PAGE_SLUG.interiorDoors,
+  fittings: CATALOG_PAGE_SLUG.fittings,
+};
+
+/** Подкатегория с отдельной витриной → slug витрины (без query-фильтра). */
+const PRODUCT_SUBCATEGORY_TO_CATALOG_PAGE: Record<string, string> = {
+  "двери-с-терморазрывом": CATALOG_PAGE_SLUG.thermalBreakDoors,
+  "двери-в-квартиру": CATALOG_PAGE_SLUG.entryDoors,
+};
+
+export const productCategoryCatalogHref = (
+  categorySlug?: string | null,
+): string | null => {
+  const slug = String(categorySlug ?? "").trim();
+  if (!slug) return null;
+  const catalogPage = PRODUCT_CATEGORY_TO_CATALOG_PAGE[slug];
+  if (!catalogPage) return null;
+  return catalogPagePath(catalogPage);
+};
+
+export const productSubcategoryCatalogHref = (
+  categorySlug?: string | null,
+  subcategorySlug?: string | null,
+): string | null => {
+  const rootSlug = String(categorySlug ?? "").trim();
+  const subSlug = String(subcategorySlug ?? "").trim();
+  if (!rootSlug || !subSlug) return null;
+
+  const dedicatedPage = PRODUCT_SUBCATEGORY_TO_CATALOG_PAGE[subSlug];
+  if (dedicatedPage) {
+    return catalogPagePath(dedicatedPage);
+  }
+
+  const catalogPage = PRODUCT_CATEGORY_TO_CATALOG_PAGE[rootSlug];
+  if (!catalogPage) return null;
+  return buildCatalogPublicHrefFromFlat(catalogPage, { subcategories: subSlug });
+};
+
 const DEFAULT_CATALOG_FALLBACK = "/catalog";
 
 export const catalogBackHrefFromPageSlug = (slug: string | null | undefined): string => {
   const trimmed = String(slug || "").trim();
-  return trimmed
-    ? `/catalog?catalogPage=${encodeURIComponent(trimmed)}`
-    : DEFAULT_CATALOG_FALLBACK;
+  return trimmed ? catalogPagePath(trimmed) : DEFAULT_CATALOG_FALLBACK;
 };
 
 export const buildCatalogBackHref = (): string => {

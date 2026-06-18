@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { toPublicImageSrc } from "@/lib/client/image-src";
 import { CATALOG_PAGE_SLUG } from "@/lib/catalog-page-slugs";
+import { catalogPagePath } from "@/lib/catalog-url";
 
 type HomeCategoryTilesProps = {
   interiorCoverImage?: string;
@@ -54,13 +55,13 @@ export function HomeCategoryTiles({ interiorCoverImage, entryCoverImage }: HomeC
       <div className="grid gap-4 md:grid-cols-2">
         <CategoryTile
           title="Межкомнатные двери"
-          href={`/catalog?catalogPage=${CATALOG_PAGE_SLUG.interiorDoors}`}
+          href={catalogPagePath(CATALOG_PAGE_SLUG.interiorDoors)}
           coverImage={interiorCoverImage}
           fallbackClass="bg-gradient-to-br from-zinc-50 to-zinc-100"
         />
         <CategoryTile
           title="Входные двери"
-          href={`/catalog?catalogPage=${CATALOG_PAGE_SLUG.entryDoors}`}
+          href={catalogPagePath(CATALOG_PAGE_SLUG.entryDoors)}
           coverImage={entryCoverImage}
           fallbackClass="bg-gradient-to-br from-zinc-50 to-zinc-100"
         />

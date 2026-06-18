@@ -22,12 +22,11 @@ function TagIcon() {
   );
 }
 
-function PercentIcon() {
+function DoorCatalogIcon() {
   return (
     <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
-      <circle cx="7.5" cy="7.5" r="2.25" />
-      <circle cx="16.5" cy="16.5" r="2.25" />
-      <path d="M18 6 6 18" />
+      <path d="M7 3h10a1 1 0 0 1 1 1v17H6V4a1 1 0 0 1 1-1z" />
+      <circle cx="15" cy="12" r="0.9" fill="currentColor" stroke="none" />
     </svg>
   );
 }
@@ -90,7 +89,7 @@ export function HomePromotions({ banners }: { banners: PromotionBanner[] }) {
         <InfoCard
           title="Двери на любой вкус от ведущих фабрик РФ"
           description="Перейти в каталог →"
-          icon={<PercentIcon />}
+          icon={<DoorCatalogIcon />}
           href="/catalog"
         />
         <InfoCard

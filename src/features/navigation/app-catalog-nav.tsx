@@ -1,31 +1,27 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   CatalogPageItem,
   normalizeCatalogPages,
 } from "@/lib/client/normalizers";
 import { catalogTabClass } from "@/features/store/storefront-ui";
+import { catalogPageFromPathname, catalogPagePath } from "@/lib/catalog-url";
+import { CATALOG_PAGE_SLUG } from "@/lib/catalog-page-slugs";
 
 const tabButtonBase =
   "max-w-[14rem] snap-start truncate md:max-w-none";
 
 /**
- * Глобальный навбар витрин: «Общий каталог», «Входные двери», ... Расположен
- * под основным `AppNav`, центрирован. Ссылки ведут на `/catalog?catalogPage=<slug>` —
- * сам каталог синхронизирует свой стейт с этим query-параметром (см. `useSearchParams`
- * в `src/app/catalog/page.tsx`).
- *
- * Когда мы НЕ на странице `/catalog`, активная подсветка не показывается — навбар
- * просто служит быстрым переходом в нужный раздел каталога.
+ * Глобальный навбар витрин: «Общий каталог», «Входные двери», ...
+ * Ссылки ведут на `/catalog` или `/catalog/<slug>`.
  */
 export function AppCatalogNav() {
   const [pages, setPages] = useState<CatalogPageItem[]>([]);
   const [lastSelectedSlug, setLastSelectedSlug] = useState("");
   const pathname = usePathname();
-  const searchParams = useSearchParams();
 
   useEffect(() => {
     let cancelled = false;
@@ -46,15 +42,17 @@ export function AppCatalogNav() {
     if (typeof window === "undefined") return;
     const saved = window.sessionStorage.getItem("lastCatalogPage") || "";
     if (saved) setLastSelectedSlug(saved);
-  }, [pathname, searchParams]);
+  }, [pathname]);
 
   if (pages.length === 0) return null;
 
-  const isOnCatalog = pathname === "/catalog";
-  const urlSlug = searchParams?.get("catalogPage") || "";
-  const fallbackSlug = (pages.find((page) => page.isDefault) || pages[0])?.slug || "";
+  const isOnCatalog = pathname === "/catalog" || pathname.startsWith("/catalog/");
+  const pathSlug = catalogPageFromPathname(pathname);
+  const fallbackSlug = (pages.find((page) => page.isDefault) || pages[0])?.slug || CATALOG_PAGE_SLUG.all;
   const activeSlug = isOnCatalog
-    ? urlSlug || lastSelectedSlug || fallbackSlug
+    ? pathSlug !== CATALOG_PAGE_SLUG.all
+      ? pathSlug
+      : fallbackSlug
     : lastSelectedSlug;
 
   return (
@@ -65,7 +63,7 @@ export function AppCatalogNav() {
           return (
             <Link
               key={page.slug}
-              href={`/catalog?catalogPage=${encodeURIComponent(page.slug)}`}
+              href={catalogPagePath(page.slug)}
               scroll={false}
               aria-current={isActive ? "page" : undefined}
               onClick={() => setLastSelectedSlug(page.slug)}

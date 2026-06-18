@@ -137,7 +137,9 @@ export type ProductData = {
   image?: string;
   images: string[];
   category?: string;
+  categorySlug?: string;
   subcategory?: string;
+  subcategorySlug?: string;
   attributes: Array<{ code: string; name: string; value: string }>;
   variants: Variant[];
   colorVariants: ColorVariant[];
@@ -341,7 +343,9 @@ export const normalizeProductData = (value: unknown): ProductData => {
       .map((url) => toPublicImageSrc(String(url)))
       .filter(Boolean),
     category: source.category ? String(source.category) : undefined,
+    categorySlug: source.categorySlug ? String(source.categorySlug) : undefined,
     subcategory: source.subcategory ? String(source.subcategory) : undefined,
+    subcategorySlug: source.subcategorySlug ? String(source.subcategorySlug) : undefined,
     attributes: asArray<ProductData["attributes"][number]>(source.attributes),
     variants: asArray<Record<string, unknown>>(source.variants).map((variant) => ({
       sku: String(variant.sku || ""),

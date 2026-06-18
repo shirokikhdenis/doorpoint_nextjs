@@ -6,7 +6,8 @@ import { AppCatalogNav } from "@/features/navigation/app-catalog-nav";
 import { CartAddedToast } from "@/features/store/cart-added-toast";
 import { StoreFooter } from "@/features/store/store-footer";
 
-const isCatalogRoute = (pathname: string | null) => pathname === "/catalog";
+const isCatalogRoute = (pathname: string | null) =>
+  pathname === "/catalog" || (pathname?.startsWith("/catalog/") ?? false);
 
 /**
  * Навбар витрин каталога. Форма замера — на странице каталога и карточке товара.

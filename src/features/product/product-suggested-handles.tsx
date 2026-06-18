@@ -9,9 +9,11 @@ import {
 import { useCart } from "@/lib/client/use-cart";
 import type { ProductCard } from "@/lib/client/normalizers";
 import { CATALOG_PAGE_SLUG } from "@/lib/catalog-page-slugs";
+import { buildCatalogPublicHrefFromFlat } from "@/lib/catalog-url";
 
-const HANDLES_CATALOG_HREF =
-  `/catalog?catalogPage=${CATALOG_PAGE_SLUG.fittings}&subcategories=handles%2C%D1%80%D1%83%D1%87%D0%BA%D0%B8`;
+const HANDLES_CATALOG_HREF = buildCatalogPublicHrefFromFlat(CATALOG_PAGE_SLUG.fittings, {
+  subcategories: "handles,ручки",
+});
 
 type ProductSuggestedHandlesProps = {
   handles: ProductCard[];

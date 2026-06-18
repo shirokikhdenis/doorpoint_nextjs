@@ -5,6 +5,7 @@ const {
   labelMatchesSelections,
   getEffectiveRange,
   buildCatalogQuery,
+  buildCatalogFilterQuery,
   catalogQueryObjectFromQueryString,
   flattenSearchParams,
   parseCatalogFilterStateFromSearchParams,
@@ -38,6 +39,23 @@ test("getEffectiveRange clamps to bounds", () => {
   const result = getEffectiveRange({ min: "10", max: "9999" }, 100, 500);
   assert.equal(result.min, 100);
   assert.equal(result.max, 500);
+});
+
+test("buildCatalogFilterQuery serializes filters without catalogPage", () => {
+  const qs = buildCatalogFilterQuery({
+    search: "модель",
+    sort: "price-asc",
+    categories: ["a"],
+    subcategories: [],
+    attrSelections: { color: ["Белый"] },
+    attrRanges: {},
+    priceRange: { min: "1000", max: "" },
+    onSale: false,
+  });
+  assert.ok(!qs.includes("catalogPage="));
+  assert.ok(qs.includes("search=%D0%BC%D0%BE%D0%B4%D0%B5%D0%BB%D1%8C"));
+  assert.ok(qs.includes("attr_color=%D0%91%D0%B5%D0%BB%D1%8B%D0%B9"));
+  assert.ok(qs.includes("minPrice=1000"));
 });
 
 test("buildCatalogQuery serializes filters", () => {

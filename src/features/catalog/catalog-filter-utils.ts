@@ -121,14 +121,11 @@ export const priceSliderStep = (boundsMin: number, boundsMax: number) => {
   return 1;
 };
 
-export const buildCatalogQuery = (
-  catalogPage: string,
-  filters: CatalogFilterState,
-): string => {
+/** Browser query string — filters only, no `catalogPage`. */
+export const buildCatalogFilterQuery = (filters: CatalogFilterState): string => {
   const params = new URLSearchParams();
-  params.set("catalogPage", catalogPage);
-  params.set("search", filters.search);
-  params.set("sort", filters.sort);
+  if (filters.search.trim()) params.set("search", filters.search);
+  if (filters.sort && filters.sort !== "popularity") params.set("sort", filters.sort);
   if (filters.categories.length) params.set("categories", filters.categories.join(","));
   if (filters.subcategories.length) params.set("subcategories", filters.subcategories.join(","));
   Object.entries(filters.attrSelections).forEach(([code, values]) => {
@@ -143,6 +140,30 @@ export const buildCatalogQuery = (
   if (filters.onSale) params.set("onSale", "1");
   return params.toString();
 };
+
+/** API query string — includes `catalogPage` for `/api/products`. */
+export const buildCatalogApiQuery = (catalogPage: string, filters: CatalogFilterState): string => {
+  const params = new URLSearchParams();
+  params.set("catalogPage", catalogPage);
+  params.set("search", filters.search);
+  params.set("sort", filters.sort || "popularity");
+  if (filters.categories.length) params.set("categories", filters.categories.join(","));
+  if (filters.subcategories.length) params.set("subcategories", filters.subcategories.join(","));
+  Object.entries(filters.attrSelections).forEach(([code, values]) => {
+    if (values.length > 0) params.set(`attr_${code}`, values.join(","));
+  });
+  Object.entries(filters.attrRanges).forEach(([code, range]) => {
+    if (range.min.trim() !== "") params.set(`attr_${code}_min`, range.min.trim());
+    if (range.max.trim() !== "") params.set(`attr_${code}_max`, range.max.trim());
+  });
+  if (filters.priceRange.min.trim() !== "") params.set("minPrice", filters.priceRange.min.trim());
+  if (filters.priceRange.max.trim() !== "") params.set("maxPrice", filters.priceRange.max.trim());
+  if (filters.onSale) params.set("onSale", "1");
+  return params.toString();
+};
+
+/** @deprecated Prefer buildCatalogApiQuery */
+export const buildCatalogQuery = buildCatalogApiQuery;
 
 const parseCsvParam = (value: string | undefined) =>
   String(value || "")

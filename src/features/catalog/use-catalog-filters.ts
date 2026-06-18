@@ -1,19 +1,28 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   applyLabelToSelections,
-  buildCatalogQuery,
+  buildCatalogApiQuery,
   buildDefaultCollapsedSections,
   expandSectionsWithActiveFilters,
   isMetaEmpty,
   labelMatchesSelections,
   rangeToFilterState,
 } from "@/features/catalog/catalog-filter-utils";
-import { buildInitialCatalogFilters, readCatalogScrollPayload, resolveCatalogPageSlug } from "@/features/catalog/catalog-scroll-storage";
+import {
+  buildInitialCatalogFilters,
+  readCatalogScrollPayload,
+  resolveCatalogPageSlug,
+} from "@/features/catalog/catalog-scroll-storage";
 import type { CatalogFilterState, NumericRange } from "@/features/catalog/catalog-types";
 import type { CatalogLabel, CatalogMeta } from "@/lib/client/normalizers";
+import {
+  buildCatalogFilterQuery,
+  catalogPageFromPathname,
+  catalogPagePath,
+} from "@/lib/catalog-url";
 
 const SEARCH_DEBOUNCE_MS = 300;
 
@@ -74,6 +83,8 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
 export function useCatalogFilters(meta: CatalogMeta, options?: UseCatalogFiltersOptions) {
   const [bootstrap] = useState(() => resolveCatalogBootstrap(options));
   const [catalogPage, setCatalogPage] = useState(() => bootstrap.catalogPage);
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   const [searchInput, setSearchInput] = useState(bootstrap.filters.search);
   const debouncedSearch = useDebouncedValue(searchInput, SEARCH_DEBOUNCE_MS);
@@ -111,7 +122,7 @@ export function useCatalogFilters(meta: CatalogMeta, options?: UseCatalogFilters
   );
 
   const query = useMemo(
-    () => buildCatalogQuery(catalogPage, filterState),
+    () => buildCatalogApiQuery(catalogPage, filterState),
     [catalogPage, filterState],
   );
 
@@ -206,19 +217,6 @@ export function useCatalogFilters(meta: CatalogMeta, options?: UseCatalogFilters
   };
 
   useEffect(() => {
-    if (typeof window === "undefined" || !catalogPage) return;
-    window.sessionStorage.setItem("lastCatalogPage", catalogPage);
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("catalogPage") !== catalogPage) {
-      params.set("catalogPage", catalogPage);
-      const next = `${window.location.pathname}?${params.toString()}`;
-      window.history.replaceState(null, "", next);
-    }
-  }, [catalogPage]);
-
-  const searchParams = useSearchParams();
-
-  useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     const fromUrl: Record<string, string[]> = {};
@@ -244,28 +242,22 @@ export function useCatalogFilters(meta: CatalogMeta, options?: UseCatalogFilters
   }, [catalogPage, searchParams]);
 
   useEffect(() => {
-    if (!searchParams) return;
-    const next = searchParams.get("catalogPage");
-    if (next && next !== catalogPage) {
-      setCatalogPage(next);
-      setCategories([]);
-      setSubcategories([]);
-      setAttrSelections({});
-      setAttrRanges({});
-      setPriceRange({ min: "", max: "" });
-      if (typeof window !== "undefined") {
-        const params = new URLSearchParams(window.location.search);
-        params.delete("catalogLabel");
-        const qs = params.toString();
-        window.history.replaceState(
-          null,
-          "",
-          qs ? `${window.location.pathname}?${qs}` : window.location.pathname,
-        );
-      }
-    }
-    setOnSale(searchParams.get("onSale") === "1");
+    if (!pathname) return;
+    const pageFromPath = catalogPageFromPathname(pathname);
+    if (pageFromPath === catalogPage) return;
+    setCatalogPage(pageFromPath);
+    setCategories([]);
+    setSubcategories([]);
+    setAttrSelections({});
+    setAttrRanges({});
+    setPriceRange({ min: "", max: "" });
+    setOnSale(searchParams?.get("onSale") === "1");
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!searchParams) return;
+    setOnSale(searchParams.get("onSale") === "1");
   }, [searchParams]);
 
   useEffect(() => {
@@ -289,19 +281,17 @@ export function useCatalogFilters(meta: CatalogMeta, options?: UseCatalogFilters
   }, [catalogPage]);
 
   useEffect(() => {
-    if (typeof window === "undefined" || meta.labels.length === 0) return;
+    if (typeof window === "undefined") return;
+    window.sessionStorage.setItem("lastCatalogPage", catalogPage);
     const matching = meta.labels.find((l) => labelMatchesSelections(l, attrSelections));
-    const params = new URLSearchParams(window.location.search);
+    const path = catalogPagePath(catalogPage);
+    const params = new URLSearchParams(buildCatalogFilterQuery(filterState));
     if (matching) params.set("catalogLabel", String(matching.id));
-    else params.delete("catalogLabel");
-    if (onSale) params.set("onSale", "1");
-    else params.delete("onSale");
-    if (params.get("catalogPage") !== catalogPage) params.set("catalogPage", catalogPage);
     const qs = params.toString();
-    const nextUrl = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
+    const nextUrl = qs ? `${path}?${qs}` : path;
     const cur = window.location.pathname + window.location.search;
     if (nextUrl !== cur) window.history.replaceState(null, "", nextUrl);
-  }, [attrSelections, meta.labels, catalogPage, onSale]);
+  }, [attrSelections, catalogPage, filterState, meta.labels]);
 
   return {
     catalogPage,

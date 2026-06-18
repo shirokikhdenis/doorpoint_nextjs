@@ -10,6 +10,8 @@ import { ProductSuggestedHandles } from "@/features/product/product-suggested-ha
 import { ProductVariantSelectors } from "@/features/product/product-variant-selectors";
 import {
   computeInteriorKitPrice,
+  productCategoryCatalogHref,
+  productSubcategoryCatalogHref,
   resolveProductDisplayPrice,
   variantCartSuffix,
 } from "@/features/product/product-utils";
@@ -57,6 +59,13 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
     ? `${product.name} (${variantCartSuffix(page.selectedVariant)})`
     : product.name;
   const cartSku = page.selectedVariant?.sku?.trim() || product.sku?.trim() || undefined;
+  const categoryHref = productCategoryCatalogHref(product.categorySlug);
+  const subcategoryHref = productSubcategoryCatalogHref(
+    product.categorySlug,
+    product.subcategorySlug,
+  );
+  const taxonomyLinkClass =
+    "text-zinc-600 transition hover:text-brand hover:underline underline-offset-2";
 
   return (
     <>
@@ -97,8 +106,27 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
           />
           <div className="space-y-4">
             <p className="text-sm text-zinc-600">
-              {product.category}
-              {product.subcategory ? ` / ${product.subcategory}` : ""}
+              {product.category ? (
+                categoryHref ? (
+                  <Link href={categoryHref} className={taxonomyLinkClass}>
+                    {product.category}
+                  </Link>
+                ) : (
+                  product.category
+                )
+              ) : null}
+              {product.subcategory ? (
+                <>
+                  {product.category ? " / " : null}
+                  {subcategoryHref ? (
+                    <Link href={subcategoryHref} className={taxonomyLinkClass}>
+                      {product.subcategory}
+                    </Link>
+                  ) : (
+                    product.subcategory
+                  )}
+                </>
+              ) : null}
             </p>
             <h1 className="text-2xl font-semibold">{product.name}</h1>
             <ProductPricingBlock

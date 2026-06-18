@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next";
 import { createRequire } from "node:module";
 import { normalizeCatalogPages } from "@/lib/client/normalizers";
 import { isPogonazhCatalogPageSlug } from "@/lib/pogonazh-category";
+import { catalogPagePath } from "@/lib/catalog-page-paths";
 import { absoluteUrl } from "@/lib/site-seo";
 
 const require = createRequire(import.meta.url);
@@ -36,7 +37,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     for (const page of normalizeCatalogPages(catalogPages)) {
       if (!page.slug || page.slug === "all" || isPogonazhCatalogPageSlug(page.slug)) continue;
       entries.push({
-        url: absoluteUrl(`/catalog?catalogPage=${encodeURIComponent(page.slug)}`),
+        url: absoluteUrl(catalogPagePath(page.slug)),
         lastModified: now,
         changeFrequency: "daily",
         priority: 0.9,
