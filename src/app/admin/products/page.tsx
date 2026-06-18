@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { AdminNotice } from "@/features/admin/ui/admin-notice";
 import { AdminPage } from "@/features/admin/ui/admin-page";
+import { AdminProductsExportBar } from "@/features/admin/products/admin-products-export-bar";
 import { AdminProductsSaleRules } from "@/features/admin/products/admin-products-sale-rules";
 import { AdminProductsFilters } from "@/features/admin/products/admin-products-filters";
 import { AdminProductsPagination } from "@/features/admin/products/admin-products-pagination";
@@ -17,6 +18,7 @@ import type { BulkAction, ColumnVisibility, HitFilter, SaleFilter, SaleSettings 
 
 export default function AdminProductsPage() {
   const [notice, setNotice] = useState("");
+  const [noticeVariant, setNoticeVariant] = useState<"info" | "success" | "error">("info");
   const [deleting, setDeleting] = useState(false);
   const [bulkLoading, setBulkLoading] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
@@ -386,7 +388,7 @@ export default function AdminProductsPage() {
       }
     >
       {notice ? (
-        <AdminNotice variant="info" onDismiss={() => setNotice("")}>
+        <AdminNotice variant={noticeVariant} onDismiss={() => setNotice("")}>
           {notice}
         </AdminNotice>
       ) : null}
@@ -398,6 +400,7 @@ export default function AdminProductsPage() {
           setSaleSettings(next);
           setSaleRuleDescription(description || "");
           setNotice("Правила акций сохранены");
+          setNoticeVariant("success");
         }}
       />
 
@@ -461,6 +464,25 @@ export default function AdminProductsPage() {
         onDeleteByCategory={handleDeleteByCategory}
         onDeleteAll={handleDeleteAll}
         canDeleteByCategory={Boolean(categoryId || subcategoryId)}
+      />
+
+      <AdminProductsExportBar
+        filters={{
+          search: appliedSearch,
+          categoryId: categoryId || undefined,
+          subcategoryId: subcategoryId || undefined,
+          manufacturer: appliedManufacturer,
+          hit: hitFilter,
+          sale: saleFilter,
+          attrCode: appliedAttrCode,
+          attrValue: appliedAttrValue,
+        }}
+        selectedCount={selectedIds.size}
+        selectedIds={[...selectedIds]}
+        onNotice={(message, variant = "info") => {
+          setNotice(message);
+          setNoticeVariant(variant);
+        }}
       />
 
       {error ? <AdminNotice variant="error">{error}</AdminNotice> : null}

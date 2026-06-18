@@ -1,4 +1,15 @@
 const { query, withTransaction } = require("../db/postgres");
+const {
+  CATALOG_PAGE_SLUG_RENAMES,
+  ensureCatalogPageSlugRenames,
+  ensureSeoColumns,
+} = require("../db/schemaPatches");
+
+const resolveCatalogPageSlug = (slug) => {
+  const trimmed = String(slug || "").trim() || "all";
+  const match = CATALOG_PAGE_SLUG_RENAMES.find(([oldSlug]) => oldSlug === trimmed);
+  return match ? match[1] : trimmed;
+};
 
 /**
  * catalog_pages — единственная таблица витрин. Три бывших M2M-таблицы свернуты в массивы:
@@ -18,6 +29,8 @@ const mapBaseRow = (row) => ({
   sortOrder: Number(row.sortOrder) || 0,
   isActive: true,
   isDefault: row.slug === DEFAULT_SLUG,
+  seoTitle: row.seoTitle || null,
+  seoDescription: row.seoDescription || null,
 });
 
 const expandPages = async (rows) => {
@@ -119,6 +132,8 @@ const expandPages = async (rows) => {
 };
 
 const listCatalogPages = async () => {
+  await ensureSeoColumns();
+  await ensureCatalogPageSlugRenames();
   const res = await query(
     `
     SELECT
@@ -127,7 +142,9 @@ const listCatalogPages = async () => {
       slug,
       sort_order AS "sortOrder",
       category_slugs AS "categorySlugs",
-      filter_codes AS "filterCodes"
+      filter_codes AS "filterCodes",
+      seo_title AS "seoTitle",
+      seo_description AS "seoDescription"
     FROM catalog_pages
     ORDER BY sort_order ASC, id ASC
     `,
@@ -136,7 +153,9 @@ const listCatalogPages = async () => {
 };
 
 const findCatalogPageBySlug = async (slug) => {
-  const normalized = String(slug || "").trim().toLowerCase();
+  await ensureSeoColumns();
+  await ensureCatalogPageSlugRenames();
+  const normalized = resolveCatalogPageSlug(slug).toLowerCase();
   if (!normalized) return null;
   const res = await query(
     `
@@ -146,7 +165,9 @@ const findCatalogPageBySlug = async (slug) => {
       slug,
       sort_order AS "sortOrder",
       category_slugs AS "categorySlugs",
-      filter_codes AS "filterCodes"
+      filter_codes AS "filterCodes",
+      seo_title AS "seoTitle",
+      seo_description AS "seoDescription"
     FROM catalog_pages
     WHERE slug = $1
     LIMIT 1
@@ -159,6 +180,7 @@ const findCatalogPageBySlug = async (slug) => {
 };
 
 const findCatalogPageById = async (id) => {
+  await ensureSeoColumns();
   const numericId = Number(id);
   if (!Number.isFinite(numericId) || numericId <= 0) return null;
   const res = await query(
@@ -169,7 +191,9 @@ const findCatalogPageById = async (id) => {
       slug,
       sort_order AS "sortOrder",
       category_slugs AS "categorySlugs",
-      filter_codes AS "filterCodes"
+      filter_codes AS "filterCodes",
+      seo_title AS "seoTitle",
+      seo_description AS "seoDescription"
     FROM catalog_pages
     WHERE id = $1
     LIMIT 1
@@ -275,7 +299,9 @@ const updateCatalogPage = async (id, payload) =>
         slug = $3,
         sort_order = $4,
         category_slugs = $5::text[],
-        filter_codes = $6::text[]
+        filter_codes = $6::text[],
+        seo_title = $7,
+        seo_description = $8
       WHERE id = $1
       RETURNING id
       `,
@@ -286,6 +312,8 @@ const updateCatalogPage = async (id, payload) =>
         Number(payload.sortOrder) || 0,
         [...new Set(categorySlugs)],
         uniqueOrdered(filterCodes),
+        payload.seoTitle ?? null,
+        payload.seoDescription ?? null,
       ],
     );
     return res.rows[0] ? Number(res.rows[0].id) : null;

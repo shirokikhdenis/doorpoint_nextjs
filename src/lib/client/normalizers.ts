@@ -157,6 +157,8 @@ export type AdminCatalogPage = {
   sortOrder: number;
   isActive: boolean;
   isDefault: boolean;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
   categories: Array<{ id: number; name: string; slug: string }>;
   subcategories: Array<{ id: number; name: string; slug: string; categorySlug: string | null }>;
   filterAttributes: Array<{ id: number; code: string; name: string; type: string }>;
@@ -413,6 +415,8 @@ export const normalizeAdminBootstrap = (value: unknown): AdminBootstrap => {
       sortOrder: Number(entry.sortOrder) || 0,
       isActive: entry.isActive !== false,
       isDefault: Boolean(entry.isDefault),
+      seoTitle: entry.seoTitle ? String(entry.seoTitle) : null,
+      seoDescription: entry.seoDescription ? String(entry.seoDescription) : null,
       categories: asArray<AdminCatalogPage["categories"][number]>(entry.categories),
       subcategories: asArray<Record<string, unknown>>(entry.subcategories).map((sub) => ({
         id: Number(sub.id) || 0,

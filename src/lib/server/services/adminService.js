@@ -58,7 +58,9 @@ const updateCatalogPage = async (id, payload) =>
     isDefault: payload.isDefault === true,
     categoryIds: Array.isArray(payload.categoryIds) ? payload.categoryIds.map(Number) : [],
     subcategoryIds: Array.isArray(payload.subcategoryIds) ? payload.subcategoryIds.map(Number) : [],
-    filterAttributeIds: Array.isArray(payload.filterAttributeIds) ? payload.filterAttributeIds.map(Number) : []
+    filterAttributeIds: Array.isArray(payload.filterAttributeIds) ? payload.filterAttributeIds.map(Number) : [],
+    seoTitle: payload.seoTitle ?? null,
+    seoDescription: payload.seoDescription ?? null,
   });
 
 const deleteCatalogPage = async (id) => catalogPageRepository.deleteCatalogPage(Number(id));
@@ -343,6 +345,8 @@ const patchProductSale = async (id, body) => {
   return result;
 };
 
+const patchProductSeo = async (id, body) => productRepository.patchProductSeo(Number(id), body);
+
 const getProductAttributeDistinctValues = async (query) =>
   productRepository.listProductAttributeDistinctValues({
     code: String(query.code || "").trim(),
@@ -377,6 +381,7 @@ module.exports = {
   patchProductDisplayOrder,
   patchProductBadges,
   patchProductSale,
+  patchProductSeo,
   getProductAttributeDistinctValues,
   listCatalogPageLabels,
   createCatalogPageLabel,

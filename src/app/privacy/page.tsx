@@ -1,18 +1,23 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { SITE_EMAIL } from "@/lib/site-contact";
-import { absoluteUrl, buildPageTitle, defaultOpenGraph } from "@/lib/site-seo";
+import { absoluteUrl, defaultOpenGraph } from "@/lib/site-seo";
+import { SEO_COPY } from "@/lib/seo-copy";
 
 export const metadata: Metadata = {
-  title: buildPageTitle("Политика конфиденциальности"),
-  description:
-    "Политика обработки персональных данных салона дверей Дверная Точка в Архангельске",
+  title: SEO_COPY.privacy.title,
+  description: SEO_COPY.privacy.description,
+  robots: {
+    index: false,
+    follow: true,
+  },
   alternates: {
     canonical: absoluteUrl("/privacy"),
   },
   openGraph: {
     ...defaultOpenGraph(),
-    title: buildPageTitle("Политика конфиденциальности"),
+    title: SEO_COPY.privacy.title,
+    description: SEO_COPY.privacy.description,
     url: absoluteUrl("/privacy"),
   },
 };

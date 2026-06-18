@@ -1,18 +1,17 @@
 import type { Metadata } from "next";
-import { absoluteUrl, buildPageTitle, defaultOpenGraph } from "@/lib/site-seo";
+import { absoluteUrl, defaultOpenGraph } from "@/lib/site-seo";
+import { SEO_COPY } from "@/lib/seo-copy";
 
 export const metadata: Metadata = {
-  title: buildPageTitle("Портфолио"),
-  description:
-    "Фото выполненных работ: установка входных и межкомнатных дверей в Архангельске и области",
+  title: SEO_COPY.portfolio.title,
+  description: SEO_COPY.portfolio.description,
   alternates: {
     canonical: absoluteUrl("/portfolio"),
   },
   openGraph: {
     ...defaultOpenGraph(),
-    title: buildPageTitle("Портфолио"),
-    description:
-      "Фото выполненных работ: установка входных и межкомнатных дверей в Архангельске и области",
+    title: SEO_COPY.portfolio.title,
+    description: SEO_COPY.portfolio.description,
     url: absoluteUrl("/portfolio"),
   },
 };

@@ -8,20 +8,19 @@ import {
   SITE_HOURS,
   SITE_PHONE_DISPLAY,
 } from "@/lib/site-contact";
-import { absoluteUrl, buildPageTitle, defaultOpenGraph } from "@/lib/site-seo";
+import { absoluteUrl, defaultOpenGraph } from "@/lib/site-seo";
+import { SEO_COPY } from "@/lib/seo-copy";
 
 export const metadata: Metadata = {
-  title: buildPageTitle("Контакты"),
-  description:
-    "Адрес салона дверей в Архангельске, телефон, e-mail, режим работы и карта проезда",
+  title: SEO_COPY.contact.title,
+  description: SEO_COPY.contact.description,
   alternates: {
     canonical: absoluteUrl("/contact"),
   },
   openGraph: {
     ...defaultOpenGraph(),
-    title: buildPageTitle("Контакты"),
-    description:
-      "Адрес салона дверей в Архангельске, телефон, e-mail, режим работы и карта проезда",
+    title: SEO_COPY.contact.title,
+    description: SEO_COPY.contact.description,
     url: absoluteUrl("/contact"),
   },
 };
@@ -38,11 +37,11 @@ export default function ContactPage() {
           <h2 className="text-xl font-semibold">Салон дверей</h2>
           <dl className="mt-4 space-y-3 text-sm text-zinc-700">
             <div>
-              <dt className="font-medium text-zinc-900">Адрес</dt>
+              <dt className="font-medium text-zinc-900">Адрес:</dt>
               <dd>{SITE_ADDRESS}</dd>
             </div>
             <div>
-              <dt className="font-medium text-zinc-900">Телефон</dt>
+              <dt className="font-medium text-zinc-900">Телефон:</dt>
               <dd>
                 <TrackedPhoneLink className="hover:underline">
                   {SITE_PHONE_DISPLAY}
@@ -50,7 +49,7 @@ export default function ContactPage() {
               </dd>
             </div>
             <div>
-              <dt className="font-medium text-zinc-900">E-mail</dt>
+              <dt className="font-medium text-zinc-900">E-mail:</dt>
               <dd>
                 <a className="hover:underline" href={`mailto:${SITE_EMAIL}`}>
                   {SITE_EMAIL}
@@ -58,7 +57,7 @@ export default function ContactPage() {
               </dd>
             </div>
             <div>
-              <dt className="font-medium text-zinc-900">Режим работы</dt>
+              <dt className="font-medium text-zinc-900">Режим работы:</dt>
               <dd>{SITE_HOURS}</dd>
             </div>
             <div>

@@ -1,5 +1,6 @@
 import { cartToast } from "@/lib/client/cart-toast";
 import { isSameCartLine } from "@/lib/client/cart-line";
+import { isPogonazhCategoryLabel } from "@/lib/pogonazh-category";
 
 export type {
   AddCartItemOptions,
@@ -8,18 +9,9 @@ export type {
 } from "@/lib/client/cart-types";
 
 export { findCartLine, isSameCartLine } from "@/lib/client/cart-line";
+export { isPogonazhCategoryLabel };
 
 import type { AddCartItemOptions, CartItem, CartLineRef } from "@/lib/client/cart-types";
-
-export const isPogonazhCategoryLabel = (category?: string, categorySlug?: string) => {
-  const name = String(category ?? "").trim().toLowerCase();
-  const slug = String(categorySlug ?? "").trim().toLowerCase();
-  return (
-    name.includes("погонаж") ||
-    slug.includes("погонаж") ||
-    slug.includes("pogonazh")
-  );
-};
 
 export const cartItemHasProductLink = (item: CartItem) =>
   !(item.noProductLink === true || item.hideCartImage === true);

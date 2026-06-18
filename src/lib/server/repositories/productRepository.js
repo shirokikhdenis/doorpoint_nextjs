@@ -20,6 +20,7 @@ const {
   ensureProductSaleColumns,
   ensureProductSlugColumn,
   ensureLatinProductSlugs,
+  ensureSeoColumns,
 } = require("../db/schemaPatches");
 
 /**
@@ -811,6 +812,8 @@ const getProductById = async (id) => {
       p.model_key AS "modelKey",
       p.badges,
       p.attrs,
+      p.seo_title AS "seoTitle",
+      p.seo_description AS "seoDescription",
       c.id AS "categoryId",
       parent.id AS "parentCategoryId",
       ${taxonomySelect}
@@ -1124,6 +1127,8 @@ const getProductById = async (id) => {
     kitPricing,
     kitPrice,
     badges: resolveProductBadges(row.badges),
+    seoTitle: row.seoTitle || null,
+    seoDescription: row.seoDescription || null,
   };
 };
 
@@ -1326,6 +1331,77 @@ const listProductAttributeDistinctValues = async ({
   return res.rows.map((row) => String(row.value || "").trim()).filter(Boolean);
 };
 
+const buildProductsTableWhere = ({
+  search = "",
+  categoryId = null,
+  subcategoryId = null,
+  attributeFilters = {},
+  manufacturer = null,
+  hit = null,
+  onSale = null,
+  ids = null,
+  includeManufacturer = true,
+}) => {
+  const manufacturerTrimmed =
+    manufacturer !== undefined && manufacturer !== null && String(manufacturer).trim()
+      ? String(manufacturer).trim()
+      : null;
+
+  const params = [];
+  const addParam = (value) => {
+    params.push(value);
+    return `$${params.length}`;
+  };
+  const whereParts = [];
+
+  if (Array.isArray(ids) && ids.length > 0) {
+    const numericIds = ids.map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0);
+    if (numericIds.length > 0) {
+      whereParts.push(`p.id = ANY(${addParam(numericIds)}::bigint[])`);
+    }
+  }
+
+  if (String(search || "").trim()) {
+    const t = String(search).trim();
+    whereParts.push(`(p.name ILIKE ${addParam(`%${t}%`)} OR p.sku ILIKE ${addParam(`%${t}%`)})`);
+  }
+  if (categoryId) {
+    whereParts.push(
+      `(p.category_id = ${addParam(Number(categoryId))} OR c.parent_id = ${addParam(Number(categoryId))})`,
+    );
+  }
+  if (subcategoryId) {
+    whereParts.push(`p.category_id = ${addParam(Number(subcategoryId))}`);
+  }
+
+  Object.entries(attributeFilters || {}).forEach(([code, value]) => {
+    const normalized = String(value || "").trim();
+    if (!normalized) return;
+    whereParts.push(`p.attrs->>${addParam(code)} ILIKE ${addParam(`%${normalized}%`)}`);
+  });
+
+  if (includeManufacturer && manufacturerTrimmed) {
+    whereParts.push(
+      `LOWER(TRIM(COALESCE(p.attrs->>'manufacturer', ''))) = LOWER(${addParam(manufacturerTrimmed)})`,
+    );
+  }
+
+  if (hit === true) {
+    whereParts.push(`COALESCE(p.badges, ARRAY[]::text[]) @> ARRAY['hit']::text[]`);
+  } else if (hit === false) {
+    whereParts.push(`NOT (COALESCE(p.badges, ARRAY[]::text[]) @> ARRAY['hit']::text[])`);
+  }
+
+  if (onSale === true) {
+    whereParts.push(`p.is_on_sale = TRUE`);
+  } else if (onSale === false) {
+    whereParts.push(`p.is_on_sale = FALSE`);
+  }
+
+  const whereSql = whereParts.length > 0 ? `WHERE ${whereParts.join(" AND ")}` : "";
+  return { whereSql, params, manufacturerTrimmed };
+};
+
 const listProductsTable = async ({
   page = 1,
   limit = 100,
@@ -1339,65 +1415,31 @@ const listProductsTable = async ({
 }) => {
   await ensureProductBadgesColumn();
   await ensureProductSaleColumns();
+  await ensureSeoColumns();
   const safePage = Math.max(1, Number(page) || 1);
   const safeLimit = Math.min(500, Math.max(1, Number(limit) || 100));
   const offset = (safePage - 1) * safeLimit;
 
-  const manufacturerTrimmed =
-    manufacturer !== undefined && manufacturer !== null && String(manufacturer).trim()
-      ? String(manufacturer).trim()
-      : null;
-
-  const buildWhere = (includeManufacturer) => {
-    const params = [];
-    const addParam = (value) => {
-      params.push(value);
-      return `$${params.length}`;
-    };
-    const whereParts = [];
-    if (String(search || "").trim()) {
-      const t = String(search).trim();
-      whereParts.push(`(p.name ILIKE ${addParam(`%${t}%`)} OR p.sku ILIKE ${addParam(`%${t}%`)})`);
-    }
-    if (categoryId) {
-      whereParts.push(
-        `(p.category_id = ${addParam(Number(categoryId))} OR c.parent_id = ${addParam(Number(categoryId))})`,
-      );
-    }
-    if (subcategoryId) {
-      whereParts.push(`p.category_id = ${addParam(Number(subcategoryId))}`);
-    }
-
-    Object.entries(attributeFilters || {}).forEach(([code, value]) => {
-      const normalized = String(value || "").trim();
-      if (!normalized) return;
-      whereParts.push(`p.attrs->>${addParam(code)} ILIKE ${addParam(`%${normalized}%`)}`);
-    });
-
-    if (includeManufacturer && manufacturerTrimmed) {
-      whereParts.push(
-        `LOWER(TRIM(COALESCE(p.attrs->>'manufacturer', ''))) = LOWER(${addParam(manufacturerTrimmed)})`,
-      );
-    }
-
-    if (hit === true) {
-      whereParts.push(`COALESCE(p.badges, ARRAY[]::text[]) @> ARRAY['hit']::text[]`);
-    } else if (hit === false) {
-      whereParts.push(`NOT (COALESCE(p.badges, ARRAY[]::text[]) @> ARRAY['hit']::text[])`);
-    }
-
-    if (onSale === true) {
-      whereParts.push(`p.is_on_sale = TRUE`);
-    } else if (onSale === false) {
-      whereParts.push(`p.is_on_sale = FALSE`);
-    }
-
-    const whereSql = whereParts.length > 0 ? `WHERE ${whereParts.join(" AND ")}` : "";
-    return { whereSql, params };
-  };
-
-  const baseWhere = buildWhere(false);
-  const fullWhere = buildWhere(true);
+  const baseWhere = buildProductsTableWhere({
+    search,
+    categoryId,
+    subcategoryId,
+    attributeFilters,
+    manufacturer,
+    hit,
+    onSale,
+    includeManufacturer: false,
+  });
+  const fullWhere = buildProductsTableWhere({
+    search,
+    categoryId,
+    subcategoryId,
+    attributeFilters,
+    manufacturer,
+    hit,
+    onSale,
+    includeManufacturer: true,
+  });
 
   const manufacturerNonEmpty = `TRIM(COALESCE(p.attrs->>'manufacturer', '')) <> ''`;
   const manufacturersWhereSql = baseWhere.whereSql
@@ -1446,6 +1488,8 @@ const listProductsTable = async ({
       p.compare_at_price AS "compareAtPrice",
       p.attrs,
       p.badges,
+      p.seo_title AS "seoTitle",
+      p.seo_description AS "seoDescription",
       p.model_key AS "modelKey",
       p.is_active AS "isActive",
       COALESCE(parent.name, c.name) AS category,
@@ -1527,8 +1571,117 @@ const listProductsTable = async ({
       imagesCount: Number(row.imagesCount || 0),
       primaryImageUrl: row.primaryImageUrl || "",
       imageUrls: parseImageUrlsJson(row.imageUrls),
+      seoTitle: row.seoTitle || null,
+      seoDescription: row.seoDescription || null,
     })),
   };
+};
+
+const parseVariantsJson = (raw) => {
+  if (!raw) return [];
+  const list = Array.isArray(raw) ? raw : [];
+  return list.map((variant) => ({
+    sku: String(variant.sku || ""),
+    price:
+      variant.price === null || variant.price === undefined ? null : Number(variant.price),
+    imageUrl: variant.imageUrl || variant.image_url || "",
+    attributes: ensureAttrs(variant.attrs),
+    sortOrder: Number(variant.sortOrder ?? variant.sort_order) || 0,
+  }));
+};
+
+const listProductsForExport = async ({
+  search = "",
+  categoryId = null,
+  subcategoryId = null,
+  attributeFilters = {},
+  manufacturer = null,
+  hit = null,
+  onSale = null,
+  ids = null,
+}) => {
+  await ensureProductBadgesColumn();
+  await ensureProductSaleColumns();
+
+  const { whereSql, params } = buildProductsTableWhere({
+    search,
+    categoryId,
+    subcategoryId,
+    attributeFilters,
+    manufacturer,
+    hit,
+    onSale,
+    ids,
+    includeManufacturer: true,
+  });
+
+  const rowsRes = await query(
+    `
+    SELECT
+      p.id,
+      p.sku,
+      p.name,
+      p.slug,
+      p.price,
+      p.is_on_sale AS "isOnSale",
+      p.compare_at_price AS "compareAtPrice",
+      p.attrs,
+      p.badges,
+      p.model_key AS "modelKey",
+      p.is_active AS "isActive",
+      COALESCE(parent.name, c.name) AS category,
+      CASE WHEN parent.id IS NOT NULL THEN c.name ELSE '' END AS subcategory,
+      ${displayOrderExpr} AS "displayOrder",
+      COALESCE(
+        (SELECT json_agg(pi.image_url ORDER BY pi.sort_order, pi.id)
+         FROM product_images pi
+         WHERE pi.product_id = p.id),
+        '[]'::json
+      ) AS "imageUrls",
+      COALESCE(
+        (SELECT json_agg(
+          json_build_object(
+            'sku', pv.sku,
+            'price', pv.price,
+            'imageUrl', pv.image_url,
+            'attrs', pv.attrs,
+            'sortOrder', pv.sort_order
+          )
+          ORDER BY pv.sort_order, pv.id
+        )
+         FROM product_variants pv
+         WHERE pv.product_id = p.id),
+        '[]'::json
+      ) AS variants
+    FROM products p
+    ${taxonomyJoin}
+    ${whereSql}
+    ORDER BY ${displayOrderExpr} DESC, p.id DESC
+    `,
+    params,
+  );
+
+  return rowsRes.rows.map((row) => ({
+    id: Number(row.id),
+    sku: row.sku,
+    name: row.name,
+    slug: row.slug || null,
+    price: Number(row.price),
+    isOnSale: row.isOnSale === true,
+    compareAtPrice:
+      row.compareAtPrice === null || row.compareAtPrice === undefined
+        ? null
+        : Number(row.compareAtPrice),
+    modelKey: row.modelKey || null,
+    category: row.category,
+    subcategory: row.subcategory,
+    isActive: row.isActive !== false,
+    displayOrder: Number(row.displayOrder) || 0,
+    badges: normalizeProductBadges(row.badges),
+    attributes: ensureAttrs(row.attrs),
+    imageUrls: parseImageUrlsJson(row.imageUrls),
+    variants: parseVariantsJson(row.variants),
+  }));
 };
 
 const productAttrsFromPayload = (attributes, attrDefById) => {
@@ -1950,6 +2103,7 @@ const patchProductBadges = async (id, badges) => {
 const patchProductSale = async (id, payload) => {
   await ensureProductBadgesColumn();
   await ensureProductSaleColumns();
+  await ensureSeoColumns();
   const numericId = Number(id);
   if (!Number.isInteger(numericId) || numericId <= 0) return null;
 
@@ -2075,6 +2229,30 @@ const patchProductDisplayOrder = async (id, rawOrder) => {
   return { id: Number(res.rows[0].id), displayOrder: Number(res.rows[0].displayOrder) || 0 };
 };
 
+const patchProductSeo = async (id, payload = {}) => {
+  await ensureSeoColumns();
+  const numericId = Number(id);
+  if (!Number.isInteger(numericId) || numericId <= 0) return null;
+  const seoTitle = payload.seoTitle === undefined ? null : String(payload.seoTitle || "").trim() || null;
+  const seoDescription =
+    payload.seoDescription === undefined ? null : String(payload.seoDescription || "").trim() || null;
+  const res = await query(
+    `
+    UPDATE products
+    SET seo_title = $2, seo_description = $3, updated_at = NOW()
+    WHERE id = $1
+    RETURNING id, seo_title AS "seoTitle", seo_description AS "seoDescription"
+    `,
+    [numericId, seoTitle, seoDescription],
+  );
+  if (!res.rows[0]) return null;
+  return {
+    id: Number(res.rows[0].id),
+    seoTitle: res.rows[0].seoTitle || null,
+    seoDescription: res.rows[0].seoDescription || null,
+  };
+};
+
 const deleteAllProducts = async () => {
   const result = await query("DELETE FROM products");
   return Number(result.rowCount ?? 0);
@@ -2106,12 +2284,19 @@ const deleteProductsByCategoryScope = async ({ categoryId = null, subcategoryId 
 const listActiveProductSlugs = async () => {
   const result = await query(
     `
-    SELECT slug
-    FROM products
-    WHERE is_active = TRUE
-      AND slug IS NOT NULL
-      AND TRIM(slug) <> ''
-    ORDER BY id ASC
+    SELECT p.slug
+    FROM products p
+    JOIN categories c ON c.id = p.category_id
+    LEFT JOIN categories parent ON parent.id = c.parent_id
+    WHERE p.is_active = TRUE
+      AND p.slug IS NOT NULL
+      AND TRIM(p.slug) <> ''
+      AND lower(coalesce(parent.name, c.name, '')) NOT LIKE '%погонаж%'
+      AND lower(coalesce(parent.slug, c.slug, '')) NOT LIKE '%погонаж%'
+      AND lower(coalesce(parent.slug, c.slug, '')) NOT LIKE '%pogonazh%'
+      AND lower(coalesce(parent.slug, c.slug, '')) NOT LIKE '%molding%'
+      AND lower(coalesce(parent.slug, c.slug, '')) NOT LIKE '%trim%'
+    ORDER BY p.id ASC
     `,
   );
   return result.rows.map((row) => String(row.slug));
@@ -2126,6 +2311,7 @@ module.exports = {
   listAdminProducts,
   getAdminProductById,
   listProductsTable,
+  listProductsForExport,
   listProductAttributeDistinctValues,
   createProduct,
   updateProduct,
@@ -2133,6 +2319,7 @@ module.exports = {
   patchProductBadges,
   patchProductSale,
   patchProductDisplayOrder,
+  patchProductSeo,
   deleteAllProducts,
   deleteProductsByCategoryScope,
   splitCategoryId,

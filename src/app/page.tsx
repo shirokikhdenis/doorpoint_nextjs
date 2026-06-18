@@ -6,22 +6,22 @@ import { HomePromotions } from "@/features/home/home-promotions";
 import { LocalBusinessJsonLd } from "@/features/store/local-business-json-ld";
 import { MeasureLeadForm } from "@/features/store/measure-lead-form";
 import { normalizeProductsResponse, normalizePromotionBanners } from "@/lib/client/normalizers";
-import { absoluteUrl, buildPageTitle, defaultOpenGraph } from "@/lib/site-seo";
+import { CATALOG_PAGE_SLUG } from "@/lib/catalog-page-slugs";
+import { SEO_COPY } from "@/lib/seo-copy";
+import { absoluteUrl, defaultOpenGraph } from "@/lib/site-seo";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: buildPageTitle("Главная"),
-  description:
-    "Входные и межкомнатные двери в Архангельске: акции, хиты продаж, бесплатный замер и монтаж под ключ",
+  title: SEO_COPY.home.title,
+  description: SEO_COPY.home.description,
   alternates: {
     canonical: absoluteUrl("/"),
   },
   openGraph: {
     ...defaultOpenGraph(),
-    title: buildPageTitle("Главная"),
-    description:
-      "Входные и межкомнатные двери в Архангельске: акции, хиты продаж, бесплатный замер и монтаж под ключ",
+    title: SEO_COPY.home.title,
+    description: SEO_COPY.home.description,
     url: absoluteUrl("/"),
   },
 };
@@ -59,14 +59,14 @@ export default async function HomePage() {
         />
         <HomeProductHits
           title="Межкомнатные хиты продаж"
-          catalogPage="interior-doors"
-          catalogHref="/catalog?catalogPage=interior-doors"
+          catalogPage={CATALOG_PAGE_SLUG.interiorDoors}
+          catalogHref={`/catalog?catalogPage=${CATALOG_PAGE_SLUG.interiorDoors}`}
           products={interiorHits}
         />
         <HomeProductHits
           title="Входные хиты продаж"
-          catalogPage="entry-doors"
-          catalogHref="/catalog?catalogPage=entry-doors"
+          catalogPage={CATALOG_PAGE_SLUG.entryDoors}
+          catalogHref={`/catalog?catalogPage=${CATALOG_PAGE_SLUG.entryDoors}`}
           products={entryHits}
         />
       </main>

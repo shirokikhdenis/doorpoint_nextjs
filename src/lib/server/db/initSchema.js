@@ -376,25 +376,25 @@ const seedCatalogPages = async (client) => {
   const pages = [
     { slug: "all", name: "Общий каталог", categories: [], filters: [] },
     {
-      slug: "entry-doors",
+      slug: "vhodnye-dveri",
       name: "Входные двери",
       categories: ["entry-doors"],
       filters: ["color", "fill", "thickness", "manufacturer"],
     },
     {
-      slug: "thermal-break-doors",
+      slug: "termo-dveri",
       name: "Уличные двери с терморазрывом",
       categories: ["entry-doors"],
       filters: ["color", "fill", "thickness"],
     },
     {
-      slug: "interior-doors",
+      slug: "dveri-mezhkomnatnyye",
       name: "Межкомнатные двери",
       categories: ["interior-doors"],
       filters: ["color", "glass", "width", "height", "manufacturer"],
     },
     {
-      slug: "fittings",
+      slug: "furnitura",
       name: "Фурнитура",
       categories: ["fittings"],
       filters: ["color", "manufacturer"],

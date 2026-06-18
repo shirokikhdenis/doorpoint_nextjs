@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
 import { createRequire } from "node:module";
 import { toPublicImageSrc } from "@/lib/client/image-src";
+import { isPogonazhCategoryLabel } from "@/lib/pogonazh-category";
+import {
+  buildProductSeoDescription,
+  buildProductSeoTitle,
+} from "@/lib/seo-copy";
 import {
   absoluteUrl,
-  buildPageTitle,
   defaultOpenGraph,
   SITE_TITLE,
 } from "@/lib/site-seo";
@@ -14,9 +18,13 @@ const catalogService = require("@/lib/server/services/catalogService") as {
     name?: string;
     category?: string;
     subcategory?: string;
+    categorySlug?: string;
+    subcategorySlug?: string;
     price?: number;
     image?: string;
     images?: string[];
+    seoTitle?: string | null;
+    seoDescription?: string | null;
   } | null>;
 };
 
@@ -39,31 +47,51 @@ export async function buildProductMetadata(ref: string): Promise<Metadata> {
   try {
     const product = await catalogService.getProductByRef(ref);
     if (!product?.name) {
-      return { title: buildPageTitle("Товар не найден") };
+      return { title: buildProductSeoTitle({ name: "Товар не найден" }) };
     }
-    const categoryLine = [product.category, product.subcategory].filter(Boolean).join(" / ");
-    const description = categoryLine
-      ? `${product.name}. ${categoryLine}.`
-      : product.name;
+
+    const isPogonazh = isPogonazhCategoryLabel(
+      product.category,
+      product.categorySlug ?? product.subcategorySlug,
+    );
+    const title = buildProductSeoTitle({
+      name: product.name,
+      seoTitleOverride: product.seoTitle,
+    });
+    const description = buildProductSeoDescription({
+      name: product.name,
+      price: product.price,
+      category: product.category,
+      subcategory: product.subcategory,
+      seoDescriptionOverride: product.seoDescription,
+    });
     const image = firstProductImage(product);
     const productPath = `/product/${encodeURIComponent(ref)}`;
-    const title = buildPageTitle(product.name);
+
     return {
       title,
       description,
+      ...(isPogonazh
+        ? {
+            robots: {
+              index: false,
+              follow: false,
+            },
+          }
+        : {}),
       alternates: {
         canonical: absoluteUrl(productPath),
       },
       openGraph: {
         ...defaultOpenGraph(),
-        title: product.name,
+        title,
         description,
         url: absoluteUrl(productPath),
         ...(image ? { images: [{ url: image, alt: product.name }] } : {}),
       },
       twitter: {
         card: image ? "summary_large_image" : "summary",
-        title: product.name,
+        title,
         description,
         ...(image ? { images: [image] } : {}),
       },
@@ -71,4 +99,15 @@ export async function buildProductMetadata(ref: string): Promise<Metadata> {
   } catch {
     return { title: SITE_TITLE };
   }
+}
+
+export function isPogonazhProduct(product: {
+  category?: string | null;
+  categorySlug?: string | null;
+  subcategorySlug?: string | null;
+}): boolean {
+  return isPogonazhCategoryLabel(
+    product.category,
+    product.categorySlug ?? product.subcategorySlug,
+  );
 }

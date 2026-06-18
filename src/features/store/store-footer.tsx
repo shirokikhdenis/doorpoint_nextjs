@@ -19,6 +19,7 @@ const footerNavLinks = [
 export function StoreFooter() {
   return (
     <footer
+      data-nosnippet
       className="border-t border-zinc-200 bg-zinc-900 text-zinc-100 print:hidden"
       aria-label="Подвал сайта"
     >
@@ -54,23 +55,23 @@ export function StoreFooter() {
             <h2 className="text-sm font-semibold text-white">Контакты</h2>
             <ul className="mt-4 space-y-3 text-sm text-zinc-300">
               <li>
-                <span className="block text-xs text-zinc-500">Телефон</span>
+                <span className="block text-xs text-zinc-500">Телефон:</span>
                 <TrackedPhoneLink className="font-medium text-white hover:underline">
                   {SITE_PHONE_DISPLAY}
                 </TrackedPhoneLink>
               </li>
               <li>
-                <span className="block text-xs text-zinc-500">E-mail</span>
+                <span className="block text-xs text-zinc-500">E-mail:</span>
                 <a href={`mailto:${SITE_EMAIL}`} className="hover:text-white hover:underline">
                   {SITE_EMAIL}
                 </a>
               </li>
               <li>
-                <span className="block text-xs text-zinc-500">Адрес</span>
+                <span className="block text-xs text-zinc-500">Адрес:</span>
                 <span>{SITE_ADDRESS}</span>
               </li>
               <li>
-                <span className="block text-xs text-zinc-500">Режим работы</span>
+                <span className="block text-xs text-zinc-500">Режим работы:</span>
                 <span>{SITE_HOURS}</span>
               </li>
             </ul>

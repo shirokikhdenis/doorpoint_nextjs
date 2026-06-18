@@ -228,12 +228,14 @@ const getProductByRef = async (ref) => {
 };
 
 const listActiveProductSlugs = async () => productRepository.listActiveProductSlugs();
+const findCatalogPageBySlug = async (slug) => catalogPageRepository.findCatalogPageBySlug(slug);
 
 module.exports = {
   getProducts,
   getFilterMeta,
   listCatalogPages,
   listActiveProductSlugs,
+  findCatalogPageBySlug,
   getProductById,
   getProductByRef,
   buildCatalogFilters,

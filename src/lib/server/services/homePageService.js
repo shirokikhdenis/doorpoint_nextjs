@@ -33,8 +33,8 @@ const pickRandomHits = async (catalogPage, { excludeIds = [], count = 8 } = {}) 
 
 const getHomePageData = async () => {
   const [interiorHits, entryHits] = await Promise.all([
-    pickTopHits("interior-doors"),
-    pickTopHits("entry-doors"),
+    pickTopHits("dveri-mezhkomnatnyye"),
+    pickTopHits("vhodnye-dveri"),
   ]);
 
   return {

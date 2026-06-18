@@ -4,6 +4,7 @@ import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "
 import { AdminCard } from "@/features/admin/ui/admin-card";
 import { AdminNotice } from "@/features/admin/ui/admin-notice";
 import { AdminPage } from "@/features/admin/ui/admin-page";
+import { downloadProductsCsv } from "@/lib/client/admin-products-export";
 import { CsvRow, parseCsv } from "@/lib/client/csv-parse";
 import {
   AttributeDef,
@@ -43,6 +44,7 @@ export default function AdminImportPage() {
   const [attributes, setAttributes] = useState<AttributeDef[]>([]);
   const [parseError, setParseError] = useState("");
   const [importing, setImporting] = useState(false);
+  const [exportingCatalog, setExportingCatalog] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -196,6 +198,18 @@ export default function AdminImportPage() {
 
   const previewRows = mappedRows.slice(0, 10);
 
+  const downloadCatalog = async () => {
+    setExportingCatalog(true);
+    setParseError("");
+    try {
+      await downloadProductsCsv({ mode: "import" });
+    } catch (caught) {
+      setParseError(caught instanceof Error ? caught.message : "Не удалось скачать каталог");
+    } finally {
+      setExportingCatalog(false);
+    }
+  };
+
   return (
     <AdminPage
       title="Импорт CSV"
@@ -214,6 +228,14 @@ export default function AdminImportPage() {
                 className="hidden"
               />
             </label>
+            <button
+              type="button"
+              onClick={() => void downloadCatalog()}
+              disabled={exportingCatalog}
+              className="rounded border border-zinc-200 bg-white px-3 py-1.5 text-sm hover:bg-zinc-100 disabled:cursor-wait disabled:opacity-60"
+            >
+              {exportingCatalog ? "Скачивание…" : "Скачать текущий каталог"}
+            </button>
             <button
               type="button"
               onClick={insertSample}

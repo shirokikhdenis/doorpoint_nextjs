@@ -96,13 +96,13 @@ test("buildCatalogQuery round-trips through catalogQueryObjectFromQueryString", 
     attr_color: "Белый",
     onSale: "1",
   });
-  const queryString = buildCatalogQuery("interior-doors", filters);
+  const queryString = buildCatalogQuery("dveri-mezhkomnatnyye", filters);
   assert.equal(
     queryString,
-    "catalogPage=interior-doors&search=%D0%B4%D0%B2%D0%B5%D1%80%D1%8C&sort=price-desc&categories=vhod&attr_color=%D0%91%D0%B5%D0%BB%D1%8B%D0%B9&onSale=1",
+    "catalogPage=dveri-mezhkomnatnyye&search=%D0%B4%D0%B2%D0%B5%D1%80%D1%8C&sort=price-desc&categories=vhod&attr_color=%D0%91%D0%B5%D0%BB%D1%8B%D0%B9&onSale=1",
   );
   assert.deepEqual(catalogQueryObjectFromQueryString(queryString), {
-    catalogPage: "interior-doors",
+    catalogPage: "dveri-mezhkomnatnyye",
     search: "дверь",
     sort: "price-desc",
     categories: "vhod",

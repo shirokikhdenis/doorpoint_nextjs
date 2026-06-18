@@ -20,6 +20,8 @@ type EditorState = {
   categoryIds: number[];
   subcategoryIds: number[];
   filterAttributeIds: number[];
+  seoTitle: string;
+  seoDescription: string;
 };
 
 const initEditorFromPage = (
@@ -47,6 +49,8 @@ const initEditorFromPage = (
       .map((sub) => subcategoryIdBySlug.get(sub.slug) ?? 0)
       .filter((id) => id > 0),
     filterAttributeIds: page.filterAttributes.map((attr) => attr.id),
+    seoTitle: page.seoTitle || "",
+    seoDescription: page.seoDescription || "",
   };
 };
 
@@ -302,6 +306,8 @@ function CatalogPageEditor({ page, bootstrap, onSaved, onDeleted, onError }: Edi
           categoryIds: state.categoryIds,
           subcategoryIds: state.subcategoryIds,
           filterAttributeIds: state.filterAttributeIds,
+          seoTitle: state.seoTitle.trim() || null,
+          seoDescription: state.seoDescription.trim() || null,
         }),
       });
       if (!response.ok) throw new Error(await response.text());
@@ -371,6 +377,29 @@ function CatalogPageEditor({ page, bootstrap, onSaved, onDeleted, onError }: Edi
               Дефолтная — slug не меняется и не удаляется
             </span>
           ) : null}
+        </div>
+        <div className="grid gap-3 md:grid-cols-2">
+          <label className="flex flex-col gap-1 text-xs text-zinc-600">
+            SEO title
+            <input
+              value={state.seoTitle}
+              onChange={(event) => setState((prev) => ({ ...prev, seoTitle: event.target.value }))}
+              className="rounded border border-zinc-200 px-3 py-1.5 text-sm"
+              placeholder="Заголовок в поиске (опционально)"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-zinc-600 md:col-span-2">
+            SEO description
+            <textarea
+              value={state.seoDescription}
+              onChange={(event) =>
+                setState((prev) => ({ ...prev, seoDescription: event.target.value }))
+              }
+              className="rounded border border-zinc-200 px-3 py-1.5 text-sm"
+              rows={3}
+              placeholder="Описание в сниппете Google/Яндекс (опционально)"
+            />
+          </label>
         </div>
         <div className="flex items-center gap-2">
           <button

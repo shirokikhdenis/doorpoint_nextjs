@@ -1,20 +1,19 @@
 import type { Metadata } from "next";
 import { createRequire } from "node:module";
 import { ServiceTable } from "@/features/services/service-table";
-import { absoluteUrl, buildPageTitle, defaultOpenGraph } from "@/lib/site-seo";
+import { absoluteUrl, defaultOpenGraph } from "@/lib/site-seo";
+import { SEO_COPY } from "@/lib/seo-copy";
 
 export const metadata: Metadata = {
-  title: buildPageTitle("Услуги"),
-  description:
-    "Доставка, подъём, монтаж межкомнатных и входных дверей в Архангельске — прайс и условия",
+  title: SEO_COPY.uslugi.title,
+  description: SEO_COPY.uslugi.description,
   alternates: {
     canonical: absoluteUrl("/uslugi"),
   },
   openGraph: {
     ...defaultOpenGraph(),
-    title: buildPageTitle("Услуги"),
-    description:
-      "Доставка, подъём, монтаж межкомнатных и входных дверей в Архангельске — прайс и условия",
+    title: SEO_COPY.uslugi.title,
+    description: SEO_COPY.uslugi.description,
     url: absoluteUrl("/uslugi"),
   },
 };

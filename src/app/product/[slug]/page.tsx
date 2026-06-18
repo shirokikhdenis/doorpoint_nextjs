@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { ProductPageClient } from "@/features/product/product-page-client";
 import { ProductJsonLd } from "@/features/product/product-json-ld";
 import { normalizeProductData } from "@/lib/client/normalizers";
-import { buildProductMetadata } from "@/lib/server/product-metadata";
+import { buildProductMetadata, isPogonazhProduct } from "@/lib/server/product-metadata";
 
 const require = createRequire(import.meta.url);
 const catalogService = require("@/lib/server/services/catalogService") as {
@@ -36,7 +36,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
   return (
     <>
-      <ProductJsonLd product={normalized} />
+      {!isPogonazhProduct(normalized) ? <ProductJsonLd product={normalized} /> : null}
       <ProductPageClient params={params} initialProduct={normalized} />
     </>
   );

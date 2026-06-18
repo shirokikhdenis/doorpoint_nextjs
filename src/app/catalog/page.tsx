@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { permanentRedirect } from "next/navigation";
 import { CatalogPageClient } from "@/features/catalog/catalog-page-client";
 import {
   buildCatalogMetadata,
@@ -18,6 +19,9 @@ export async function generateMetadata({ searchParams }: CatalogPageProps): Prom
 
 export default async function CatalogPage({ searchParams }: CatalogPageProps) {
   const initial = await getCatalogShell(await searchParams);
+  if (initial.legacyCatalogPageRedirect) {
+    permanentRedirect(`/catalog?${initial.legacyCatalogPageRedirect}`);
+  }
   const pageItem = initial.catalogPages.find((item) => item.slug === initial.catalogPage);
   const heading = getCatalogPageHeading(initial.catalogPage, pageItem?.name || "Каталог");
 

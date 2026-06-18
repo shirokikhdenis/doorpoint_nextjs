@@ -11,6 +11,7 @@ import {
   SalePriceInput,
   SaleToggle,
 } from "./admin-product-cells";
+import { ProductSeoEditor } from "./product-seo-editor";
 import { COLUMN_LABELS } from "./constants";
 import type { AttributeDef, ColumnVisibility, ProductRow } from "./types";
 
@@ -199,6 +200,15 @@ export function AdminProductsTable({
                                 на сайте ↗
                               </Link>
                             ) : null}
+                            <div className="mt-1">
+                              <ProductSeoEditor
+                                productId={row.id}
+                                productName={row.name}
+                                seoTitle={row.seoTitle}
+                                seoDescription={row.seoDescription}
+                                onSaved={onSaved}
+                              />
+                            </div>
                           </div>
                         </div>
                       )}

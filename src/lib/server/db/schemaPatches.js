@@ -9,6 +9,15 @@ let portfolioTablesEnsured = false;
 let promotionTablesEnsured = false;
 let leadTablesEnsured = false;
 let servicesTablesEnsured = false;
+let seoColumnsEnsured = false;
+let catalogPageSlugRenamesEnsured = false;
+
+const CATALOG_PAGE_SLUG_RENAMES = [
+  ["entry-doors", "vhodnye-dveri"],
+  ["thermal-break-doors", "termo-dveri"],
+  ["interior-doors", "dveri-mezhkomnatnyye"],
+  ["fittings", "furnitura"],
+];
 
 const ensureProductBadgesColumn = async () => {
   if (productBadgesColumnEnsured) return;
@@ -207,7 +216,29 @@ const ensureServicesTables = async () => {
   servicesTablesEnsured = true;
 };
 
+const ensureSeoColumns = async () => {
+  if (seoColumnsEnsured) return;
+  await query(`ALTER TABLE catalog_pages ADD COLUMN IF NOT EXISTS seo_title TEXT`);
+  await query(`ALTER TABLE catalog_pages ADD COLUMN IF NOT EXISTS seo_description TEXT`);
+  await query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS seo_title TEXT`);
+  await query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS seo_description TEXT`);
+  seoColumnsEnsured = true;
+};
+
+const ensureCatalogPageSlugRenames = async () => {
+  if (catalogPageSlugRenamesEnsured) return;
+  for (const [oldSlug, newSlug] of CATALOG_PAGE_SLUG_RENAMES) {
+    await query(`UPDATE catalog_pages SET slug = $1 WHERE slug = $2`, [newSlug, oldSlug]);
+    await query(
+      `UPDATE promotion_banners SET catalog_page_slug = $1 WHERE catalog_page_slug = $2`,
+      [newSlug, oldSlug],
+    );
+  }
+  catalogPageSlugRenamesEnsured = true;
+};
+
 module.exports = {
+  CATALOG_PAGE_SLUG_RENAMES,
   ensureProductBadgesColumn,
   ensureProductSaleColumns,
   ensureProductSlugColumn,
@@ -217,4 +248,6 @@ module.exports = {
   ensureLeadTables,
   ensureSaleSettingsTable,
   ensureServicesTables,
+  ensureSeoColumns,
+  ensureCatalogPageSlugRenames,
 };

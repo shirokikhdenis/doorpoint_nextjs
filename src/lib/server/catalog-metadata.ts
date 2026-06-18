@@ -1,24 +1,19 @@
 import type { Metadata } from "next";
 import { createRequire } from "node:module";
 import { flattenSearchParams } from "@/features/catalog/catalog-filter-utils";
-import { normalizeCatalogPages } from "@/lib/client/normalizers";
-import {
-  absoluteUrl,
-  buildPageTitle,
-  defaultOpenGraph,
-} from "@/lib/site-seo";
+import { buildCatalogSeoCopy } from "@/lib/seo-copy";
+import { isPogonazhCatalogPageSlug } from "@/lib/pogonazh-category";
+import { resolveCatalogPageSlug } from "@/lib/catalog-page-slugs";
+import { absoluteUrl, defaultOpenGraph } from "@/lib/site-seo";
 
 const require = createRequire(import.meta.url);
 const catalogService = require("@/lib/server/services/catalogService") as {
-  listCatalogPages: () => Promise<unknown[]>;
-};
-
-const CATALOG_DESCRIPTIONS: Record<string, string> = {
-  all: "Каталог входных и межкомнатных дверей с фильтрами по параметрам, ценам и акциям.",
-  "interior-doors":
-    "Межкомнатные двери в Архангельске: коллекции, оттенки и размеры. Замер, доставка и монтаж.",
-  "entry-doors":
-    "Входные двери в Архангельске: надёжные модели с установкой под ключ. Подбор и бесплатный замер.",
+  findCatalogPageBySlug: (slug: string) => Promise<{
+    name?: string;
+    slug?: string;
+    seoTitle?: string | null;
+    seoDescription?: string | null;
+  } | null>;
 };
 
 const catalogPageCanonicalPath = (catalogPage: string): string => {
@@ -47,34 +42,35 @@ export async function buildCatalogMetadata(
   searchParams: Record<string, string | string[] | undefined>,
 ): Promise<Metadata> {
   const flat = flattenSearchParams(searchParams);
-  const catalogPage = flat.catalogPage?.trim() || "all";
+  const catalogPage = resolveCatalogPageSlug(flat.catalogPage?.trim() || "all");
 
   let pageName = "Каталог дверей";
+  let seoOverrides: { seoTitle?: string | null; seoDescription?: string | null } | undefined;
   try {
-    const pages = normalizeCatalogPages(await catalogService.listCatalogPages());
-    const match = pages.find((item) => item.slug === catalogPage);
-    if (match?.name) pageName = match.name;
-    else if (catalogPage !== "all") pageName = catalogPage;
+    if (catalogPage !== "all") {
+      const page = await catalogService.findCatalogPageBySlug(catalogPage);
+      if (page?.name) pageName = page.name;
+      seoOverrides = {
+        seoTitle: page?.seoTitle ?? null,
+        seoDescription: page?.seoDescription ?? null,
+      };
+    }
   } catch {
     // fallback titles below
   }
 
-  const title =
-    catalogPage === "all" ? buildPageTitle("Каталог дверей") : buildPageTitle(pageName);
-  const description =
-    CATALOG_DESCRIPTIONS[catalogPage] ||
-    `${pageName} в Архангельске. Подбор, замер, доставка и монтаж дверей под ключ.`;
-
+  const seo = buildCatalogSeoCopy(catalogPage, pageName, seoOverrides);
   const canonicalPath = catalogPageCanonicalPath(catalogPage);
   const hasNoise = catalogHasSeoNoise(flat);
+  const isPogonazhPage = isPogonazhCatalogPageSlug(catalogPage);
 
   return {
-    title,
-    description,
+    title: seo.title,
+    description: seo.description,
     alternates: {
       canonical: absoluteUrl(canonicalPath),
     },
-    ...(hasNoise
+    ...((hasNoise || isPogonazhPage)
       ? {
           robots: {
             index: false,
@@ -84,8 +80,8 @@ export async function buildCatalogMetadata(
       : {}),
     openGraph: {
       ...defaultOpenGraph(),
-      title: catalogPage === "all" ? "Каталог дверей" : pageName,
-      description,
+      title: seo.title,
+      description: seo.description,
       url: absoluteUrl(canonicalPath),
     },
   };

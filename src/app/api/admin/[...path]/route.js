@@ -133,6 +133,10 @@ const handle = async (request, context) =>
       if (updated?.error) return json({ message: updated.error }, 400);
       return updated ? json(updated) : json({ message: "Product not found" }, 404);
     }
+    if (path[0] === "products" && path.length === 3 && path[2] === "seo" && method === "PATCH") {
+      const updated = await adminService.patchProductSeo(Number(path[1]), body);
+      return updated ? json(updated) : json({ message: "Product not found" }, 404);
+    }
     if (path[0] === "products" && path.length === 2 && method === "PUT") return json(await adminService.updateProduct(Number(path[1]), body));
     if (path[0] === "products" && path.length === 2 && method === "GET") {
       const product = await adminService.getProductForEdit(Number(path[1]));

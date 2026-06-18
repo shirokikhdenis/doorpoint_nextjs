@@ -30,6 +30,8 @@ export type ProductRow = {
   imagesCount: number;
   primaryImageUrl: string;
   imageUrls: string[];
+  seoTitle?: string | null;
+  seoDescription?: string | null;
 };
 
 export type SaleSettings = {

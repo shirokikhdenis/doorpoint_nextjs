@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { CATALOG_PAGE_SLUG } from "@/lib/catalog-page-slugs";
 import { cn } from "@/lib/utils";
 import { PromotionHighlightText } from "@/features/home/promotion-highlight-text";
 import type { PromotionBanner } from "@/lib/client/normalizers";
@@ -62,14 +63,15 @@ function SlideContent({
 }
 
 function StaticPromoFallback() {
+  const promoHref = `/catalog?catalogPage=${CATALOG_PAGE_SLUG.interiorDoors}&onSale=1`;
   return (
     <Link
-      href="/catalog?catalogPage=interior-doors&onSale=1"
+      href={promoHref}
       className="group relative block min-h-[280px] overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-md transition hover:shadow-lg"
     >
       <SlideContent
         banner={{
-          href: "/catalog?catalogPage=interior-doors&onSale=1",
+          href: promoHref,
           title: "Скидки на двери",
           subtitle: "Выгодные предложения на межкомнатные и входные двери в салоне",
           backgroundImageUrl: "",
