@@ -39,7 +39,7 @@ export function PortfolioCard({
   };
 
   return (
-    <article className="group mx-auto w-2/3 max-w-full overflow-hidden rounded-lg border border-zinc-200 bg-white text-left shadow-sm transition hover:shadow-md">
+    <article className="group w-full overflow-hidden rounded-lg border border-zinc-200 bg-white text-left shadow-sm transition hover:shadow-md">
       <div className="relative aspect-[9/16] w-full bg-zinc-100">
         <button
           type="button"
@@ -53,7 +53,7 @@ export function PortfolioCard({
               alt={item.title}
               fill
               className="object-cover transition duration-300 group-hover:scale-[1.02]"
-              sizes="(max-width: 1024px) 50vw, 33vw"
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
             />
           ) : null}
         </button>

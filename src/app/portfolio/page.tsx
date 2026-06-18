@@ -101,7 +101,7 @@ export default function PortfolioPage() {
   }, [active, closeProject, showNext, showPrev]);
 
   return (
-    <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6">
+    <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
       <h1 className="text-2xl font-semibold sm:text-3xl">Портфолио</h1>
       <p className="mt-2 text-sm text-zinc-600">Наши выполненные работы.</p>
 
@@ -116,7 +116,7 @@ export default function PortfolioPage() {
         <p className="mt-6 text-sm text-zinc-500">Пока нет опубликованных работ.</p>
       ) : null}
 
-      <section className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <section className="mt-6 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
         {items.map((item, index) => (
           <PortfolioCard
             key={item.id}
