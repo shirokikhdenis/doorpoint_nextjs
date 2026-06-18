@@ -103,7 +103,7 @@ export default function PortfolioPage() {
   return (
     <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
       <h1 className="text-2xl font-semibold sm:text-3xl">Портфолио</h1>
-      <p className="mt-2 text-sm text-zinc-600">Наши выполненные работы.</p>
+      <p className="mt-2 text-sm text-zinc-600">Фото наших работ</p>
 
       {loading ? <p className="mt-6 text-sm text-zinc-500">Загрузка…</p> : null}
       {error ? (

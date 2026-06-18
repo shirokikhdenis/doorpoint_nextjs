@@ -46,7 +46,10 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
   },
   {
     label: "Система",
-    items: [{ href: "/admin/settings", label: "Настройки" }],
+    items: [
+      { href: "/admin/seo", label: "SEO" },
+      { href: "/admin/settings", label: "Настройки" },
+    ],
   },
 ];
 
@@ -61,6 +64,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin/portfolio": "Портфолио",
   "/admin/services": "Услуги",
   "/admin/attributes": "Атрибуты",
+  "/admin/seo": "SEO",
   "/admin/settings": "Настройки",
 };
 

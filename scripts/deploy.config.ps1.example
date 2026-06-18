@@ -1,0 +1,13 @@
+# Copy to scripts/deploy.config.ps1 and adjust if needed.
+# deploy.config.ps1 is gitignored.
+
+$DeployConfig = @{
+  # SSH target: "root@194.67.121.174" or alias from ~/.ssh/config (e.g. "doorpoint")
+  SshHost    = "root@194.67.121.174"
+  RemotePath = "/var/www/doorpoint/doorpoint_nextjs"
+  # Check on VPS: pm2 list
+  Pm2Name    = "doorpoint_nextjs"
+  GitBranch  = "main"
+  # Run ./scripts/backup-db.sh on VPS before git pull
+  RunBackup  = $false
+}

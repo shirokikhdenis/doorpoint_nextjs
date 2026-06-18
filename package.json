@@ -14,7 +14,8 @@
     "admin:hash-password": "node scripts/hash-admin-password.js",
     "contract:template": "node scripts/create-contract-template.js",
     "db:backup": "bash scripts/backup-db.sh",
-    "db:restore": "bash scripts/restore-db.sh"
+    "db:restore": "bash scripts/restore-db.sh",
+    "deploy": "powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1"
   },
   "dependencies": {
     "@radix-ui/react-label": "^2.1.8",
