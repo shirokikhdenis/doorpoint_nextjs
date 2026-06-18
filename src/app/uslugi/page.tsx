@@ -18,6 +18,8 @@ export const metadata: Metadata = {
   },
 };
 
+export const dynamic = "force-dynamic";
+
 export default async function UslugiPage() {
   const require = createRequire(import.meta.url);
   const servicesService = require("@/lib/server/services/servicesService") as {
