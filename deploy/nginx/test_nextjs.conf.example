@@ -30,6 +30,13 @@ server {
 
     client_max_body_size 25m;
 
+    location ^~ /uploads/ {
+        alias /var/www/test_nextjs/public/uploads/;
+        expires 7d;
+        add_header Cache-Control "public";
+        access_log off;
+    }
+
     location ^~ /admin {
         auth_basic "Restricted admin area";
         auth_basic_user_file /etc/nginx/.htpasswd_admin;

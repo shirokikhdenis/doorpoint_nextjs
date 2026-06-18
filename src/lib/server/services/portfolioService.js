@@ -2,8 +2,8 @@ const fs = require("fs/promises");
 const path = require("path");
 const { randomUUID } = require("crypto");
 const portfolioRepository = require("../repositories/portfolioRepository");
+const { getUploadsRoot, ensureWritableSubdir } = require("../uploadsPath");
 
-const portfolioUploadsRoot = path.join(process.cwd(), "public", "uploads", "portfolio");
 const ALLOWED_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp"]);
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
@@ -46,6 +46,7 @@ const saveUploadedFiles = async (projectId, fileEntries) => {
   const project = await portfolioRepository.getProjectById(numericId);
   if (!project) throw new Error("Проект не найден");
 
+  const portfolioUploadsRoot = await ensureWritableSubdir("portfolio");
   const dir = path.join(portfolioUploadsRoot, String(numericId));
   await fs.mkdir(dir, { recursive: true });
 
@@ -80,7 +81,7 @@ const deleteProject = async (id) => {
   const deleted = await portfolioRepository.deleteProject(id);
   if (!deleted) return null;
 
-  const dir = path.join(portfolioUploadsRoot, String(deleted.id));
+  const dir = path.join(getUploadsRoot(), "portfolio", String(deleted.id));
   await fs.rm(dir, { recursive: true, force: true }).catch(() => {});
 
   for (const imageUrl of deleted.imageUrls) {

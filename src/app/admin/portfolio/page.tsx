@@ -77,6 +77,7 @@ export default function AdminPortfolioPage() {
     files.forEach((file) => formData.append("files", file));
     const response = await fetch(`/api/admin/portfolio/${projectId}/images`, {
       method: "POST",
+      credentials: "same-origin",
       body: formData,
     });
     if (!response.ok) {

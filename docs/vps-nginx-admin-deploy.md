@@ -38,11 +38,18 @@ npm ci
 npm run build
 ```
 
-2. Copy service template:
+2. Ensure upload directories are writable by the app user (`www-data`):
+
+```bash
+sudo mkdir -p /var/www/test_nextjs/public/uploads/portfolio
+sudo chown -R www-data:www-data /var/www/test_nextjs/public/uploads
+```
+
+3. Copy service template:
 - source: `deploy/systemd/test_nextjs.service.example`
 - destination: `/etc/systemd/system/test_nextjs.service`
 
-3. Start service:
+4. Start service:
 
 ```bash
 sudo systemctl daemon-reload

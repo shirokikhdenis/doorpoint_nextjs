@@ -8,6 +8,8 @@ WorkingDirectory=/var/www/test_nextjs
 Environment=NODE_ENV=production
 Environment=PORT=3000
 EnvironmentFile=/etc/test_nextjs.env
+ExecStartPre=/bin/mkdir -p /var/www/test_nextjs/public/uploads/portfolio
+ExecStartPre=/bin/chown -R www-data:www-data /var/www/test_nextjs/public/uploads
 ExecStart=/usr/bin/npm run start
 Restart=always
 RestartSec=5

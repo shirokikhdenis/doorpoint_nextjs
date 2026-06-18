@@ -11,6 +11,10 @@ const allowedDevOrigins = [
 
 const nextConfig: NextConfig = {
   allowedDevOrigins,
+  experimental: {
+    // Совпадает с nginx client_max_body_size; иначе proxy обрезает multipart-загрузки.
+    proxyClientMaxBodySize: "25mb",
+  },
   images: {
     remotePatterns: [
       {

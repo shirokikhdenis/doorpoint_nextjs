@@ -53,5 +53,12 @@ export function proxy(request) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/api/admin/:path*"],
+  matcher: [
+    "/admin/:path*",
+    // Не пропускать multipart через proxy — иначе тело запроса буферизуется и может обрезаться.
+    {
+      source: "/api/admin/:path*",
+      missing: [{ type: "header", key: "content-type", value: "multipart/form-data.*" }],
+    },
+  ],
 };

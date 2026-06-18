@@ -29,12 +29,31 @@ export const POST = (request, context) =>
     }
 
     const params = await context.params;
-    const formData = await request.formData();
+    let formData;
+    try {
+      formData = await request.formData();
+    } catch (error) {
+      return json(
+        {
+          message:
+            error instanceof Error
+              ? error.message
+              : "Не удалось прочитать загруженные файлы (проверьте размер и лимит nginx client_max_body_size)",
+        },
+        400,
+      );
+    }
     const files = formData.getAll("files").filter((entry) => entry && typeof entry.arrayBuffer === "function");
     if (files.length === 0) {
-      return json({ message: "Выберите хотя бы один файл" }, 400);
+      return json({ message: "Выберите хотя бы один файл (jpg, png или webp)" }, 400);
     }
 
-    const project = await portfolioService.saveUploadedFiles(Number(params.id), files);
-    return json(project, 201);
+    try {
+      const project = await portfolioService.saveUploadedFiles(Number(params.id), files);
+      return json(project, 201);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Не удалось сохранить файлы";
+      const status = message.includes("Нет прав на запись") ? 507 : 400;
+      return json({ message }, status);
+    }
   });
