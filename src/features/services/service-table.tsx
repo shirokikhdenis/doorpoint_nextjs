@@ -2,7 +2,6 @@ export type ServiceRow = {
   id?: number;
   name: string;
   price: string;
-  notes: string;
 };
 
 export type ServiceSection = {
@@ -27,9 +26,8 @@ export function ServiceTable({ title, rows }: ServiceTableProps) {
           <table className="w-full table-auto text-[13px] leading-tight sm:text-sm md:table-fixed">
             <thead>
               <tr className="bg-zinc-100 text-left">
-                <th className="w-[45%] px-2 py-2 sm:px-3">Услуга</th>
-                <th className="w-[22%] px-2 py-2 sm:px-3">Цена</th>
-                <th className="w-[33%] px-2 py-2 sm:px-3">Примечание</th>
+                <th className="w-[60%] px-2 py-2 sm:px-3">Услуга</th>
+                <th className="w-[40%] px-2 py-2 sm:px-3">Цена</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-200">
@@ -38,9 +36,6 @@ export function ServiceTable({ title, rows }: ServiceTableProps) {
                   <td className="px-2 py-2 align-top sm:px-3">{row.name}</td>
                   <td className="whitespace-nowrap px-2 py-2 align-top font-medium sm:px-3">
                     {row.price}
-                  </td>
-                  <td className="px-2 py-2 align-top whitespace-normal break-words sm:px-3">
-                    {row.notes}
                   </td>
                 </tr>
               ))}

@@ -272,6 +272,44 @@ const deleteRow = async (id) => {
   return res.rows[0] ? { id: numericId } : null;
 };
 
+const reorderRows = async (sectionId, orderedIds) => {
+  await ensureDefaultSeed();
+  const numericSectionId = Number(sectionId);
+  if (!Number.isInteger(numericSectionId) || numericSectionId <= 0) return null;
+
+  const ids = Array.isArray(orderedIds)
+    ? orderedIds.map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0)
+    : [];
+  if (ids.length === 0) throw new Error("Укажите порядок строк");
+
+  const existingRes = await query(
+    `SELECT id FROM service_rows WHERE section_id = $1 ORDER BY sort_order ASC, id ASC`,
+    [numericSectionId],
+  );
+  const existingIds = existingRes.rows.map((row) => Number(row.id));
+  if (existingIds.length === 0) return getSectionById(numericSectionId);
+
+  const uniqueIds = Array.from(new Set(ids));
+  if (uniqueIds.length !== existingIds.length) {
+    throw new Error("Список строк не совпадает с разделом");
+  }
+  const existingSet = new Set(existingIds);
+  if (!uniqueIds.every((id) => existingSet.has(id))) {
+    throw new Error("Некорректный порядок строк");
+  }
+
+  await withTransaction(async (client) => {
+    for (let index = 0; index < uniqueIds.length; index += 1) {
+      await client.query(
+        `UPDATE service_rows SET sort_order = $1 WHERE id = $2 AND section_id = $3`,
+        [index * 10, uniqueIds[index], numericSectionId],
+      );
+    }
+  });
+
+  return getSectionById(numericSectionId);
+};
+
 module.exports = {
   listSections,
   getSectionById,
@@ -281,5 +319,6 @@ module.exports = {
   createRow,
   updateRow,
   deleteRow,
+  reorderRows,
   seedDefaultServices,
 };

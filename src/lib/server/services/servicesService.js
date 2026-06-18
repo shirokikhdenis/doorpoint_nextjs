@@ -10,7 +10,6 @@ const listPublicServices = async () => {
       id: row.id,
       name: row.name,
       price: row.price,
-      notes: row.notes,
       sortOrder: row.sortOrder,
     })),
   }));
@@ -51,6 +50,9 @@ const updateRow = async (id, payload) =>
 
 const deleteRow = async (id) => servicesRepository.deleteRow(id);
 
+const reorderRows = async (sectionId, orderedIds) =>
+  servicesRepository.reorderRows(sectionId, orderedIds);
+
 module.exports = {
   listPublicServices,
   listAdminServices,
@@ -60,4 +62,5 @@ module.exports = {
   createRow,
   updateRow,
   deleteRow,
+  reorderRows,
 };

@@ -27,7 +27,7 @@ export default async function UslugiPage() {
       Array<{
         id: number;
         title: string;
-        rows: Array<{ id: number; name: string; price: string; notes: string }>;
+        rows: Array<{ id: number; name: string; price: string }>;
       }>
     >;
   };
@@ -45,7 +45,6 @@ export default async function UslugiPage() {
             id: row.id,
             name: row.name,
             price: row.price,
-            notes: row.notes,
           }))}
         />
       ))}

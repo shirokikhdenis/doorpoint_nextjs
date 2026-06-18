@@ -20,7 +20,6 @@ type ServiceRow = {
   id: number;
   name: string;
   price: string;
-  notes: string;
   sortOrder: number;
 };
 
@@ -31,7 +30,7 @@ type ServiceSection = {
   rows: ServiceRow[];
 };
 
-const emptyRowDraft = () => ({ name: "", price: "", notes: "" });
+const emptyRowDraft = () => ({ name: "", price: "" });
 
 export default function AdminServicesPage() {
   const [sections, setSections] = useState<ServiceSection[]>([]);
@@ -54,6 +53,7 @@ export default function AdminServicesPage() {
   const [editingRowId, setEditingRowId] = useState<number | null>(null);
   const [rowDraft, setRowDraft] = useState(emptyRowDraft());
   const [savingRowId, setSavingRowId] = useState<number | null>(null);
+  const [reorderingSectionId, setReorderingSectionId] = useState<number | null>(null);
 
   const reload = useCallback(async () => {
     const response = await fetch("/api/admin/services");
@@ -228,6 +228,36 @@ export default function AdminServicesPage() {
     }
   };
 
+  const moveRow = async (section: ServiceSection, rowId: number, direction: -1 | 1) => {
+    const index = section.rows.findIndex((row) => row.id === rowId);
+    const swapIndex = index + direction;
+    if (index < 0 || swapIndex < 0 || swapIndex >= section.rows.length) return;
+
+    const orderedIds = section.rows.map((row) => row.id);
+    [orderedIds[index], orderedIds[swapIndex]] = [orderedIds[swapIndex], orderedIds[index]];
+
+    setReorderingSectionId(section.id);
+    setNotice("");
+    setError("");
+    try {
+      const response = await fetch(`/api/admin/services/${section.id}/rows/reorder`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ orderedIds }),
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.message || "Не удалось изменить порядок");
+      }
+      await reload();
+      setNotice("Порядок обновлён");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Ошибка");
+    } finally {
+      setReorderingSectionId(null);
+    }
+  };
+
   return (
     <AdminPage
       title="Услуги"
@@ -358,15 +388,18 @@ export default function AdminServicesPage() {
                   <AdminTableRow>
                     <AdminTableCell header>Услуга</AdminTableCell>
                     <AdminTableCell header>Цена</AdminTableCell>
-                    <AdminTableCell header>Примечание</AdminTableCell>
+                    <AdminTableCell header className="w-[100px]">
+                      Порядок
+                    </AdminTableCell>
                     <AdminTableCell header className="w-[140px]">
                       Действия
                     </AdminTableCell>
                   </AdminTableRow>
                 </AdminTableHead>
                 <AdminTableBody>
-                  {section.rows.map((row) => {
+                  {section.rows.map((row, rowIndex) => {
                     const isEditingRow = editingRowId === row.id;
+                    const reorderBusy = reorderingSectionId === section.id;
                     if (isEditingRow) {
                       return (
                         <AdminTableRow key={row.id}>
@@ -388,15 +421,7 @@ export default function AdminServicesPage() {
                               className="w-full rounded border border-admin-border bg-admin-surface px-2 py-1.5 text-sm"
                             />
                           </AdminTableCell>
-                          <AdminTableCell>
-                            <input
-                              value={rowDraft.notes}
-                              onChange={(event) =>
-                                setRowDraft((prev) => ({ ...prev, notes: event.target.value }))
-                              }
-                              className="w-full rounded border border-admin-border bg-admin-surface px-2 py-1.5 text-sm"
-                            />
-                          </AdminTableCell>
+                          <AdminTableCell />
                           <AdminTableCell>
                             <div className="flex flex-wrap gap-1">
                               <Button
@@ -427,7 +452,31 @@ export default function AdminServicesPage() {
                         <AdminTableCell className="whitespace-nowrap font-medium">
                           {row.price}
                         </AdminTableCell>
-                        <AdminTableCell>{row.notes}</AdminTableCell>
+                        <AdminTableCell>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              disabled={reorderBusy || rowIndex <= 0}
+                              onClick={() => void moveRow(section, row.id, -1)}
+                              title="Выше"
+                            >
+                              ↑
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              disabled={reorderBusy || rowIndex >= section.rows.length - 1}
+                              onClick={() => void moveRow(section, row.id, 1)}
+                              title="Ниже"
+                            >
+                              ↓
+                            </Button>
+                            {reorderBusy ? <span className="text-xs text-admin-text-muted">…</span> : null}
+                          </div>
+                        </AdminTableCell>
                         <AdminTableCell>
                           <div className="flex flex-wrap gap-1">
                             <Button
@@ -439,7 +488,6 @@ export default function AdminServicesPage() {
                                 setRowDraft({
                                   name: row.name,
                                   price: row.price,
-                                  notes: row.notes,
                                 });
                               }}
                             >
@@ -477,16 +525,7 @@ export default function AdminServicesPage() {
                         className="w-full rounded border border-admin-border bg-admin-surface px-2 py-1.5 text-sm"
                       />
                     </AdminTableCell>
-                    <AdminTableCell>
-                      <input
-                        value={newRow.notes}
-                        onChange={(event) =>
-                          setNewRowDraft(section.id, { notes: event.target.value })
-                        }
-                        placeholder="Примечание"
-                        className="w-full rounded border border-admin-border bg-admin-surface px-2 py-1.5 text-sm"
-                      />
-                    </AdminTableCell>
+                    <AdminTableCell />
                     <AdminTableCell>
                       <Button
                         type="button"
