@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import { StorefrontImage } from "@/features/store/storefront-image";
 import { toPublicImageSrc } from "@/lib/client/image-src";
 
 export type PortfolioCardItem = {
@@ -48,7 +48,7 @@ export function PortfolioCard({
           aria-label={`Открыть: ${item.title}`}
         >
           {currentSrc ? (
-            <Image
+            <StorefrontImage
               src={currentSrc}
               alt={item.title}
               fill

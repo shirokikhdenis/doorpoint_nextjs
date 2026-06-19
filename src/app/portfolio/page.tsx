@@ -1,7 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
+import { StorefrontImage } from "@/features/store/storefront-image";
 import { PortfolioCard, type PortfolioCardItem } from "@/features/portfolio/portfolio-card";
 import { toPublicImageSrc } from "@/lib/client/image-src";
 
@@ -150,7 +150,7 @@ export default function PortfolioPage() {
 
             <div className="relative mx-auto mt-8 h-[min(87dvh,51rem,calc(100dvh-10rem))] w-[min(100%,calc(min(87dvh,51rem,calc(100dvh-10rem))*9/16))] overflow-hidden rounded-lg bg-black sm:mt-0">
               {currentPhoto ? (
-                <Image
+                <StorefrontImage
                   src={currentPhoto}
                   alt={active.title}
                   fill
@@ -200,7 +200,7 @@ export default function PortfolioPage() {
                       aria-label={`Фото ${index + 1}`}
                       aria-pressed={selected}
                     >
-                      <Image src={url} alt="" fill className="object-cover" sizes="64px" />
+                      <StorefrontImage src={url} alt="" fill className="object-cover" sizes="64px" />
                     </button>
                   );
                 })}

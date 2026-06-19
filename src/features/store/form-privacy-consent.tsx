@@ -27,7 +27,7 @@ export function FormPrivacyConsent({
       />
       <span>
         Соглашаюсь с{" "}
-        <Link href="/privacy" className="text-brand underline-offset-2 hover:underline">
+        <Link href="/privacy" prefetch={false} className="text-brand underline-offset-2 hover:underline">
           политикой конфиденциальности
         </Link>{" "}
         и даю согласие на обработку персональных данных.

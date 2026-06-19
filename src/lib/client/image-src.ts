@@ -34,3 +34,11 @@ export function toPublicImageSrc(url: string | undefined | null): string {
 
   return "";
 }
+
+/** Локальные файлы из public/ и uploads — отдаём напрямую через nginx, без /_next/image. */
+export function shouldBypassImageOptimizer(url: string | undefined | null): boolean {
+  const normalized = toPublicImageSrc(url) || String(url ?? "").trim();
+  if (!normalized) return false;
+  if (normalized.startsWith("http://") || normalized.startsWith("https://")) return false;
+  return normalized.startsWith("/");
+}

@@ -1,5 +1,5 @@
-import Image from "next/image";
 import Link from "next/link";
+import { StorefrontImage } from "@/features/store/storefront-image";
 import { CATALOG_CARD_IMAGE_HEIGHT } from "@/features/catalog/catalog-constants";
 import { AddToCartIconButton } from "@/features/store/add-to-cart-icon-button";
 import { ProductPrice } from "@/features/store/price-tag";
@@ -44,7 +44,7 @@ export function CatalogProductCard({
             className={`relative mb-3 ${CATALOG_CARD_IMAGE_HEIGHT} overflow-hidden bg-white p-2`}
           >
             {cardImage ? (
-              <Image
+              <StorefrontImage
                 src={cardImage}
                 alt={item.name}
                 fill

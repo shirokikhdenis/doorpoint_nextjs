@@ -1,6 +1,7 @@
 "use client";
 
-import Image from "next/image";
+import { toPublicImageSrc } from "@/lib/client/image-src";
+import { StorefrontImage } from "@/features/store/storefront-image";
 
 type ProductGalleryProps = {
   productName: string;
@@ -28,8 +29,8 @@ export function ProductGallery({
       >
         <div className="relative aspect-[4/5] w-full rounded-lg bg-white p-3 sm:p-4 md:aspect-auto md:h-[620px]">
           {image ? (
-            <Image
-              src={image}
+            <StorefrontImage
+              src={toPublicImageSrc(image) || image}
               alt={productName}
               fill
               className="object-contain object-center"
@@ -54,8 +55,8 @@ export function ProductGallery({
                 aria-label="Показать фото"
                 aria-pressed={active}
               >
-                <Image
-                  src={url}
+                <StorefrontImage
+                  src={toPublicImageSrc(url) || url}
                   alt=""
                   width={64}
                   height={64}

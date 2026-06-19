@@ -1,5 +1,5 @@
-import Image from "next/image";
 import Link from "next/link";
+import { StorefrontImage } from "@/features/store/storefront-image";
 import { toPublicImageSrc } from "@/lib/client/image-src";
 import { CATALOG_PAGE_SLUG } from "@/lib/catalog-page-slugs";
 import { catalogPagePath } from "@/lib/catalog-url";
@@ -29,7 +29,7 @@ function CategoryTile({
       className={`group relative flex min-h-[220px] flex-col justify-between overflow-hidden rounded-lg border border-zinc-200 bg-white p-6 shadow-md transition hover:border-brand/25 hover:shadow-lg sm:min-h-[260px] ${fallbackClass}`}
     >
       {imageSrc ? (
-        <Image
+        <StorefrontImage
           src={imageSrc}
           alt=""
           fill

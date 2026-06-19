@@ -81,7 +81,7 @@ export function StoreFooter() {
         <div className="mt-12 border-t border-zinc-800 pt-8 text-xs text-zinc-500">
           <p>© {new Date().getFullYear()} ИП Широких Денис Сергеевич ИНН 290109641301</p>
           <p className="mt-2">
-            <Link href="/privacy" className="hover:text-zinc-300 hover:underline">
+            <Link href="/privacy" prefetch={false} className="hover:text-zinc-300 hover:underline">
               Политика конфиденциальности
             </Link>
           </p>

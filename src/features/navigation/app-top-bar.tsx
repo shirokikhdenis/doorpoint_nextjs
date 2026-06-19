@@ -1,5 +1,5 @@
-import Image from "next/image";
 import Link from "next/link";
+import { StorefrontImage } from "@/features/store/storefront-image";
 import { SiteSocialLinks } from "@/features/store/site-social-links";
 import { TrackedPhoneLink } from "@/features/store/tracked-phone-link";
 import { storefrontHeaderTripleGridClass } from "@/features/store/storefront-ui";
@@ -46,7 +46,7 @@ export function AppTopBar() {
               className="inline-flex rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
               aria-label="На главную"
             >
-              <Image
+              <StorefrontImage
                 src="/uploads/Logo-01.png"
                 alt=""
                 width={220}

@@ -47,3 +47,16 @@ test("toPublicImageSrc drops DB placeholder X", () => {
 test("toPublicImageSrc drops bare relative paths without leading slash", () => {
   assert.equal(toPublicImageSrc("uploads/foo.jpg"), "");
 });
+
+const shouldBypassImageOptimizer = (url) => {
+  const normalized = toPublicImageSrc(url) || String(url ?? "").trim();
+  if (!normalized) return false;
+  if (normalized.startsWith("http://") || normalized.startsWith("https://")) return false;
+  return normalized.startsWith("/");
+};
+
+test("shouldBypassImageOptimizer for uploads and public paths", () => {
+  assert.equal(shouldBypassImageOptimizer("/uploads/merged/a.jpg"), true);
+  assert.equal(shouldBypassImageOptimizer("http://localhost:3000/uploads/a.jpg"), true);
+  assert.equal(shouldBypassImageOptimizer("https://images.unsplash.com/x"), false);
+});

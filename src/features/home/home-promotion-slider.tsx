@@ -1,7 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
+import { StorefrontImage } from "@/features/store/storefront-image";
 import { useCallback, useEffect, useState } from "react";
 import { CATALOG_PAGE_SLUG } from "@/lib/catalog-page-slugs";
 import { buildCatalogPublicHref } from "@/lib/catalog-url";
@@ -27,7 +27,7 @@ function SlideContent({
       {banner.backgroundImageUrl ? (
         <div className="pointer-events-none absolute inset-y-0 right-0 w-[42%] min-w-[120px] max-w-[280px] p-4 sm:w-[45%] sm:max-w-none sm:p-6">
           <div className="relative h-full w-full">
-            <Image
+            <StorefrontImage
               src={banner.backgroundImageUrl}
               alt=""
               fill
