@@ -1,4 +1,3 @@
-import { createRequire } from "node:module";
 import { CATALOG_PAGE_LIMIT } from "@/features/catalog/catalog-constants";
 import {
   applyLabelToSelections,
@@ -17,16 +16,11 @@ import {
   type ProductCard,
 } from "@/lib/client/normalizers";
 import { resolveCatalogPageSlug } from "@/lib/catalog-page-slugs";
-
-const require = createRequire(import.meta.url);
-const catalogService = require("@/lib/server/services/catalogService") as {
-  listCatalogPages: () => Promise<unknown[]>;
-  getFilterMeta: (query: { catalogPage: string }) => Promise<unknown>;
-  getProducts: (query: Record<string, string>) => Promise<{
-    items?: unknown[];
-    total?: number;
-  }>;
-};
+import {
+  getCachedCatalogPages,
+  getCachedFilterMeta,
+  getCachedProducts,
+} from "@/lib/server/cache/storefront-cache";
 
 export type CatalogShellInitial = {
   catalogPages: CatalogPageItem[];
@@ -46,7 +40,7 @@ export async function getCatalogShell(
   const catalogPage = resolveCatalogPageSlug(options.catalogPage);
   let filterState = parseCatalogFilterStateFromSearchParams(flat);
 
-  const metaRaw = await catalogService.getFilterMeta({ catalogPage });
+  const metaRaw = await getCachedFilterMeta(catalogPage);
   const meta = normalizeCatalogMeta(metaRaw);
 
   if (flat.catalogLabel) {
@@ -69,8 +63,8 @@ export async function getCatalogShell(
   };
 
   const [catalogPagesRaw, productsRaw] = await Promise.all([
-    catalogService.listCatalogPages(),
-    catalogService.getProducts(productQuery),
+    getCachedCatalogPages(),
+    getCachedProducts(productQuery),
   ]);
 
   return {

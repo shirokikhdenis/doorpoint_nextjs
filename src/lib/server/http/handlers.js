@@ -1,6 +1,6 @@
 const { NextResponse } = require("next/server");
 
-const json = (data, status = 200) => NextResponse.json(data, { status });
+const json = (data, status = 200, init = {}) => NextResponse.json(data, { status, ...init });
 
 const empty = (status = 204) => new NextResponse(null, { status });
 

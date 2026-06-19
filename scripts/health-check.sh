@@ -16,6 +16,7 @@ check_http() {
   local label="$1"
   local url="$2"
   local max_time="${3:-15}"
+  local max_ok="${4:-3}"
   local out
   out="$(curl -sS -o /dev/null -w "%{http_code} %{time_total}" --max-time "$max_time" "$url" 2>/dev/null)" || {
     fail "$label -> curl error ($url)"
@@ -25,7 +26,11 @@ check_http() {
   code="${out%% *}"
   time="${out#* }"
   if [[ "$code" == "200" ]]; then
-    pass "$label -> HTTP $code ${time}s"
+    if awk -v t="$time" -v limit="$max_ok" 'BEGIN { exit !(t <= limit) }'; then
+      pass "$label -> HTTP $code ${time}s"
+    else
+      fail "$label -> HTTP $code ${time}s (slow, limit ${max_ok}s) ($url)"
+    fi
   else
     fail "$label -> HTTP $code ${time}s ($url)"
   fi
@@ -56,12 +61,14 @@ fi
 echo
 
 echo "--- Local app ( $BASE_URL ) ---"
-check_http "GET /" "$BASE_URL/"
-check_http "GET /catalog" "$BASE_URL/catalog" 20
-check_http "GET /catalog/dveri-mezhkomnatnyye" "$BASE_URL/catalog/dveri-mezhkomnatnyye" 25
-check_http "GET /contact" "$BASE_URL/contact"
-check_http "GET /api/health" "$BASE_URL/api/health"
-check_http "GET /api/products" "$BASE_URL/api/products?catalogPage=all&page=1&limit=5" 20
+check_http "GET /" "$BASE_URL/" 15 3
+check_http "GET /catalog" "$BASE_URL/catalog" 20 3
+check_http "GET /catalog/dveri-mezhkomnatnyye" "$BASE_URL/catalog/dveri-mezhkomnatnyye" 25 3
+check_http "GET /contact" "$BASE_URL/contact" 15 3
+check_http "GET /api/health" "$BASE_URL/api/health" 15 3
+check_http "GET /api/products" "$BASE_URL/api/products?catalogPage=dveri-mezhkomnatnyye&page=1&limit=20" 20 3
+check_http "GET /api/products/meta" "$BASE_URL/api/products/meta?catalogPage=dveri-mezhkomnatnyye" 20 3
+check_http "GET /api/products/catalog-pages" "$BASE_URL/api/products/catalog-pages" 20 3
 
 echo
 echo "--- SSR catalog (products in HTML) ---"
@@ -108,10 +115,10 @@ if [[ -d "$PROJECT_DIR/.git" ]]; then
   cd "$PROJECT_DIR"
   local_commit="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
   echo "git HEAD: $local_commit $(git log -1 --format=%s 2>/dev/null || true)"
-  if grep -q 'router.replace' src/features/catalog/use-catalog-filters.ts 2>/dev/null; then
-    pass "catalog filter URL sync patch present"
+  if grep -q 'getCachedCatalogPages' src/lib/server/catalog-shell.ts 2>/dev/null; then
+    pass "storefront data cache wired in catalog shell"
   else
-    fail "catalog filter URL sync patch missing"
+    fail "storefront data cache missing in catalog shell"
   fi
 fi
 

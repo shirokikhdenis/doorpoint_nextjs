@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import { invalidateStorefrontCache } from "@/lib/server/cache/invalidate-storefront";
 
 const require = createRequire(import.meta.url);
 const adminService = require("@/lib/server/services/adminService");
@@ -27,14 +28,22 @@ const handle = async (request, context) =>
 
     if (match(path, method, "GET", "bootstrap")) return json(await adminService.listBootstrap());
     if (match(path, method, "GET", "attributes")) return json(await adminService.listAttributes());
-    if (match(path, method, "POST", "catalog-pages")) return json(await adminService.createCatalogPage(body), 201);
+    if (match(path, method, "POST", "catalog-pages")) {
+      const created = await adminService.createCatalogPage(body);
+      await invalidateStorefrontCache("catalog-pages");
+      return json(created, 201);
+    }
     if (path[0] === "catalog-pages" && path.length === 2 && method === "PUT") {
       const updated = await adminService.updateCatalogPage(Number(path[1]), body);
-      return updated ? json(updated) : json({ message: "Catalog page not found" }, 404);
+      if (!updated) return json({ message: "Catalog page not found" }, 404);
+      await invalidateStorefrontCache("catalog-pages");
+      return json(updated);
     }
     if (path[0] === "catalog-pages" && path.length === 2 && method === "DELETE") {
       const deleted = await adminService.deleteCatalogPage(Number(path[1]));
-      return deleted ? empty(204) : json({ message: "Catalog page not found or cannot delete default page" }, 404);
+      if (!deleted) return json({ message: "Catalog page not found or cannot delete default page" }, 404);
+      await invalidateStorefrontCache("catalog-pages");
+      return empty(204);
     }
 
     if (match(path, method, "GET", "catalog-page-labels")) {
@@ -46,24 +55,38 @@ const handle = async (request, context) =>
     if (match(path, method, "POST", "catalog-page-labels")) {
       const result = await adminService.createCatalogPageLabel(body);
       if (!result.ok) return json({ message: result.message }, result.status || 400);
+      await invalidateStorefrontCache("catalog-pages");
       return json(result.label, 201);
     }
     if (path[0] === "catalog-page-labels" && path.length === 2 && method === "PUT") {
       const result = await adminService.updateCatalogPageLabel(Number(path[1]), body);
       if (!result.ok) return json({ message: result.message }, result.status || 404);
+      await invalidateStorefrontCache("catalog-pages");
       return json(result.label);
     }
     if (path[0] === "catalog-page-labels" && path.length === 2 && method === "DELETE") {
       const result = await adminService.deleteCatalogPageLabel(Number(path[1]));
       if (!result.ok) return json({ message: result.message }, result.status || 404);
+      await invalidateStorefrontCache("catalog-pages");
       return empty(204);
     }
 
-    if (match(path, method, "POST", "categories")) return json(await adminService.createCategory(body), 201);
-    if (path[0] === "categories" && path.length === 2 && method === "PUT") return json(await adminService.updateCategory(Number(path[1]), body));
+    if (match(path, method, "POST", "categories")) {
+      const created = await adminService.createCategory(body);
+      await invalidateStorefrontCache("products");
+      return json(created, 201);
+    }
+    if (path[0] === "categories" && path.length === 2 && method === "PUT") {
+      const updated = await adminService.updateCategory(Number(path[1]), body);
+      await invalidateStorefrontCache("products");
+      return json(updated);
+    }
     if (path[0] === "categories" && path.length === 2 && method === "DELETE") {
       const result = await adminService.deleteCategory(Number(path[1]));
-      if (result.ok) return empty(204);
+      if (result.ok) {
+        await invalidateStorefrontCache("products");
+        return empty(204);
+      }
       if (result.reason === "not_found") return json({ message: "Category not found" }, 404);
       if (result.reason === "category_in_use") {
         return json(
@@ -77,11 +100,22 @@ const handle = async (request, context) =>
       return json({ message: "Не удалось удалить категорию", ...result }, 400);
     }
 
-    if (match(path, method, "POST", "subcategories")) return json(await adminService.createSubcategory(body), 201);
-    if (path[0] === "subcategories" && path.length === 2 && method === "PUT") return json(await adminService.updateSubcategory(Number(path[1]), body));
+    if (match(path, method, "POST", "subcategories")) {
+      const created = await adminService.createSubcategory(body);
+      await invalidateStorefrontCache("products");
+      return json(created, 201);
+    }
+    if (path[0] === "subcategories" && path.length === 2 && method === "PUT") {
+      const updated = await adminService.updateSubcategory(Number(path[1]), body);
+      await invalidateStorefrontCache("products");
+      return json(updated);
+    }
     if (path[0] === "subcategories" && path.length === 2 && method === "DELETE") {
       const result = await adminService.deleteSubcategory(Number(path[1]));
-      if (result.ok) return empty(204);
+      if (result.ok) {
+        await invalidateStorefrontCache("products");
+        return empty(204);
+      }
       if (result.reason === "not_found") return json({ message: "Subcategory not found" }, 404);
       if (result.reason === "subcategory_in_use") {
         return json(
@@ -95,11 +129,27 @@ const handle = async (request, context) =>
       return json({ message: "Не удалось удалить подкатегорию", ...result }, 400);
     }
 
-    if (match(path, method, "POST", "attributes")) return json(await adminService.createAttribute(body), 201);
-    if (path[0] === "attributes" && path.length === 2 && method === "PUT") return json(await adminService.updateAttribute(Number(path[1]), body));
-    if (match(path, method, "POST", "attribute-options")) return json(await adminService.createAttributeOption(body), 201);
+    if (match(path, method, "POST", "attributes")) {
+      const created = await adminService.createAttribute(body);
+      await invalidateStorefrontCache("products");
+      return json(created, 201);
+    }
+    if (path[0] === "attributes" && path.length === 2 && method === "PUT") {
+      const updated = await adminService.updateAttribute(Number(path[1]), body);
+      await invalidateStorefrontCache("products");
+      return json(updated);
+    }
+    if (match(path, method, "POST", "attribute-options")) {
+      const created = await adminService.createAttributeOption(body);
+      await invalidateStorefrontCache("products");
+      return json(created, 201);
+    }
 
-    if (match(path, method, "POST", "products")) return json(await adminService.createProduct(body), 201);
+    if (match(path, method, "POST", "products")) {
+      const created = await adminService.createProduct(body);
+      await invalidateStorefrontCache("products");
+      return json(created, 201);
+    }
     if (match(path, method, "DELETE", "products")) {
       const rawSub = query.subcategoryId;
       const rawCat = query.categoryId;
@@ -113,31 +163,47 @@ const handle = async (request, context) =>
           (subNum != null && Number.isFinite(subNum) && subNum > 0) ||
           (catNum != null && Number.isFinite(catNum) && catNum > 0);
         if (!scopedOk) return json({ message: "Некорректный categoryId или subcategoryId" }, 400);
-        return json({ deleted: await adminService.deleteProductsByCategoryScope(query) });
+        const deleted = await adminService.deleteProductsByCategoryScope(query);
+        await invalidateStorefrontCache("products");
+        return json({ deleted });
       }
-      return json({ deleted: await adminService.deleteAllProducts() });
+      const deleted = await adminService.deleteAllProducts();
+      await invalidateStorefrontCache("products");
+      return json({ deleted });
     }
     if (path[0] === "products" && path.length === 3 && path[2] === "display-order" && method === "PATCH") {
       const updated = await adminService.patchProductDisplayOrder(Number(path[1]), body);
-      return updated ? json(updated) : json({ message: "Product not found" }, 404);
+      if (!updated) return json({ message: "Product not found" }, 404);
+      await invalidateStorefrontCache("products");
+      return json(updated);
     }
     if (path[0] === "products" && path.length === 3 && path[2] === "badges" && method === "PATCH") {
       if (!Array.isArray(body.badges)) {
         return json({ message: "badges must be an array" }, 400);
       }
       const updated = await adminService.patchProductBadges(Number(path[1]), body);
-      return updated ? json(updated) : json({ message: "Product not found" }, 404);
+      if (!updated) return json({ message: "Product not found" }, 404);
+      await invalidateStorefrontCache("products");
+      return json(updated);
     }
     if (path[0] === "products" && path.length === 3 && path[2] === "sale" && method === "PATCH") {
       const updated = await adminService.patchProductSale(Number(path[1]), body);
       if (updated?.error) return json({ message: updated.error }, 400);
-      return updated ? json(updated) : json({ message: "Product not found" }, 404);
+      if (!updated) return json({ message: "Product not found" }, 404);
+      await invalidateStorefrontCache("products");
+      return json(updated);
     }
     if (path[0] === "products" && path.length === 3 && path[2] === "seo" && method === "PATCH") {
       const updated = await adminService.patchProductSeo(Number(path[1]), body);
-      return updated ? json(updated) : json({ message: "Product not found" }, 404);
+      if (!updated) return json({ message: "Product not found" }, 404);
+      await invalidateStorefrontCache("products");
+      return json(updated);
     }
-    if (path[0] === "products" && path.length === 2 && method === "PUT") return json(await adminService.updateProduct(Number(path[1]), body));
+    if (path[0] === "products" && path.length === 2 && method === "PUT") {
+      const updated = await adminService.updateProduct(Number(path[1]), body);
+      await invalidateStorefrontCache("products");
+      return json(updated);
+    }
     if (path[0] === "products" && path.length === 2 && method === "GET") {
       const product = await adminService.getProductForEdit(Number(path[1]));
       return product ? json(product) : json({ message: "Product not found" }, 404);
@@ -146,7 +212,9 @@ const handle = async (request, context) =>
     if (match(path, method, "GET", "products-table")) return json(await adminService.getProductsTable(query));
     if (match(path, method, "GET", "sale-settings")) return json(await adminService.getSaleSettings());
     if (match(path, method, "PATCH", "sale-settings")) {
-      return json(await adminService.updateSaleSettings(body));
+      const updated = await adminService.updateSaleSettings(body);
+      await invalidateStorefrontCache("products");
+      return json(updated);
     }
     if (match(path, method, "GET", "product-attribute-values")) {
       if (!String(query.code || "").trim()) {
@@ -156,7 +224,9 @@ const handle = async (request, context) =>
     }
     if (match(path, method, "POST", "import", "csv")) {
       if (!Array.isArray(body.rows)) return json({ message: "rows must be an array" }, 400);
-      return json(await csvImportService.importRows(body.rows));
+      const result = await csvImportService.importRows(body.rows);
+      await invalidateStorefrontCache("products");
+      return json(result);
     }
 
     if (match(path, method, "GET", "promotions")) {
@@ -165,21 +235,26 @@ const handle = async (request, context) =>
     if (match(path, method, "POST", "promotions")) {
       const result = await promotionService.createPromotion(body);
       if (!result.ok) return json({ message: result.message }, 400);
+      await invalidateStorefrontCache("promotions");
       return json(result.banner, 201);
     }
     if (path[0] === "promotions" && path.length === 2 && method === "PUT") {
       const result = await promotionService.updatePromotion(Number(path[1]), body);
       if (!result.ok) return json({ message: result.message }, result.status || 400);
+      await invalidateStorefrontCache("promotions");
       return json(result.banner);
     }
     if (path[0] === "promotions" && path.length === 2 && method === "DELETE") {
       const result = await promotionService.deletePromotion(Number(path[1]));
       if (!result.ok) return json({ message: result.message }, result.status || 404);
+      await invalidateStorefrontCache("promotions");
       return empty(204);
     }
     if (match(path, method, "PATCH", "promotions", "reorder")) {
       const orderedIds = Array.isArray(body.orderedIds) ? body.orderedIds : [];
-      return json(await promotionService.reorderPromotions(orderedIds));
+      const result = await promotionService.reorderPromotions(orderedIds);
+      await invalidateStorefrontCache("promotions");
+      return json(result);
     }
 
     if (match(path, method, "POST", "leads")) {
