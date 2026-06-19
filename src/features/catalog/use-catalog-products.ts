@@ -1,9 +1,13 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { CATALOG_PAGE_LIMIT, emptyCatalogMeta } from "@/features/catalog/catalog-constants";
+import { CATALOG_PAGE_LIMIT } from "@/features/catalog/catalog-constants";
 import { applyLabelToSelections, dedupeProductsById } from "@/features/catalog/catalog-filter-utils";
-import { readCatalogScrollPayload, resolveCatalogPageSlug } from "@/features/catalog/catalog-scroll-storage";
+import {
+  clearCatalogScrollPayload,
+  readCatalogScrollPayload,
+  resolveCatalogPageSlug,
+} from "@/features/catalog/catalog-scroll-storage";
 import type { CatalogReturnSnapshot } from "@/features/catalog/catalog-types";
 import {
   CatalogMeta,
@@ -27,14 +31,6 @@ type UseCatalogProductsOptions = {
   initial?: CatalogShellInitial;
 };
 
-const shouldSkipInitialHydration = (initial?: CatalogShellInitial) => {
-  if (!initial || typeof window === "undefined") return true;
-  const scroll = readCatalogScrollPayload();
-  const urlPage = resolveCatalogPageSlug();
-  if (!scroll?.catalogPage || scroll.catalogPage !== urlPage) return false;
-  return Number(scroll.loadedPages) > 1;
-};
-
 const matchesInitialShell = (
   initial: CatalogShellInitial | undefined,
   query: string,
@@ -43,8 +39,7 @@ const matchesInitialShell = (
   Boolean(
     initial &&
       query === initial.queryString &&
-      catalogPage === initial.catalogPage &&
-      !shouldSkipInitialHydration(initial),
+      catalogPage === initial.catalogPage,
   );
 
 export function useCatalogProducts({
@@ -56,28 +51,43 @@ export function useCatalogProducts({
   setMeta,
   initial,
 }: UseCatalogProductsOptions) {
+  const initialShellRef = useRef(initial);
+  initialShellRef.current = initial;
+
+  const useInitialRef = useRef(matchesInitialShell(initial, query, catalogPage));
   const catalogReturnSnapshotRef = useRef<CatalogReturnSnapshot | null>(null);
   const scrollRestoredRef = useRef(false);
-  const useInitialRef = useRef(matchesInitialShell(initial, query, catalogPage));
   const skippedInitialMetaRef = useRef(false);
   const skippedInitialPagesRef = useRef(false);
 
   useLayoutEffect(() => {
     if (typeof window === "undefined") return;
     if (catalogReturnSnapshotRef.current) return;
-    const p = readCatalogScrollPayload();
-    if (!p) return;
-    const slug = String(p.catalogPage || "").trim();
+
+    const urlPage = resolveCatalogPageSlug();
+    const payload = readCatalogScrollPayload();
+    if (!payload) return;
+
+    if (payload.catalogPage && payload.catalogPage !== urlPage) {
+      clearCatalogScrollPayload();
+      return;
+    }
+
+    const slug = String(payload.catalogPage || "").trim();
     if (!slug) return;
+
+    const loadedPages = Math.min(25, Math.max(1, Number(payload.loadedPages) || 1));
+    if (loadedPages <= 1) {
+      clearCatalogScrollPayload();
+      return;
+    }
+
     catalogReturnSnapshotRef.current = {
       catalogPage: slug,
-      scrollY: Number(p.scrollY) || 0,
-      loadedPages: Math.min(25, Math.max(1, Number(p.loadedPages) || 1)),
+      scrollY: Number(payload.scrollY) || 0,
+      loadedPages,
       scrollApplied: false,
     };
-    if (Number(p.loadedPages) > 1) {
-      useInitialRef.current = false;
-    }
   }, []);
 
   const [catalogPages, setCatalogPages] = useState<CatalogPageItem[]>(() =>
@@ -95,84 +105,110 @@ export function useCatalogProducts({
   const [error, setError] = useState("");
 
   const lastFetchedRef = useRef<{ query: string; page: number }>(
-    useInitialRef.current ? { query, page: 1 } : { query: "", page: 0 },
+    useInitialRef.current && initial
+      ? { query: initial.queryString, page: 1 }
+      : { query: "", page: 0 },
   );
   const restoreCheckDoneRef = useRef(false);
+  const catalogPageRef = useRef(catalogPage);
+  const fetchGenerationRef = useRef(0);
+
+  useEffect(() => {
+    if (catalogPageRef.current === catalogPage) return;
+    catalogPageRef.current = catalogPage;
+
+    useInitialRef.current = false;
+    skippedInitialMetaRef.current = false;
+    skippedInitialPagesRef.current = false;
+    restoreCheckDoneRef.current = false;
+    catalogReturnSnapshotRef.current = null;
+    lastFetchedRef.current = { query: "", page: 0 };
+
+    setProducts([]);
+    setTotal(0);
+    setPage(1);
+    setLoading(true);
+    setLoadingMore(false);
+    setError("");
+  }, [catalogPage]);
 
   useEffect(() => {
     if (loading || scrollRestoredRef.current || typeof window === "undefined") return;
+
+    const finishScrollRestore = () => {
+      scrollRestoredRef.current = true;
+    };
+
     const snap = catalogReturnSnapshotRef.current;
     if (!snap || snap.scrollApplied) {
-      scrollRestoredRef.current = true;
+      finishScrollRestore();
       return;
     }
     if (snap.catalogPage !== catalogPage) {
-      scrollRestoredRef.current = true;
+      finishScrollRestore();
       catalogReturnSnapshotRef.current = null;
-      try {
-        window.sessionStorage.removeItem("catalogScroll");
-      } catch {
-        /* ignore */
-      }
+      clearCatalogScrollPayload();
       return;
     }
+
+    scrollRestoredRef.current = true;
+    snap.scrollApplied = true;
     const targetY = snap.scrollY;
-    if (!Number.isFinite(targetY) || targetY <= 0) {
-      snap.scrollApplied = true;
-      scrollRestoredRef.current = true;
-    } else {
-      scrollRestoredRef.current = true;
-      snap.scrollApplied = true;
+    if (Number.isFinite(targetY) && targetY > 0) {
       window.scrollTo({ top: targetY, behavior: "auto" });
       requestAnimationFrame(() => window.scrollTo({ top: targetY, behavior: "auto" }));
     }
-    try {
-      window.sessionStorage.removeItem("catalogScroll");
-    } catch {
-      /* ignore */
-    }
+    clearCatalogScrollPayload();
     catalogReturnSnapshotRef.current = null;
   }, [loading, catalogPage]);
 
   useEffect(() => {
+    const shell = initialShellRef.current;
     if (
-      initial &&
+      shell &&
       !skippedInitialPagesRef.current &&
       useInitialRef.current &&
-      catalogPage === initial.catalogPage &&
-      initial.catalogPages.length > 0
+      catalogPage === shell.catalogPage &&
+      shell.catalogPages.length > 0
     ) {
       skippedInitialPagesRef.current = true;
-      setCatalogPages(initial.catalogPages);
+      setCatalogPages(shell.catalogPages);
       return;
     }
 
+    let cancelled = false;
     const run = async () => {
       const pagesRes = await fetch("/api/products/catalog-pages");
       if (!pagesRes.ok) throw new Error("Не удалось загрузить разделы каталога");
       const safePages = normalizeCatalogPages(await pagesRes.json());
+      if (cancelled) return;
       setCatalogPages(safePages);
       if (safePages.length && !safePages.some((p) => p.slug === catalogPage)) {
         const fallback = safePages.find((p) => p.isDefault) || safePages[0];
         setCatalogPage(fallback?.slug || "all");
       }
     };
-    run().catch((err: Error) => setError(err.message));
-  }, [catalogPage, initial, setCatalogPage]);
+    run().catch((err: Error) => {
+      if (!cancelled) setError(err.message);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [catalogPage, initial?.catalogPage, setCatalogPage]);
 
   useEffect(() => {
+    const shell = initialShellRef.current;
     if (
-      initial &&
+      shell &&
       !skippedInitialMetaRef.current &&
       useInitialRef.current &&
-      catalogPage === initial.catalogPage
+      catalogPage === shell.catalogPage
     ) {
       skippedInitialMetaRef.current = true;
       return;
     }
 
     let cancelled = false;
-    setMeta(emptyCatalogMeta);
     (async () => {
       try {
         const res = await fetch(
@@ -202,51 +238,80 @@ export function useCatalogProducts({
     return () => {
       cancelled = true;
     };
-  }, [catalogPage, initial, setAttrSelections, setAttrRanges, setMeta]);
+  }, [catalogPage, initial?.catalogPage, setAttrSelections, setAttrRanges, setMeta]);
 
   useEffect(() => {
+    const shell = initialShellRef.current;
+    const usingInitialShell = matchesInitialShell(shell, query, catalogPage);
+    useInitialRef.current = usingInitialShell;
+
+    if (usingInitialShell && shell) {
+      setProducts(shell.products);
+      setTotal(shell.total);
+      setPage(1);
+      setLoading(false);
+      setLoadingMore(false);
+      setError("");
+      lastFetchedRef.current = { query: shell.queryString, page: 1 };
+      restoreCheckDoneRef.current = false;
+      return;
+    }
+
     setPage(1);
+    lastFetchedRef.current = { query: "", page: 0 };
     restoreCheckDoneRef.current = false;
-  }, [query]);
+  }, [query, catalogPage]);
 
   useEffect(() => {
     if (lastFetchedRef.current.query === query && lastFetchedRef.current.page === page) {
       return;
     }
+
+    const generation = ++fetchGenerationRef.current;
     let cancelled = false;
+
     (async () => {
       if (page === 1) setLoading(true);
       else setLoadingMore(true);
       setError("");
+
       try {
         if (!restoreCheckDoneRef.current && page === 1) {
           const snap = catalogReturnSnapshotRef.current;
-          if (snap?.catalogPage === catalogPage) {
+          if (snap?.catalogPage === catalogPage && snap.loadedPages > 1) {
             const wantPages = snap.loadedPages;
-            if (wantPages > 1) {
-              const numbers = Array.from({ length: wantPages }, (_, i) => i + 1);
-              const responses = await Promise.all(
-                numbers.map(async (p) => {
-                  const params = new URLSearchParams(query);
-                  params.set("page", String(p));
-                  params.set("limit", String(CATALOG_PAGE_LIMIT));
-                  const r = await fetch(`/api/products?${params.toString()}`);
-                  if (!r.ok) throw new Error("Не удалось загрузить данные каталога");
-                  return (await r.json()) as { total?: number };
-                }),
-              );
-              if (cancelled) return;
-              const all = dedupeProductsById(
-                responses.flatMap((j) => normalizeProductsResponse(j)),
-              );
-              const lastTotal = Number(responses[responses.length - 1]?.total) || all.length;
-              setTotal(lastTotal);
-              setProducts(all);
-              lastFetchedRef.current = { query, page: wantPages };
-              setPage(wantPages);
-              restoreCheckDoneRef.current = true;
-              return;
-            }
+            const hasInitialPage = matchesInitialShell(initialShellRef.current, query, catalogPage);
+            const pageNumbers = hasInitialPage
+                ? Array.from({ length: wantPages - 1 }, (_, index) => index + 2)
+                : Array.from({ length: wantPages }, (_, index) => index + 1);
+
+              if (pageNumbers.length > 0) {
+                setLoadingMore(true);
+                const responses = await Promise.all(
+                  pageNumbers.map(async (pageNumber) => {
+                    const params = new URLSearchParams(query);
+                    params.set("page", String(pageNumber));
+                    params.set("limit", String(CATALOG_PAGE_LIMIT));
+                    const response = await fetch(`/api/products?${params.toString()}`);
+                    if (!response.ok) throw new Error("Не удалось загрузить данные каталога");
+                    return (await response.json()) as { total?: number };
+                  }),
+                );
+                if (cancelled || generation !== fetchGenerationRef.current) return;
+
+                const extraItems = dedupeProductsById(
+                  responses.flatMap((json) => normalizeProductsResponse(json)),
+                );
+                setProducts((prev) =>
+                  hasInitialPage ? dedupeProductsById([...prev, ...extraItems]) : extraItems,
+                );
+                const lastTotal = Number(responses[responses.length - 1]?.total) || 0;
+                if (lastTotal > 0) setTotal(lastTotal);
+                lastFetchedRef.current = { query, page: wantPages };
+                setPage(wantPages);
+                restoreCheckDoneRef.current = true;
+                return;
+              }
           }
           restoreCheckDoneRef.current = true;
         }
@@ -257,7 +322,8 @@ export function useCatalogProducts({
         const res = await fetch(`/api/products?${params.toString()}`);
         if (!res.ok) throw new Error("Не удалось загрузить данные каталога");
         const json = (await res.json()) as { total?: number };
-        if (cancelled) return;
+        if (cancelled || generation !== fetchGenerationRef.current) return;
+
         const items = normalizeProductsResponse(json);
         setTotal(Number(json?.total) || 0);
         setProducts((prev) =>
@@ -265,14 +331,17 @@ export function useCatalogProducts({
         );
         lastFetchedRef.current = { query, page };
       } catch (err) {
-        if (!cancelled) setError((err as Error).message);
+        if (!cancelled && generation === fetchGenerationRef.current) {
+          setError((err as Error).message);
+        }
       } finally {
-        if (!cancelled) {
+        if (!cancelled && generation === fetchGenerationRef.current) {
           setLoading(false);
           setLoadingMore(false);
         }
       }
     })();
+
     return () => {
       cancelled = true;
     };

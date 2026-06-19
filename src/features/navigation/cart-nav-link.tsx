@@ -21,6 +21,7 @@ export function CartNavLink({ className }: CartNavLinkProps) {
   return (
     <Link
       href="/cart"
+      prefetch={false}
       aria-current={isActive ? "page" : undefined}
       aria-label={
         totalQuantity > 0

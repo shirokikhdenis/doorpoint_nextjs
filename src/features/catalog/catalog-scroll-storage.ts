@@ -78,6 +78,15 @@ export const buildInitialCatalogFilters = (): CatalogFilterState => {
   };
 };
 
+export const clearCatalogScrollPayload = (): void => {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.removeItem("catalogScroll");
+  } catch {
+    /* sessionStorage unavailable */
+  }
+};
+
 export const saveCatalogScrollPayload = (
   catalogPage: string,
   loadedPages: number,

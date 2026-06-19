@@ -64,6 +64,7 @@ export function AppCatalogNav() {
             <Link
               key={page.slug}
               href={catalogPagePath(page.slug)}
+              prefetch={false}
               scroll={false}
               aria-current={isActive ? "page" : undefined}
               onClick={() => setLastSelectedSlug(page.slug)}

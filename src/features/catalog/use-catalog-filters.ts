@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   applyLabelToSelections,
@@ -43,6 +43,13 @@ const defaultFilterState = (): CatalogFilterState => ({
 });
 
 const resolveCatalogBootstrap = (options?: UseCatalogFiltersOptions) => {
+  if (options?.initialFilterState && options.initialCatalogPage) {
+    return {
+      catalogPage: options.initialCatalogPage,
+      filters: options.initialFilterState,
+    };
+  }
+
   const scroll =
     typeof window !== "undefined" ? readCatalogScrollPayload() : null;
   const urlPage =
@@ -54,13 +61,6 @@ const resolveCatalogBootstrap = (options?: UseCatalogFiltersOptions) => {
     return {
       catalogPage: scroll.catalogPage,
       filters: buildInitialCatalogFilters(),
-    };
-  }
-
-  if (options?.initialFilterState && options.initialCatalogPage) {
-    return {
-      catalogPage: options.initialCatalogPage,
-      filters: options.initialFilterState,
     };
   }
 
@@ -84,6 +84,7 @@ export function useCatalogFilters(meta: CatalogMeta, options?: UseCatalogFilters
   const [bootstrap] = useState(() => resolveCatalogBootstrap(options));
   const [catalogPage, setCatalogPage] = useState(() => bootstrap.catalogPage);
   const pathname = usePathname();
+  const router = useRouter();
   const searchParams = useSearchParams();
 
   const [searchInput, setSearchInput] = useState(bootstrap.filters.search);
@@ -245,7 +246,20 @@ export function useCatalogFilters(meta: CatalogMeta, options?: UseCatalogFilters
     if (!pathname) return;
     const pageFromPath = catalogPageFromPathname(pathname);
     if (pageFromPath === catalogPage) return;
+
+    if (typeof window !== "undefined") {
+      try {
+        const scroll = readCatalogScrollPayload();
+        if (scroll?.catalogPage && scroll.catalogPage !== pageFromPath) {
+          window.sessionStorage.removeItem("catalogScroll");
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+
     setCatalogPage(pageFromPath);
+    setSearchInput("");
     setCategories([]);
     setSubcategories([]);
     setAttrSelections({});
@@ -290,8 +304,8 @@ export function useCatalogFilters(meta: CatalogMeta, options?: UseCatalogFilters
     const qs = params.toString();
     const nextUrl = qs ? `${path}?${qs}` : path;
     const cur = window.location.pathname + window.location.search;
-    if (nextUrl !== cur) window.history.replaceState(null, "", nextUrl);
-  }, [attrSelections, catalogPage, filterState, meta.labels]);
+    if (nextUrl !== cur) router.replace(nextUrl, { scroll: false });
+  }, [attrSelections, catalogPage, filterState, meta.labels, router]);
 
   return {
     catalogPage,

@@ -39,7 +39,7 @@ export function CatalogProductCard({
     >
       <div className="relative">
         <ProductCardBadges badges={item.badges || []} />
-        <Link href={productHref(item)} className="block" onClick={onNavigateToProduct}>
+        <Link href={productHref(item)} prefetch={false} className="block" onClick={onNavigateToProduct}>
           <div
             className={`relative mb-3 ${CATALOG_CARD_IMAGE_HEIGHT} overflow-hidden bg-white p-2`}
           >
@@ -58,6 +58,7 @@ export function CatalogProductCard({
       </div>
       <Link
         href={productHref(item)}
+        prefetch={false}
         className="mt-1 flex flex-1 flex-col"
         onClick={onNavigateToProduct}
       >

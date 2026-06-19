@@ -25,6 +25,7 @@ function CategoryTile({
   return (
     <Link
       href={href}
+      prefetch={false}
       className={`group relative flex min-h-[220px] flex-col justify-between overflow-hidden rounded-lg border border-zinc-200 bg-white p-6 shadow-md transition hover:border-brand/25 hover:shadow-lg sm:min-h-[260px] ${fallbackClass}`}
     >
       {imageSrc ? (

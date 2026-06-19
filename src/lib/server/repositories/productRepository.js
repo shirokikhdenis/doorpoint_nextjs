@@ -348,9 +348,14 @@ const applyAttributeFilters = (filters, addParam, where, attrDefByCode) => {
   });
 };
 
+/** Cached for the lifetime of the Node process — attribute definitions change rarely. */
+let attributeDefCache = null;
+
 const loadAttributeDefMap = async () => {
+  if (attributeDefCache) return attributeDefCache;
   const defs = await attributeRepository.listAttributes();
-  return new Map(defs.map((def) => [def.code, def]));
+  attributeDefCache = new Map(defs.map((def) => [def.code, def]));
+  return attributeDefCache;
 };
 
 const listProducts = async (filters) => {

@@ -76,6 +76,7 @@ export function HomeProductHits({
         </h2>
         <Link
           href={catalogHref}
+          prefetch={false}
           className="inline-flex shrink-0 items-center gap-2 rounded-md border border-brand/35 bg-white px-5 py-2.5 text-base font-semibold text-brand shadow-sm transition hover:border-brand hover:bg-brand/5 hover:shadow"
         >
           Весь каталог →

@@ -77,6 +77,7 @@ function StaticPromoFallback() {
   return (
     <Link
       href={promoHref}
+      prefetch={false}
       className="group relative block min-h-[280px] overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-md transition hover:shadow-lg"
     >
       <SlideContent
@@ -157,6 +158,7 @@ export function HomePromotionSlider({ banners }: HomePromotionSliderProps) {
             <Link
               key={banner.id}
               href={banner.href}
+              prefetch={false}
               className={cn(
                 "group absolute inset-0 block overflow-hidden transition-opacity duration-500",
                 i === index % count ? "z-10 opacity-100" : "z-0 opacity-0 pointer-events-none",

@@ -43,7 +43,7 @@ export function StoreFooter() {
             <ul className="mt-4 space-y-2 text-sm text-zinc-300">
               {footerNavLinks.map((link) => (
                 <li key={link.href}>
-                  <Link href={link.href} className="hover:text-white hover:underline">
+                  <Link href={link.href} prefetch={false} className="hover:text-white hover:underline">
                     {link.label}
                   </Link>
                 </li>

@@ -61,8 +61,16 @@ function InfoCard({ title, description, icon, href }: InfoCardProps) {
   );
 
   if (href) {
+    if (href === "/catalog") {
+      return (
+        <a href={href} className={cn(promoCardClass, "flex items-start gap-3 p-4")}>
+          {body}
+        </a>
+      );
+    }
+
     return (
-      <Link href={href} className={cn(promoCardClass, "flex items-start gap-3 p-4")}>
+      <Link href={href} prefetch={false} className={cn(promoCardClass, "flex items-start gap-3 p-4")}>
         {body}
       </Link>
     );
