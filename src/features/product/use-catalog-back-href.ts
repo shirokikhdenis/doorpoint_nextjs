@@ -1,17 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { catalogBackHrefFromPageSlug } from "@/features/product/product-utils";
+import { buildCatalogReturnHref } from "@/features/catalog/catalog-scroll-storage";
 
 const DEFAULT_CATALOG_HREF = "/catalog";
 
-/** Стабилен для SSR: сначала /catalog, после mount — lastCatalogPage из sessionStorage. */
+/** Стабилен для SSR: после mount — полный href витрины из catalogScroll. */
 export function useCatalogBackHref() {
   const [href, setHref] = useState(DEFAULT_CATALOG_HREF);
 
   useEffect(() => {
-    const slug = window.sessionStorage.getItem("lastCatalogPage");
-    setHref(catalogBackHrefFromPageSlug(slug));
+    setHref(buildCatalogReturnHref());
   }, []);
 
   return href;

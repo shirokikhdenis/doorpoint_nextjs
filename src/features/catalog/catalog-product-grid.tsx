@@ -25,6 +25,7 @@ type CatalogProductGridProps = {
   loading: boolean;
   loadingMore: boolean;
   error: string;
+  isRestoringReturn?: boolean;
   onLoadMore: () => void;
   onRememberScroll: () => void;
 };
@@ -35,6 +36,7 @@ export function CatalogProductGrid({
   loading,
   loadingMore,
   error,
+  isRestoringReturn = false,
   onLoadMore,
   onRememberScroll,
 }: CatalogProductGridProps) {
@@ -68,7 +70,7 @@ export function CatalogProductGrid({
   }
 
   return (
-    <>
+    <div className={isRestoringReturn ? "invisible" : undefined}>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
         {products.map((item) => {
           const showHover =
@@ -102,6 +104,6 @@ export function CatalogProductGrid({
           </span>
         </div>
       ) : null}
-    </>
+    </div>
   );
 }

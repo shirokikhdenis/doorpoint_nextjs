@@ -15,11 +15,11 @@ export type CatalogScrollPayload = {
   onSale?: boolean;
 };
 
-/** Снимок состояния при уходе в карточку товара (читаем один раз в layout). */
+/** Снимок состояния при возврате из карточки товара. */
 export type CatalogReturnSnapshot = {
   catalogPage: string;
-  scrollY: number;
   loadedPages: number;
+  scrollY: number;
   scrollApplied: boolean;
 };
 

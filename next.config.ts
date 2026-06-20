@@ -14,6 +14,8 @@ const nextConfig: NextConfig = {
   experimental: {
     // Совпадает с nginx client_max_body_size; иначе proxy обрезает multipart-загрузки.
     proxyClientMaxBodySize: "25mb",
+    // Новый scroll-handler: корректнее сбрасывает прокрутку при client navigation (Next.js 16).
+    appNewScrollHandler: true,
   },
   images: {
     remotePatterns: [

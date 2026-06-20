@@ -22,7 +22,8 @@ function CatalogPageContent({ initial }: CatalogPageClientProps) {
     initialFilterState: initial.filterState,
   });
 
-  const { products, total, page, setPage, loading, loadingMore, error } = useCatalogProducts({
+  const { products, total, page, setPage, loading, loadingMore, error, isRestoringReturn } =
+    useCatalogProducts({
     catalogPage: filters.catalogPage,
     setCatalogPage: filters.setCatalogPage,
     query: filters.query,
@@ -94,6 +95,7 @@ function CatalogPageContent({ initial }: CatalogPageClientProps) {
                 loading={loading}
                 loadingMore={loadingMore}
                 error={error}
+                isRestoringReturn={isRestoringReturn}
                 onLoadMore={() => setPage((current) => current + 1)}
                 onRememberScroll={rememberScrollForProduct}
               />

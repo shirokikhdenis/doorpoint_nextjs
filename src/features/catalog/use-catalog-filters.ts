@@ -13,6 +13,7 @@ import {
 } from "@/features/catalog/catalog-filter-utils";
 import {
   buildInitialCatalogFilters,
+  payloadToFilterState,
   readCatalogScrollPayload,
   resolveCatalogPageSlug,
 } from "@/features/catalog/catalog-scroll-storage";
@@ -43,24 +44,23 @@ const defaultFilterState = (): CatalogFilterState => ({
 });
 
 const resolveCatalogBootstrap = (options?: UseCatalogFiltersOptions) => {
-  if (options?.initialFilterState && options.initialCatalogPage) {
-    return {
-      catalogPage: options.initialCatalogPage,
-      filters: options.initialFilterState,
-    };
-  }
-
-  const scroll =
-    typeof window !== "undefined" ? readCatalogScrollPayload() : null;
   const urlPage =
     typeof window !== "undefined"
       ? resolveCatalogPageSlug()
       : options?.initialCatalogPage || "all";
 
+  const scroll = typeof window !== "undefined" ? readCatalogScrollPayload() : null;
   if (scroll?.catalogPage && scroll.catalogPage === urlPage) {
     return {
       catalogPage: scroll.catalogPage,
-      filters: buildInitialCatalogFilters(),
+      filters: payloadToFilterState(scroll),
+    };
+  }
+
+  if (options?.initialFilterState && options.initialCatalogPage) {
+    return {
+      catalogPage: options.initialCatalogPage,
+      filters: options.initialFilterState,
     };
   }
 

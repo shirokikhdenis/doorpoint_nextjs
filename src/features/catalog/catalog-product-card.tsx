@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { StorefrontImage } from "@/features/store/storefront-image";
 import { CATALOG_CARD_IMAGE_HEIGHT } from "@/features/catalog/catalog-constants";
+import { CatalogProductLink } from "@/features/catalog/catalog-product-link";
 import { AddToCartIconButton } from "@/features/store/add-to-cart-icon-button";
 import { ProductPrice } from "@/features/store/price-tag";
 import { ProductCardBadges } from "@/features/store/product-card-badges";
@@ -39,7 +40,11 @@ export function CatalogProductCard({
     >
       <div className="relative">
         <ProductCardBadges badges={item.badges || []} />
-        <Link href={productHref(item)} prefetch={false} className="block" onClick={onNavigateToProduct}>
+        <CatalogProductLink
+          href={productHref(item)}
+          className="block"
+          onBeforeNavigate={onNavigateToProduct}
+        >
           <div
             className={`relative mb-3 ${CATALOG_CARD_IMAGE_HEIGHT} overflow-hidden bg-white p-2`}
           >
@@ -53,14 +58,13 @@ export function CatalogProductCard({
               />
             ) : null}
           </div>
-        </Link>
+        </CatalogProductLink>
         <AddToCartIconButton productName={displayName} onClick={onAddToCart} />
       </div>
-      <Link
+      <CatalogProductLink
         href={productHref(item)}
-        prefetch={false}
         className="mt-1 flex flex-1 flex-col"
-        onClick={onNavigateToProduct}
+        onBeforeNavigate={onNavigateToProduct}
       >
         <h3 className="line-clamp-2 min-h-[2.5rem] text-sm leading-snug text-zinc-900">{displayName}</h3>
         <ProductPrice
@@ -70,7 +74,7 @@ export function CatalogProductCard({
           layout="stacked"
           className="mt-2 text-base font-medium text-zinc-800"
         />
-      </Link>
+      </CatalogProductLink>
     </article>
   );
 }

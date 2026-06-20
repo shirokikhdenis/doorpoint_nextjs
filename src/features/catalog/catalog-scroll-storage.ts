@@ -1,6 +1,18 @@
 import type { CatalogFilterState, CatalogScrollPayload } from "@/features/catalog/catalog-types";
 import { catalogPageFromPathname } from "@/lib/catalog-page-paths";
 import { resolveCatalogPageSlug as resolveLegacyCatalogPageSlug } from "@/lib/catalog-page-slugs";
+import { buildCatalogPublicHref, catalogPagePath } from "@/lib/catalog-url";
+
+const defaultFilterState = (): CatalogFilterState => ({
+  search: "",
+  sort: "popularity",
+  categories: [],
+  subcategories: [],
+  attrSelections: {},
+  attrRanges: {},
+  priceRange: { min: "", max: "" },
+  onSale: false,
+});
 
 export const readCatalogScrollPayload = (): CatalogScrollPayload | null => {
   if (typeof window === "undefined") return null;
@@ -24,21 +36,8 @@ export const resolveCatalogPageSlug = (): string => {
   return fromStorage || "all";
 };
 
-export const buildInitialCatalogFilters = (): CatalogFilterState => {
-  const defaults: CatalogFilterState = {
-    search: "",
-    sort: "popularity",
-    categories: [],
-    subcategories: [],
-    attrSelections: {},
-    attrRanges: {},
-    priceRange: { min: "", max: "" },
-    onSale: false,
-  };
-  const payload = readCatalogScrollPayload();
-  if (!payload?.catalogPage || payload.catalogPage !== resolveCatalogPageSlug()) {
-    return defaults;
-  }
+export const payloadToFilterState = (payload: CatalogScrollPayload): CatalogFilterState => {
+  const defaults = defaultFilterState();
   return {
     search: typeof payload.search === "string" ? payload.search : defaults.search,
     sort: typeof payload.sort === "string" && payload.sort ? payload.sort : defaults.sort,
@@ -76,6 +75,36 @@ export const buildInitialCatalogFilters = (): CatalogFilterState => {
         : defaults.priceRange,
     onSale: payload.onSale === true,
   };
+};
+
+export const buildInitialCatalogFilters = (): CatalogFilterState => {
+  const payload = readCatalogScrollPayload();
+  if (!payload?.catalogPage || payload.catalogPage !== resolveCatalogPageSlug()) {
+    return defaultFilterState();
+  }
+  return payloadToFilterState(payload);
+};
+
+/** Полный href витрины для кнопки «Назад в каталог». */
+export const buildCatalogReturnHref = (): string => {
+  const payload = readCatalogScrollPayload();
+  if (payload?.catalogPage) {
+    return buildCatalogPublicHref(String(payload.catalogPage), payloadToFilterState(payload));
+  }
+  if (typeof window !== "undefined") {
+    const slug = window.sessionStorage.getItem("lastCatalogPage");
+    if (slug?.trim()) return catalogPagePath(slug.trim());
+  }
+  return "/catalog";
+};
+
+/** Есть ли сохранённый return-restore для текущей витрины. */
+export const hasCatalogReturnRestore = (): boolean => {
+  const payload = readCatalogScrollPayload();
+  if (!payload?.catalogPage || payload.catalogPage !== resolveCatalogPageSlug()) return false;
+  const loadedPages = Math.min(25, Math.max(1, Number(payload.loadedPages) || 1));
+  const scrollY = Math.max(0, Number(payload.scrollY) || 0);
+  return loadedPages > 1 || scrollY > 0;
 };
 
 export const clearCatalogScrollPayload = (): void => {

@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { AppNav } from "@/features/navigation/app-nav";
 import { AppTopBar } from "@/features/navigation/app-top-bar";
+import { ProductRouteScrollReset } from "@/features/product/product-route-scroll-reset";
 import { PublicStorefrontChrome } from "@/features/store/public-storefront-chrome";
 
 export function StorefrontLayoutGate({ children }: { children: React.ReactNode }) {
@@ -15,6 +16,7 @@ export function StorefrontLayoutGate({ children }: { children: React.ReactNode }
 
   return (
     <>
+      <ProductRouteScrollReset />
       <AppTopBar />
       <AppNav />
       <PublicStorefrontChrome>{children}</PublicStorefrontChrome>

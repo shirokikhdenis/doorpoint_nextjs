@@ -5,6 +5,7 @@ import { CATALOG_PAGE_LIMIT } from "@/features/catalog/catalog-constants";
 import { applyLabelToSelections, dedupeProductsById } from "@/features/catalog/catalog-filter-utils";
 import {
   clearCatalogScrollPayload,
+  hasCatalogReturnRestore,
   readCatalogScrollPayload,
   resolveCatalogPageSlug,
 } from "@/features/catalog/catalog-scroll-storage";
@@ -17,6 +18,7 @@ import {
   normalizeCatalogPages,
   normalizeProductsResponse,
 } from "@/lib/client/normalizers";
+import { scrollToInstant } from "@/lib/client/page-scroll";
 import type { CatalogShellInitial } from "@/lib/server/catalog-shell";
 
 type UseCatalogProductsOptions = {
@@ -56,9 +58,13 @@ export function useCatalogProducts({
 
   const useInitialRef = useRef(matchesInitialShell(initial, query, catalogPage));
   const catalogReturnSnapshotRef = useRef<CatalogReturnSnapshot | null>(null);
-  const scrollRestoredRef = useRef(false);
   const skippedInitialMetaRef = useRef(false);
   const skippedInitialPagesRef = useRef(false);
+
+  const [restoreReady, setRestoreReady] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return !hasCatalogReturnRestore();
+  });
 
   useLayoutEffect(() => {
     if (typeof window === "undefined") return;
@@ -77,15 +83,17 @@ export function useCatalogProducts({
     if (!slug) return;
 
     const loadedPages = Math.min(25, Math.max(1, Number(payload.loadedPages) || 1));
-    if (loadedPages <= 1) {
+    const scrollY = Math.max(0, Number(payload.scrollY) || 0);
+
+    if (loadedPages <= 1 && scrollY <= 0) {
       clearCatalogScrollPayload();
       return;
     }
 
     catalogReturnSnapshotRef.current = {
       catalogPage: slug,
-      scrollY: Number(payload.scrollY) || 0,
       loadedPages,
+      scrollY,
       scrollApplied: false,
     };
   }, []);
@@ -100,7 +108,15 @@ export function useCatalogProducts({
     useInitialRef.current && initial ? initial.total : 0,
   );
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(!useInitialRef.current);
+  const [loading, setLoading] = useState(() => {
+    if (typeof window === "undefined") return !useInitialRef.current;
+    const payload = readCatalogScrollPayload();
+    const urlPage = resolveCatalogPageSlug();
+    const loadedPages = Math.min(25, Math.max(1, Number(payload?.loadedPages) || 1));
+    const needsPagination =
+      payload?.catalogPage === urlPage && loadedPages > 1;
+    return needsPagination || !useInitialRef.current;
+  });
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
 
@@ -112,6 +128,38 @@ export function useCatalogProducts({
   const restoreCheckDoneRef = useRef(false);
   const catalogPageRef = useRef(catalogPage);
   const fetchGenerationRef = useRef(0);
+
+  useLayoutEffect(() => {
+    if (loading || loadingMore) return;
+
+    const snap = catalogReturnSnapshotRef.current;
+    if (!snap || snap.scrollApplied || snap.catalogPage !== catalogPage) {
+      if (!snap && restoreReady === false) setRestoreReady(true);
+      return;
+    }
+
+    if (snap.loadedPages > 1 && !restoreCheckDoneRef.current) return;
+
+    if (snap.loadedPages > 1 && !restoreCheckDoneRef.current) return;
+
+    const scrollY = snap.scrollY;
+    const finishRestore = () => {
+      if (catalogReturnSnapshotRef.current !== snap || snap.scrollApplied) return;
+      snap.scrollApplied = true;
+      if (scrollY > 0) {
+        scrollToInstant(scrollY);
+      }
+      clearCatalogScrollPayload();
+      catalogReturnSnapshotRef.current = null;
+      setRestoreReady(true);
+    };
+
+    if (snap.loadedPages > 1) {
+      requestAnimationFrame(() => requestAnimationFrame(finishRestore));
+    } else {
+      finishRestore();
+    }
+  }, [loading, loadingMore, catalogPage, products.length, page, restoreReady]);
 
   useEffect(() => {
     if (catalogPageRef.current === catalogPage) return;
@@ -130,37 +178,8 @@ export function useCatalogProducts({
     setLoading(true);
     setLoadingMore(false);
     setError("");
+    setRestoreReady(true);
   }, [catalogPage]);
-
-  useEffect(() => {
-    if (loading || scrollRestoredRef.current || typeof window === "undefined") return;
-
-    const finishScrollRestore = () => {
-      scrollRestoredRef.current = true;
-    };
-
-    const snap = catalogReturnSnapshotRef.current;
-    if (!snap || snap.scrollApplied) {
-      finishScrollRestore();
-      return;
-    }
-    if (snap.catalogPage !== catalogPage) {
-      finishScrollRestore();
-      catalogReturnSnapshotRef.current = null;
-      clearCatalogScrollPayload();
-      return;
-    }
-
-    scrollRestoredRef.current = true;
-    snap.scrollApplied = true;
-    const targetY = snap.scrollY;
-    if (Number.isFinite(targetY) && targetY > 0) {
-      window.scrollTo({ top: targetY, behavior: "auto" });
-      requestAnimationFrame(() => window.scrollTo({ top: targetY, behavior: "auto" }));
-    }
-    clearCatalogScrollPayload();
-    catalogReturnSnapshotRef.current = null;
-  }, [loading, catalogPage]);
 
   useEffect(() => {
     const shell = initialShellRef.current;
@@ -249,7 +268,11 @@ export function useCatalogProducts({
       setProducts(shell.products);
       setTotal(shell.total);
       setPage(1);
-      setLoading(false);
+      const pendingPagination =
+        catalogReturnSnapshotRef.current?.catalogPage === catalogPage &&
+        (catalogReturnSnapshotRef.current?.loadedPages ?? 0) > 1 &&
+        !restoreCheckDoneRef.current;
+      setLoading(pendingPagination);
       setLoadingMore(false);
       setError("");
       lastFetchedRef.current = { query: shell.queryString, page: 1 };
@@ -263,7 +286,17 @@ export function useCatalogProducts({
   }, [query, catalogPage]);
 
   useEffect(() => {
-    if (lastFetchedRef.current.query === query && lastFetchedRef.current.page === page) {
+    const needsPaginationRestore =
+      !restoreCheckDoneRef.current &&
+      page === 1 &&
+      catalogReturnSnapshotRef.current?.catalogPage === catalogPage &&
+      (catalogReturnSnapshotRef.current?.loadedPages ?? 0) > 1;
+
+    if (
+      !needsPaginationRestore &&
+      lastFetchedRef.current.query === query &&
+      lastFetchedRef.current.page === page
+    ) {
       return;
     }
 
@@ -282,36 +315,36 @@ export function useCatalogProducts({
             const wantPages = snap.loadedPages;
             const hasInitialPage = matchesInitialShell(initialShellRef.current, query, catalogPage);
             const pageNumbers = hasInitialPage
-                ? Array.from({ length: wantPages - 1 }, (_, index) => index + 2)
-                : Array.from({ length: wantPages }, (_, index) => index + 1);
+              ? Array.from({ length: wantPages - 1 }, (_, index) => index + 2)
+              : Array.from({ length: wantPages }, (_, index) => index + 1);
 
-              if (pageNumbers.length > 0) {
-                setLoadingMore(true);
-                const responses = await Promise.all(
-                  pageNumbers.map(async (pageNumber) => {
-                    const params = new URLSearchParams(query);
-                    params.set("page", String(pageNumber));
-                    params.set("limit", String(CATALOG_PAGE_LIMIT));
-                    const response = await fetch(`/api/products?${params.toString()}`);
-                    if (!response.ok) throw new Error("Не удалось загрузить данные каталога");
-                    return (await response.json()) as { total?: number };
-                  }),
-                );
-                if (cancelled || generation !== fetchGenerationRef.current) return;
+            if (pageNumbers.length > 0) {
+              setLoadingMore(true);
+              const responses = await Promise.all(
+                pageNumbers.map(async (pageNumber) => {
+                  const params = new URLSearchParams(query);
+                  params.set("page", String(pageNumber));
+                  params.set("limit", String(CATALOG_PAGE_LIMIT));
+                  const response = await fetch(`/api/products?${params.toString()}`);
+                  if (!response.ok) throw new Error("Не удалось загрузить данные каталога");
+                  return (await response.json()) as { total?: number };
+                }),
+              );
+              if (cancelled || generation !== fetchGenerationRef.current) return;
 
-                const extraItems = dedupeProductsById(
-                  responses.flatMap((json) => normalizeProductsResponse(json)),
-                );
-                setProducts((prev) =>
-                  hasInitialPage ? dedupeProductsById([...prev, ...extraItems]) : extraItems,
-                );
-                const lastTotal = Number(responses[responses.length - 1]?.total) || 0;
-                if (lastTotal > 0) setTotal(lastTotal);
-                lastFetchedRef.current = { query, page: wantPages };
-                setPage(wantPages);
-                restoreCheckDoneRef.current = true;
-                return;
-              }
+              const extraItems = dedupeProductsById(
+                responses.flatMap((json) => normalizeProductsResponse(json)),
+              );
+              setProducts((prev) =>
+                hasInitialPage ? dedupeProductsById([...prev, ...extraItems]) : extraItems,
+              );
+              const lastTotal = Number(responses[responses.length - 1]?.total) || 0;
+              if (lastTotal > 0) setTotal(lastTotal);
+              lastFetchedRef.current = { query, page: wantPages };
+              setPage(wantPages);
+              restoreCheckDoneRef.current = true;
+              return;
+            }
           }
           restoreCheckDoneRef.current = true;
         }
@@ -356,5 +389,6 @@ export function useCatalogProducts({
     loading,
     loadingMore,
     error,
+    isRestoringReturn: !restoreReady,
   };
 }
