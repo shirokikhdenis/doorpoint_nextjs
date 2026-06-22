@@ -76,7 +76,7 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
           asChild
           className="border-zinc-300 text-zinc-800 hover:border-brand/35 hover:bg-brand/5 hover:text-brand"
         >
-          <Link href={catalogBackHref} scroll={false}>
+          <Link href={catalogBackHref} scroll={false} data-testid="product-back-to-catalog">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 24 24"

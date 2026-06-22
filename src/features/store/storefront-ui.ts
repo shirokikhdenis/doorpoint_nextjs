@@ -25,16 +25,6 @@ export function catalogTabClass(isActive: boolean): string {
   return cn(catalogTabBase, isActive ? catalogTabActive : catalogTabIdle);
 }
 
-const navToneBase = "border bg-white text-zinc-700 transition";
-const navToneActive =
-  "border-zinc-300 text-zinc-900 shadow-[inset_0_-2px_0_0_var(--color-brand)] hover:border-zinc-300 hover:bg-white";
-const navToneIdle = "border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50 hover:text-zinc-900";
-
-/** @deprecated Используйте siteNavLinkClass или catalogTabClass */
-export function navToneClass(isActive: boolean): string {
-  return cn(navToneBase, isActive ? navToneActive : navToneIdle);
-}
-
 /** Заголовок колонки фильтров */
 export const catalogFilterHeadingClass = "text-base font-semibold text-zinc-900";
 

@@ -34,6 +34,7 @@ export function CatalogProductCard({
 
   return (
     <article
+      data-testid="catalog-product-card"
       className="flex h-full flex-col rounded-lg bg-white p-2 shadow-md transition-shadow duration-150 hover:shadow-lg"
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}

@@ -1,17 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { buildCatalogReturnHref } from "@/features/catalog/catalog-scroll-storage";
+import { useSyncExternalStore } from "react";
+import { buildCatalogReturnHref } from "@/features/catalog/session/catalog-return-storage";
 
 const DEFAULT_CATALOG_HREF = "/catalog";
 
-/** Стабилен для SSR: после mount — полный href витрины из catalogScroll. */
+const subscribeCatalogReturn = (onStoreChange: () => void) => {
+  window.addEventListener("storage", onStoreChange);
+  return () => window.removeEventListener("storage", onStoreChange);
+};
+
+const getCatalogBackHrefSnapshot = () => buildCatalogReturnHref();
+const getCatalogBackHrefServerSnapshot = () => DEFAULT_CATALOG_HREF;
+
+/** Стабилен для SSR: на клиенте читает полный href витрины из catalogReturn. */
 export function useCatalogBackHref() {
-  const [href, setHref] = useState(DEFAULT_CATALOG_HREF);
-
-  useEffect(() => {
-    setHref(buildCatalogReturnHref());
-  }, []);
-
-  return href;
+  return useSyncExternalStore(
+    subscribeCatalogReturn,
+    getCatalogBackHrefSnapshot,
+    getCatalogBackHrefServerSnapshot,
+  );
 }

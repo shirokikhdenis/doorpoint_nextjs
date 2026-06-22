@@ -43,9 +43,12 @@ export function CatalogProductGrid({
   const { addItem } = useCart();
   const [hoveredProductId, setHoveredProductId] = useState<number | null>(null);
 
-  if (loading) {
+  if (loading && products.length === 0) {
     return (
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
+      <div
+        className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4"
+        data-testid="catalog-product-grid-loading"
+      >
         {Array.from({ length: 8 }, (_, i) => (
           <CatalogProductSkeleton key={i} />
         ))}
@@ -70,7 +73,23 @@ export function CatalogProductGrid({
   }
 
   return (
-    <div className={isRestoringReturn ? "invisible" : undefined}>
+    <div className="relative" data-testid="catalog-product-grid">
+      {isRestoringReturn ? (
+        <div
+          className="pointer-events-none absolute inset-0 z-10 bg-white/60"
+          aria-hidden="true"
+          data-testid="catalog-restore-overlay"
+        />
+      ) : null}
+      {loading && products.length > 0 ? (
+        <div
+          className="pointer-events-none absolute inset-0 z-10 flex items-start justify-center bg-white/50 pt-24"
+          aria-busy="true"
+          data-testid="catalog-refetch-overlay"
+        >
+          <span className="rounded-md bg-white px-3 py-1.5 text-sm text-zinc-600 shadow">Обновление…</span>
+        </div>
+      ) : null}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
         {products.map((item) => {
           const showHover =
@@ -93,17 +112,26 @@ export function CatalogProductGrid({
         <div className="flex flex-col items-center gap-1 pt-2">
           <button
             type="button"
+            data-testid="catalog-load-more"
             onClick={onLoadMore}
             disabled={loadingMore}
             className="rounded-full border border-zinc-300 bg-white px-5 py-2 text-sm font-medium text-zinc-800 transition hover:border-zinc-500 hover:bg-zinc-50 disabled:cursor-wait disabled:opacity-60"
           >
             {loadingMore ? "Загрузка…" : `Показать ещё (${total - products.length})`}
           </button>
-          <span className="text-xs text-zinc-500">
+          <span className="text-xs text-zinc-500" data-testid="catalog-results-count">
             {products.length} из {total}
           </span>
         </div>
-      ) : null}
+      ) : (
+        products.length > 0 ? (
+          <div className="flex justify-center pt-2">
+            <span className="text-xs text-zinc-500" data-testid="catalog-results-count">
+              {products.length} из {total}
+            </span>
+          </div>
+        ) : null
+      )}
     </div>
   );
 }

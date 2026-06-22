@@ -1,10 +1,13 @@
 "use client";
 
-import { Suspense, useCallback, useState } from "react";
-import { emptyCatalogMeta } from "@/features/catalog/catalog-constants";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { CatalogFilterSidebar } from "@/features/catalog/catalog-filter-sidebar";
 import { CatalogProductGrid } from "@/features/catalog/catalog-product-grid";
-import { saveCatalogScrollPayload } from "@/features/catalog/catalog-scroll-storage";
+import {
+  buildCatalogReturnHrefFromFilters,
+  saveCatalogReturnPayload,
+} from "@/features/catalog/session/catalog-return-storage";
+import { buildCatalogApiQuery, labelMatchesSelections } from "@/features/catalog/catalog-filter-utils";
 import { useCatalogFilters } from "@/features/catalog/use-catalog-filters";
 import { useCatalogProducts } from "@/features/catalog/use-catalog-products";
 import { MeasureLeadForm } from "@/features/store/measure-lead-form";
@@ -22,20 +25,42 @@ function CatalogPageContent({ initial }: CatalogPageClientProps) {
     initialFilterState: initial.filterState,
   });
 
+  useEffect(() => {
+    document.documentElement.dataset.catalogHydrated = "true";
+    return () => {
+      delete document.documentElement.dataset.catalogHydrated;
+    };
+  }, []);
+
   const { products, total, page, setPage, loading, loadingMore, error, isRestoringReturn } =
     useCatalogProducts({
-    catalogPage: filters.catalogPage,
-    setCatalogPage: filters.setCatalogPage,
-    query: filters.query,
-    setAttrSelections: filters.setAttrSelections,
-    setAttrRanges: filters.setAttrRanges,
-    setMeta,
-    initial,
-  });
+      catalogPage: filters.catalogPage,
+      setCatalogPage: filters.setCatalogPage,
+      query: filters.query,
+      setMeta,
+      initial,
+    });
 
   const rememberScrollForProduct = useCallback(() => {
-    saveCatalogScrollPayload(filters.catalogPage, page, filters.filterState);
-  }, [filters.catalogPage, filters.filterState, page]);
+    if (typeof window === "undefined") return;
+    const searchKey = buildCatalogApiQuery(filters.catalogPage, filters.filterState);
+    const matchingLabel = meta.labels.find((label) =>
+      labelMatchesSelections(label, filters.filterState.attrSelections),
+    );
+    const returnHref = buildCatalogReturnHrefFromFilters(
+      filters.catalogPage,
+      filters.filterState,
+      matchingLabel?.id,
+    );
+    saveCatalogReturnPayload({
+      catalogPage: filters.catalogPage,
+      scrollY: window.scrollY,
+      loadedPages: page,
+      searchKey,
+      returnHref,
+      filterState: filters.filterState,
+    });
+  }, [filters.catalogPage, filters.filterState, meta.labels, page]);
 
   return (
     <>

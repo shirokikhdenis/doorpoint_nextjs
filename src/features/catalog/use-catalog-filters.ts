@@ -9,14 +9,10 @@ import {
   expandSectionsWithActiveFilters,
   isMetaEmpty,
   labelMatchesSelections,
+  parseCatalogFilterStateFromSearchParams,
   rangeToFilterState,
 } from "@/features/catalog/catalog-filter-utils";
-import {
-  buildInitialCatalogFilters,
-  payloadToFilterState,
-  readCatalogScrollPayload,
-  resolveCatalogPageSlug,
-} from "@/features/catalog/catalog-scroll-storage";
+import { clearCatalogReturnPayload } from "@/features/catalog/session/catalog-return-storage";
 import type { CatalogFilterState, NumericRange } from "@/features/catalog/catalog-types";
 import type { CatalogLabel, CatalogMeta } from "@/lib/client/normalizers";
 import {
@@ -44,19 +40,6 @@ const defaultFilterState = (): CatalogFilterState => ({
 });
 
 const resolveCatalogBootstrap = (options?: UseCatalogFiltersOptions) => {
-  const urlPage =
-    typeof window !== "undefined"
-      ? resolveCatalogPageSlug()
-      : options?.initialCatalogPage || "all";
-
-  const scroll = typeof window !== "undefined" ? readCatalogScrollPayload() : null;
-  if (scroll?.catalogPage && scroll.catalogPage === urlPage) {
-    return {
-      catalogPage: scroll.catalogPage,
-      filters: payloadToFilterState(scroll),
-    };
-  }
-
   if (options?.initialFilterState && options.initialCatalogPage) {
     return {
       catalogPage: options.initialCatalogPage,
@@ -64,10 +47,20 @@ const resolveCatalogBootstrap = (options?: UseCatalogFiltersOptions) => {
     };
   }
 
+  if (typeof window !== "undefined") {
+    const flat: Record<string, string> = {};
+    new URLSearchParams(window.location.search).forEach((value, key) => {
+      flat[key] = value;
+    });
+    return {
+      catalogPage: catalogPageFromPathname(window.location.pathname),
+      filters: parseCatalogFilterStateFromSearchParams(flat),
+    };
+  }
+
   return {
-    catalogPage: urlPage,
-    filters:
-      typeof window !== "undefined" ? buildInitialCatalogFilters() : defaultFilterState(),
+    catalogPage: options?.initialCatalogPage || "all",
+    filters: defaultFilterState(),
   };
 };
 
@@ -107,6 +100,11 @@ export function useCatalogFilters(meta: CatalogMeta, options?: UseCatalogFilters
     () => new Set(),
   );
   const filterDefaultsPendingRef = useRef(true);
+  const searchDebounceInitializedRef = useRef(false);
+
+  const notifyUserFilterChange = useCallback(() => {
+    clearCatalogReturnPayload();
+  }, []);
 
   const filterState: CatalogFilterState = useMemo(
     () => ({
@@ -149,31 +147,36 @@ export function useCatalogFilters(meta: CatalogMeta, options?: UseCatalogFilters
   };
 
   const resetUserFilters = useCallback(() => {
+    notifyUserFilterChange();
     setCategories([]);
     setSubcategories([]);
     setAttrSelections({});
     setAttrRanges({});
     setPriceRange({ min: "", max: "" });
     setOnSale(false);
-  }, []);
+  }, [notifyUserFilterChange]);
 
   const clearAllFilters = useCallback(() => {
+    notifyUserFilterChange();
     resetUserFilters();
     setSearchInput("");
-  }, [resetUserFilters]);
+  }, [notifyUserFilterChange, resetUserFilters]);
 
   const toggle = (value: string, state: string[], setState: (values: string[]) => void) => {
+    notifyUserFilterChange();
     setState(state.includes(value) ? state.filter((v) => v !== value) : [...state, value]);
   };
 
   const toggleAttrValue = (code: string, value: string) => {
+    notifyUserFilterChange();
     setAttrSelections((prev) => {
       const current = prev[code] || [];
       const next = current.includes(value)
         ? current.filter((v) => v !== value)
         : [...current, value];
       if (next.length === 0) {
-        const { [code]: _removed, ...rest } = prev;
+        const rest = { ...prev };
+        delete rest[code];
         return rest;
       }
       return { ...prev, [code]: next };
@@ -181,6 +184,7 @@ export function useCatalogFilters(meta: CatalogMeta, options?: UseCatalogFilters
   };
 
   const updatePriceRange = (min: number, max: number) => {
+    notifyUserFilterChange();
     setPriceRange(rangeToFilterState(meta.price.min, meta.price.max, min, max));
   };
 
@@ -191,10 +195,12 @@ export function useCatalogFilters(meta: CatalogMeta, options?: UseCatalogFilters
     min: number,
     max: number,
   ) => {
+    notifyUserFilterChange();
     setAttrRanges((prev) => {
       const next = rangeToFilterState(boundsMin, boundsMax, min, max);
       if (next.min === "" && next.max === "") {
-        const { [code]: _removed, ...rest } = prev;
+        const rest = { ...prev };
+        delete rest[code];
         return rest;
       }
       return { ...prev, [code]: next };
@@ -202,6 +208,7 @@ export function useCatalogFilters(meta: CatalogMeta, options?: UseCatalogFilters
   };
 
   const handleLabelClick = (label: CatalogLabel) => {
+    notifyUserFilterChange();
     if (labelMatchesSelections(label, attrSelections)) {
       setAttrSelections((prev) => {
         const next = { ...prev };
@@ -217,6 +224,28 @@ export function useCatalogFilters(meta: CatalogMeta, options?: UseCatalogFilters
     setAttrRanges({});
   };
 
+  const setSortWithClear = (value: string) => {
+    notifyUserFilterChange();
+    setSort(value);
+  };
+
+  const setOnSaleWithClear = (value: boolean) => {
+    notifyUserFilterChange();
+    setOnSale(value);
+  };
+
+  const setSearchInputWithClear = (value: string) => {
+    setSearchInput(value);
+  };
+
+  useEffect(() => {
+    if (!searchDebounceInitializedRef.current) {
+      searchDebounceInitializedRef.current = true;
+      return;
+    }
+    notifyUserFilterChange();
+  }, [debouncedSearch, notifyUserFilterChange]);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
@@ -231,6 +260,8 @@ export function useCatalogFilters(meta: CatalogMeta, options?: UseCatalogFilters
       if (values.length) fromUrl[code] = values;
     });
     if (Object.keys(fromUrl).length === 0) return;
+    // URL navigation is the external source of truth for direct/back-forward filter state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setAttrSelections((prev) => {
       const same =
         Object.keys(fromUrl).length === Object.keys(prev).length &&
@@ -247,17 +278,10 @@ export function useCatalogFilters(meta: CatalogMeta, options?: UseCatalogFilters
     const pageFromPath = catalogPageFromPathname(pathname);
     if (pageFromPath === catalogPage) return;
 
-    if (typeof window !== "undefined") {
-      try {
-        const scroll = readCatalogScrollPayload();
-        if (scroll?.catalogPage && scroll.catalogPage !== pageFromPath) {
-          window.sessionStorage.removeItem("catalogScroll");
-        }
-      } catch {
-        /* ignore */
-      }
-    }
+    clearCatalogReturnPayload();
 
+    // Route changes must reset controlled filter inputs before the next catalog fetch.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCatalogPage(pageFromPath);
     setSearchInput("");
     setCategories([]);
@@ -271,6 +295,8 @@ export function useCatalogFilters(meta: CatalogMeta, options?: UseCatalogFilters
 
   useEffect(() => {
     if (!searchParams) return;
+    // Keep browser history navigation in sync with the controlled sale checkbox.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setOnSale(searchParams.get("onSale") === "1");
   }, [searchParams]);
 
@@ -311,9 +337,9 @@ export function useCatalogFilters(meta: CatalogMeta, options?: UseCatalogFilters
     catalogPage,
     setCatalogPage,
     searchInput,
-    setSearchInput,
+    setSearchInput: setSearchInputWithClear,
     sort,
-    setSort,
+    setSort: setSortWithClear,
     categories,
     setCategories,
     subcategories,
@@ -324,7 +350,7 @@ export function useCatalogFilters(meta: CatalogMeta, options?: UseCatalogFilters
     setAttrRanges,
     priceRange,
     onSale,
-    setOnSale,
+    setOnSale: setOnSaleWithClear,
     filterState,
     query,
     hasActiveFilters,

@@ -107,6 +107,8 @@ export function AttributeFilterBlock({
           <label key={value} className={catalogFilterOptionLabelClass}>
             <input
               type="checkbox"
+              data-testid={`catalog-filter-attr-${filter.code}`}
+              data-filter-value={value}
               checked={selected.includes(value)}
               onChange={() => onToggleValue(value)}
             />

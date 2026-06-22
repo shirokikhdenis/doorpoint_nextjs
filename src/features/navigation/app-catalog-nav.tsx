@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import {
   CatalogPageItem,
   normalizeCatalogPages,
@@ -13,6 +13,27 @@ import { CATALOG_PAGE_SLUG } from "@/lib/catalog-page-slugs";
 
 const tabButtonBase =
   "max-w-[14rem] snap-start truncate md:max-w-none";
+const LAST_CATALOG_PAGE_EVENT = "catalog-last-page-change";
+
+const readLastCatalogPage = () => {
+  if (typeof window === "undefined") return "";
+  return window.sessionStorage.getItem("lastCatalogPage") || "";
+};
+
+const subscribeLastCatalogPage = (onStoreChange: () => void) => {
+  window.addEventListener("storage", onStoreChange);
+  window.addEventListener(LAST_CATALOG_PAGE_EVENT, onStoreChange);
+  return () => {
+    window.removeEventListener("storage", onStoreChange);
+    window.removeEventListener(LAST_CATALOG_PAGE_EVENT, onStoreChange);
+  };
+};
+
+const rememberLastCatalogPage = (slug: string) => {
+  if (typeof window === "undefined") return;
+  window.sessionStorage.setItem("lastCatalogPage", slug);
+  window.dispatchEvent(new Event(LAST_CATALOG_PAGE_EVENT));
+};
 
 /**
  * Глобальный навбар витрин: «Общий каталог», «Входные двери», ...
@@ -20,8 +41,12 @@ const tabButtonBase =
  */
 export function AppCatalogNav() {
   const [pages, setPages] = useState<CatalogPageItem[]>([]);
-  const [lastSelectedSlug, setLastSelectedSlug] = useState("");
   const pathname = usePathname();
+  const lastSelectedSlug = useSyncExternalStore(
+    subscribeLastCatalogPage,
+    readLastCatalogPage,
+    () => "",
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -37,12 +62,6 @@ export function AppCatalogNav() {
       cancelled = true;
     };
   }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const saved = window.sessionStorage.getItem("lastCatalogPage") || "";
-    if (saved) setLastSelectedSlug(saved);
-  }, [pathname]);
 
   if (pages.length === 0) return null;
 
@@ -66,8 +85,10 @@ export function AppCatalogNav() {
               href={catalogPagePath(page.slug)}
               prefetch={false}
               scroll={false}
+              data-testid="catalog-vitrine-tab"
+              data-slug={page.slug}
               aria-current={isActive ? "page" : undefined}
-              onClick={() => setLastSelectedSlug(page.slug)}
+              onClick={() => rememberLastCatalogPage(page.slug)}
               className={`${tabButtonBase} ${catalogTabClass(isActive)}`}
             >
               {page.name}

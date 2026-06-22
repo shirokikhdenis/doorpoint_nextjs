@@ -101,6 +101,7 @@ export function CatalogFilterSidebar({
         <label className={catalogFilterOptionLabelClass}>
           <input
             type="checkbox"
+            data-testid="catalog-filter-on-sale"
             checked={onSale}
             onChange={(event) => onOnSaleChange(event.target.checked)}
           />
@@ -213,6 +214,7 @@ export function CatalogFilterSidebar({
 
       <button
         type="button"
+        data-testid="catalog-clear-filters"
         onClick={onClearAllFilters}
         disabled={!hasActiveFilters}
         className={`${catalogFilterFieldClass} font-medium transition hover:border-zinc-400 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:border-zinc-200 disabled:bg-zinc-50 disabled:text-zinc-400`}

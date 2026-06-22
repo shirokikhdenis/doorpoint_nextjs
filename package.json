@@ -8,6 +8,10 @@
     "start": "next start",
     "lint": "eslint",
     "test": "node --test",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "db:seed:e2e": "node scripts/seed-e2e-catalog.js",
+    "db:cleanup:e2e": "node scripts/cleanup-e2e-catalog.js",
     "db:init": "node src/scripts/dbInit.js",
     "db:seed": "node src/scripts/dbInit.js",
     "db:migrate:attribute-visible": "node scripts/run-sql-file.js scripts/add-attribute-is-visible-on-product.sql",
@@ -33,6 +37,7 @@
     "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
