@@ -4,6 +4,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   applyLabelToSelections,
+  buildCatalogActiveFilterChips,
   buildCatalogApiQuery,
   buildDefaultCollapsedSections,
   expandSectionsWithActiveFilters,
@@ -11,6 +12,7 @@ import {
   labelMatchesSelections,
   parseCatalogFilterStateFromSearchParams,
   rangeToFilterState,
+  type CatalogActiveFilterChip,
 } from "@/features/catalog/catalog-filter-utils";
 import { clearCatalogReturnPayload } from "@/features/catalog/session/catalog-return-storage";
 import type { CatalogFilterState, NumericRange } from "@/features/catalog/catalog-types";
@@ -125,6 +127,11 @@ export function useCatalogFilters(meta: CatalogMeta, options?: UseCatalogFilters
     [catalogPage, filterState],
   );
 
+  const activeFilterChips = useMemo(
+    () => buildCatalogActiveFilterChips(meta, { ...filterState, search: searchInput }),
+    [filterState, meta, searchInput],
+  );
+
   const hasActiveFilters =
     searchInput.trim() !== "" ||
     categories.length > 0 ||
@@ -237,6 +244,51 @@ export function useCatalogFilters(meta: CatalogMeta, options?: UseCatalogFilters
   const setSearchInputWithClear = (value: string) => {
     setSearchInput(value);
   };
+
+  const removeActiveFilterChip = useCallback(
+    (chip: CatalogActiveFilterChip) => {
+      notifyUserFilterChange();
+      switch (chip.kind) {
+        case "search":
+          setSearchInput("");
+          return;
+        case "sort":
+          setSort("popularity");
+          return;
+        case "onSale":
+          setOnSale(false);
+          return;
+        case "category":
+          setCategories((prev) => prev.filter((slug) => slug !== chip.slug));
+          return;
+        case "subcategory":
+          setSubcategories((prev) => prev.filter((slug) => slug !== chip.slug));
+          return;
+        case "attrValue":
+          setAttrSelections((prev) => {
+            const nextValues = (prev[chip.code] || []).filter((value) => value !== chip.attrValue);
+            if (nextValues.length === 0) {
+              const rest = { ...prev };
+              delete rest[chip.code];
+              return rest;
+            }
+            return { ...prev, [chip.code]: nextValues };
+          });
+          return;
+        case "attrRange":
+          setAttrRanges((prev) => {
+            const rest = { ...prev };
+            delete rest[chip.code];
+            return rest;
+          });
+          return;
+        case "price":
+          setPriceRange({ min: "", max: "" });
+          return;
+      }
+    },
+    [notifyUserFilterChange],
+  );
 
   useEffect(() => {
     if (!searchDebounceInitializedRef.current) {
@@ -353,6 +405,8 @@ export function useCatalogFilters(meta: CatalogMeta, options?: UseCatalogFilters
     setOnSale: setOnSaleWithClear,
     filterState,
     query,
+    activeFilterChips,
+    removeActiveFilterChip,
     hasActiveFilters,
     isMobileFiltersOpen,
     setIsMobileFiltersOpen,

@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useState } from "react";
+import { CatalogActiveFilterChips } from "@/features/catalog/catalog-active-filter-chips";
 import { CatalogFilterSidebar } from "@/features/catalog/catalog-filter-sidebar";
 import { CatalogProductGrid } from "@/features/catalog/catalog-product-grid";
 import {
@@ -114,6 +115,11 @@ function CatalogPageContent({ initial }: CatalogPageClientProps) {
             </div>
 
             <section className="space-y-4">
+              <CatalogActiveFilterChips
+                chips={filters.activeFilterChips}
+                onRemove={filters.removeActiveFilterChip}
+                onClearAll={filters.clearAllFilters}
+              />
               <CatalogProductGrid
                 products={products}
                 total={total}

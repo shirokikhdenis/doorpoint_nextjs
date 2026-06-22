@@ -1,6 +1,37 @@
 import type { CatalogAttributeFilter, CatalogLabel, CatalogMeta, ProductCard } from "@/lib/client/normalizers";
 import type { CatalogFilterState, NumericRange } from "@/features/catalog/catalog-types";
 
+export type CatalogActiveFilterChip =
+  | { id: string; label: string; value: string; kind: "search" }
+  | { id: string; label: string; value: string; kind: "sort" }
+  | { id: string; label: string; value: string; kind: "onSale" }
+  | { id: string; label: string; value: string; kind: "category"; slug: string }
+  | { id: string; label: string; value: string; kind: "subcategory"; slug: string }
+  | { id: string; label: string; value: string; kind: "attrValue"; code: string; attrValue: string }
+  | { id: string; label: string; value: string; kind: "attrRange"; code: string }
+  | { id: string; label: string; value: string; kind: "price" };
+
+const sortLabels: Record<string, string> = {
+  "alphabet-asc": "По алфавиту (А-Я)",
+  "alphabet-desc": "По алфавиту (Я-А)",
+  "price-asc": "Цена по возрастанию",
+  "price-desc": "Цена по убыванию",
+};
+
+const formatRangePart = (value: string, suffix = "") => {
+  const numeric = Number(value);
+  if (Number.isFinite(numeric)) return `${numeric.toLocaleString("ru-RU")}${suffix}`;
+  return `${value}${suffix}`;
+};
+
+const formatRangeLabel = (range: NumericRange, suffix = "") => {
+  const min = range.min.trim();
+  const max = range.max.trim();
+  if (min && max) return `${formatRangePart(min, suffix)} - ${formatRangePart(max, suffix)}`;
+  if (min) return `от ${formatRangePart(min, suffix)}`;
+  return `до ${formatRangePart(max, suffix)}`;
+};
+
 /** Одна карточка на product id — защита от дублей при пагинации и restore. */
 export const dedupeProductsById = (items: ProductCard[]) => {
   const seen = new Set<number>();
@@ -90,6 +121,93 @@ export const isMetaEmpty = (meta: CatalogMeta) =>
   meta.subcategories.length === 0 &&
   meta.attributeFilters.length === 0 &&
   meta.price.max <= meta.price.min;
+
+export const buildCatalogActiveFilterChips = (
+  meta: CatalogMeta,
+  filters: CatalogFilterState,
+): CatalogActiveFilterChip[] => {
+  const chips: CatalogActiveFilterChip[] = [];
+  const categoryBySlug = new Map(meta.categories.map((category) => [category.slug, category.name]));
+  const subcategoryBySlug = new Map(
+    meta.subcategories.map((subcategory) => [subcategory.slug, subcategory.name]),
+  );
+  const attrByCode = new Map(meta.attributeFilters.map((filter) => [filter.code, filter]));
+  const search = filters.search.trim();
+
+  if (search) {
+    chips.push({ id: "search", label: "Поиск", value: search, kind: "search" });
+  }
+
+  if (filters.sort && filters.sort !== "popularity") {
+    chips.push({
+      id: "sort",
+      label: "Сортировка",
+      value: sortLabels[filters.sort] || filters.sort,
+      kind: "sort",
+    });
+  }
+
+  if (filters.onSale) {
+    chips.push({ id: "onSale", label: "Акции", value: "Только акционные", kind: "onSale" });
+  }
+
+  for (const slug of filters.categories) {
+    chips.push({
+      id: `category:${slug}`,
+      label: "Категория",
+      value: categoryBySlug.get(slug) || slug,
+      kind: "category",
+      slug,
+    });
+  }
+
+  for (const slug of filters.subcategories) {
+    chips.push({
+      id: `subcategory:${slug}`,
+      label: "Подкатегория",
+      value: subcategoryBySlug.get(slug) || slug,
+      kind: "subcategory",
+      slug,
+    });
+  }
+
+  for (const [code, values] of Object.entries(filters.attrSelections)) {
+    const attr = attrByCode.get(code);
+    for (const value of values) {
+      chips.push({
+        id: `attr:${code}:${value}`,
+        label: attr?.name || code,
+        value,
+        kind: "attrValue",
+        code,
+        attrValue: value,
+      });
+    }
+  }
+
+  for (const [code, range] of Object.entries(filters.attrRanges)) {
+    if (!range.min.trim() && !range.max.trim()) continue;
+    const attr = attrByCode.get(code);
+    chips.push({
+      id: `attrRange:${code}`,
+      label: attr?.name || code,
+      value: formatRangeLabel(range, attr?.unit ? ` ${attr.unit}` : ""),
+      kind: "attrRange",
+      code,
+    });
+  }
+
+  if (filters.priceRange.min.trim() || filters.priceRange.max.trim()) {
+    chips.push({
+      id: "price",
+      label: "Цена",
+      value: formatRangeLabel(filters.priceRange, " ₽"),
+      kind: "price",
+    });
+  }
+
+  return chips;
+};
 
 export const getEffectiveRange = (
   range: NumericRange,

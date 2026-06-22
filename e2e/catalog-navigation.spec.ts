@@ -127,6 +127,34 @@ test.describe("Catalog navigation", () => {
     await expect(page.getByTestId("catalog-product-grid")).toBeVisible();
   });
 
+  test("activeFilterChips", async ({ page, isMobile }) => {
+    await page.goto("/catalog?onSale=1");
+    await waitForCatalogReady(page);
+
+    const saleChip = page.getByTestId("catalog-active-filter-chip").filter({ hasText: "Акции" });
+    await expect(saleChip).toBeVisible();
+    await saleChip.click();
+    await expect(page.getByTestId("catalog-active-filter-chip").filter({ hasText: "Акции" })).toHaveCount(0);
+    await expect(page).not.toHaveURL(/onSale=1/);
+
+    if (isMobile) return;
+
+    const blue = page
+      .getByTestId("catalog-filter-attr-color")
+      .filter({ has: page.locator('[data-filter-value="E2E-Синий"]') });
+    if ((await blue.count()) === 0) {
+      test.skip(true, "E2E color filters missing — run seed-e2e-catalog.js");
+    }
+
+    await blue.first().check();
+    await waitForCatalogReady(page);
+
+    const colorChip = page.getByTestId("catalog-active-filter-chip").filter({ hasText: "E2E-Синий" });
+    await expect(colorChip).toBeVisible();
+    await colorChip.click();
+    await expect(page.getByTestId("catalog-active-filter-chip").filter({ hasText: "E2E-Синий" })).toHaveCount(0);
+  });
+
   test("vitrineTabMemory", async ({ page }) => {
     await page.goto("/catalog/furnitura");
     await waitForCatalogReady(page);
