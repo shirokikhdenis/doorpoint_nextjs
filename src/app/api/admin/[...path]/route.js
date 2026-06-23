@@ -6,6 +6,7 @@ const adminService = require("@/lib/server/services/adminService");
 const csvImportService = require("@/lib/server/services/csvImportService");
 const promotionService = require("@/lib/server/services/promotionService");
 const leadService = require("@/lib/server/services/leadService");
+const factoryStorefrontService = require("@/lib/server/services/factoryStorefrontService");
 const { withErrorHandling, json, empty, getQuery, readBody } = require("@/lib/server/http/handlers");
 const { requestHasAdminSession } = require("@/lib/server/auth/adminAuth");
 
@@ -216,6 +217,14 @@ const handle = async (request, context) =>
       await invalidateStorefrontCache("products");
       return json(updated);
     }
+    if (match(path, method, "GET", "storefront-settings")) {
+      return json(await adminService.getStorefrontSettings());
+    }
+    if (match(path, method, "PATCH", "storefront-settings")) {
+      const updated = await adminService.updateStorefrontSettings(body);
+      await invalidateStorefrontCache("products");
+      return json(updated);
+    }
     if (match(path, method, "GET", "product-attribute-values")) {
       if (!String(query.code || "").trim()) {
         return json({ message: "code is required" }, 400);
@@ -281,6 +290,37 @@ const handle = async (request, context) =>
       const result = await leadService.deleteLead(Number(path[1]));
       if (!result.ok) return json({ message: result.message }, result.status || 404);
       return empty(204);
+    }
+
+    if (match(path, method, "GET", "factory-cards")) {
+      if (!query.sectionId) return json({ message: "sectionId is required" }, 400);
+      const result = await factoryStorefrontService.listAdminFactoryCards(query.sectionId);
+      if (!result.ok) return json({ message: result.message }, result.status || 404);
+      return json(result);
+    }
+    if (path[0] === "factory-cards" && path.length === 2 && method === "PUT") {
+      const result = await factoryStorefrontService.updateAdminFactoryCard(Number(path[1]), body);
+      if (!result.ok) return json({ message: result.message }, result.status || 404);
+      await invalidateStorefrontCache("factories");
+      return json(result.card);
+    }
+
+    if (match(path, method, "GET", "collection-cards")) {
+      if (!query.sectionId || !query.manufacturer) {
+        return json({ message: "sectionId and manufacturer are required" }, 400);
+      }
+      const result = await factoryStorefrontService.listAdminCollectionCards(
+        query.sectionId,
+        query.manufacturer,
+      );
+      if (!result.ok) return json({ message: result.message }, result.status || 404);
+      return json(result);
+    }
+    if (path[0] === "collection-cards" && path.length === 2 && method === "PUT") {
+      const result = await factoryStorefrontService.updateAdminCollectionCard(Number(path[1]), body);
+      if (!result.ok) return json({ message: result.message }, result.status || 404);
+      await invalidateStorefrontCache("factories");
+      return json(result.card);
     }
 
     return json({ message: "Not found" }, 404);

@@ -11,6 +11,7 @@ let leadTablesEnsured = false;
 let servicesTablesEnsured = false;
 let seoColumnsEnsured = false;
 let catalogPageSlugRenamesEnsured = false;
+let factoryStorefrontTablesEnsured = false;
 
 const CATALOG_PAGE_SLUG_RENAMES = [
   ["entry-doors", "vhodnye-dveri"],
@@ -237,6 +238,68 @@ const ensureCatalogPageSlugRenames = async () => {
   catalogPageSlugRenamesEnsured = true;
 };
 
+const ensureFactoryStorefrontTables = async () => {
+  if (factoryStorefrontTablesEnsured) return;
+  await query(`
+    CREATE TABLE IF NOT EXISTS factory_cards (
+      id BIGSERIAL PRIMARY KEY,
+      section_id TEXT NOT NULL,
+      manufacturer_name TEXT NOT NULL,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      image_url TEXT,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(section_id, manufacturer_name)
+    )
+  `);
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_factory_cards_section_sort
+    ON factory_cards(section_id, sort_order, id)
+  `);
+  await query(`
+    ALTER TABLE factory_cards
+    ADD COLUMN IF NOT EXISTS logo_url TEXT
+  `);
+  await query(`
+    ALTER TABLE factory_cards
+    ADD COLUMN IF NOT EXISTS badge_label TEXT
+  `);
+  await query(`
+    ALTER TABLE factory_cards
+    ADD COLUMN IF NOT EXISTS link_target TEXT NOT NULL DEFAULT 'collections'
+  `);
+  await query(`
+    CREATE TABLE IF NOT EXISTS collection_cards (
+      id BIGSERIAL PRIMARY KEY,
+      section_id TEXT NOT NULL,
+      manufacturer_name TEXT NOT NULL,
+      collection_name TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT 'описание',
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      image_url TEXT,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(section_id, manufacturer_name, collection_name)
+    )
+  `);
+  await query(`
+    ALTER TABLE collection_cards
+    ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT 'описание'
+  `);
+  await query(`
+    UPDATE collection_cards
+    SET description = 'описание'
+    WHERE description IS NULL OR BTRIM(description) = ''
+  `);
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_collection_cards_scope_sort
+    ON collection_cards(section_id, manufacturer_name, sort_order, id)
+  `);
+  factoryStorefrontTablesEnsured = true;
+};
+
 module.exports = {
   CATALOG_PAGE_SLUG_RENAMES,
   ensureProductBadgesColumn,
@@ -250,4 +313,5 @@ module.exports = {
   ensureServicesTables,
   ensureSeoColumns,
   ensureCatalogPageSlugRenames,
+  ensureFactoryStorefrontTables,
 };

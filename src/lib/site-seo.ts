@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const SITE_NAME = "Дверная Точка";
-export const SITE_TITLE = "Салон дверей Дверная Точка";
+export const SITE_TITLE = SITE_NAME;
 export const SITE_DEFAULT_DESCRIPTION =
   "Входные и межкомнатные двери в Архангельске: каталог, бесплатный замер, доставка и монтаж под ключ.";
 

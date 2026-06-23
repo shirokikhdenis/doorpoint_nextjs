@@ -47,6 +47,8 @@ export type ProductCard = {
   /** Варианты стекла той же модели (тот же model_key + name, тот же color); для чипов в выдаче. */
   glassOptions?: ProductGlassOption[];
   badges?: ProductBadge[];
+  /** Цена комплекта (полотно + коробка + наличники) для межкомнатных дверей. */
+  kitPrice?: number | null;
 };
 
 export type PromotionBanner = {
@@ -106,12 +108,21 @@ export type RelatedFittingItem = {
   price: number;
   image: string;
   subcategory: string;
-  group: "fixators" | "latches" | "hinges";
+  group:
+    | "magnetic_latch"
+    | "fixator"
+    | "flush_hinge"
+    | "butterfly_hinge"
+    | "limiter"
+    | "shootbolt";
 };
 export type RelatedFittings = {
-  fixators: RelatedFittingItem[];
-  latches: RelatedFittingItem[];
-  hinges: RelatedFittingItem[];
+  items: RelatedFittingItem[];
+};
+export type RelatedCollectionDoors = {
+  collectionName: string;
+  catalogHref: string;
+  items: ProductCard[];
 };
 export type KitPart = {
   id: number;
@@ -147,6 +158,7 @@ export type ProductData = {
   accessories: AccessoryItem[];
   relatedFittings: RelatedFittings;
   suggestedHandles?: ProductCard[];
+  relatedCollectionDoors?: RelatedCollectionDoors;
   badges?: ProductBadge[];
   kitPricing?: KitPricing | null;
   kitPrice?: number | null;
@@ -268,6 +280,10 @@ export const normalizeProductsResponse = (value: unknown): ProductCard[] => {
         : Number(item.compareAtPrice),
     glassOptions: parseGlassOptions(item.glassOptions),
     badges: parseProductBadges(item.badges),
+    kitPrice:
+      item.kitPrice === null || item.kitPrice === undefined
+        ? null
+        : Number(item.kitPrice) || null,
   }));
 };
 
@@ -285,18 +301,47 @@ const normalizeRelatedFittingItem = (
   group,
 });
 
+const RELATED_FITTING_GROUPS = new Set<RelatedFittingItem["group"]>([
+  "magnetic_latch",
+  "fixator",
+  "flush_hinge",
+  "butterfly_hinge",
+  "limiter",
+  "shootbolt",
+]);
+
+const normalizeRelatedFittingGroup = (value: unknown): RelatedFittingItem["group"] => {
+  const raw = String(value || "").trim();
+  if (RELATED_FITTING_GROUPS.has(raw as RelatedFittingItem["group"])) {
+    return raw as RelatedFittingItem["group"];
+  }
+  return "fixator";
+};
+
 const normalizeRelatedFittings = (value: unknown): RelatedFittings => {
   const source = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
+  if (Array.isArray(source.items)) {
+    return {
+      items: asArray<Record<string, unknown>>(source.items).map((entry) =>
+        normalizeRelatedFittingItem(entry, normalizeRelatedFittingGroup(entry.group)),
+      ),
+    };
+  }
+  return { items: [] };
+};
+
+const normalizeRelatedCollectionDoors = (value: unknown): RelatedCollectionDoors | undefined => {
+  if (!value || typeof value !== "object") return undefined;
+  const source = value as Record<string, unknown>;
+  const collectionName = String(source.collectionName || "").trim();
+  if (!collectionName) return undefined;
+  const items = normalizeProductsResponse({ items: source.items });
+  if (items.length === 0) return undefined;
+  const catalogHref = String(source.catalogHref || "").trim();
   return {
-    fixators: asArray<Record<string, unknown>>(source.fixators).map((entry) =>
-      normalizeRelatedFittingItem(entry, "fixators"),
-    ),
-    latches: asArray<Record<string, unknown>>(source.latches).map((entry) =>
-      normalizeRelatedFittingItem(entry, "latches"),
-    ),
-    hinges: asArray<Record<string, unknown>>(source.hinges).map((entry) =>
-      normalizeRelatedFittingItem(entry, "hinges"),
-    ),
+    collectionName,
+    catalogHref: catalogHref || "/catalog",
+    items,
   };
 };
 
@@ -382,6 +427,7 @@ export const normalizeProductData = (value: unknown): ProductData => {
     })),
     relatedFittings: normalizeRelatedFittings(source.relatedFittings),
     suggestedHandles: normalizeProductsResponse({ items: source.suggestedHandles }),
+    relatedCollectionDoors: normalizeRelatedCollectionDoors(source.relatedCollectionDoors),
     badges: parseProductBadges(source.badges),
     kitPricing: normalizeKitPricing(source.kitPricing),
     kitPrice:

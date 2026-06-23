@@ -1,11 +1,8 @@
 const fs = require("fs/promises");
 const path = require("path");
-const { randomUUID } = require("crypto");
 const portfolioRepository = require("../repositories/portfolioRepository");
-const { getUploadsRoot, ensureWritableSubdir } = require("../uploadsPath");
-
-const ALLOWED_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp"]);
-const MAX_FILE_BYTES = 10 * 1024 * 1024;
+const { getUploadsRoot } = require("../uploadsPath");
+const { saveFilesToSubdir } = require("./imageUploadService");
 
 const listPublicPortfolio = async () => {
   const projects = await portfolioRepository.listProjects();
@@ -46,34 +43,7 @@ const saveUploadedFiles = async (projectId, fileEntries) => {
   const project = await portfolioRepository.getProjectById(numericId);
   if (!project) throw new Error("Проект не найден");
 
-  const portfolioUploadsRoot = await ensureWritableSubdir("portfolio");
-  const dir = path.join(portfolioUploadsRoot, String(numericId));
-  await fs.mkdir(dir, { recursive: true });
-
-  const savedUrls = [];
-  for (const file of fileEntries) {
-    if (!file || typeof file.arrayBuffer !== "function") continue;
-    const originalName = String(file.name || "image.jpg");
-    const ext = path.extname(originalName).toLowerCase();
-    if (!ALLOWED_EXTENSIONS.has(ext)) {
-      throw new Error(`Недопустимый формат файла: ${originalName}`);
-    }
-
-    const buffer = Buffer.from(await file.arrayBuffer());
-    if (buffer.length === 0) continue;
-    if (buffer.length > MAX_FILE_BYTES) {
-      throw new Error(`Файл слишком большой (макс. ${MAX_FILE_BYTES / (1024 * 1024)} МБ): ${originalName}`);
-    }
-
-    const fileName = `${Date.now()}-${randomUUID()}${ext}`;
-    await fs.writeFile(path.join(dir, fileName), buffer);
-    savedUrls.push(`/uploads/portfolio/${numericId}/${fileName}`);
-  }
-
-  if (savedUrls.length === 0) {
-    throw new Error("Не выбраны подходящие изображения");
-  }
-
+  const savedUrls = await saveFilesToSubdir(`portfolio/${numericId}`, fileEntries);
   return portfolioRepository.addImages(numericId, savedUrls);
 };
 

@@ -9,6 +9,9 @@ type ProductPricingBlockProps = {
   kitPrice?: number | null;
   kitPricing?: KitPricing | null;
   className?: string;
+  /** `compact` — карточка каталога; `stacked` — цены друг под другом. */
+  variant?: "default" | "compact";
+  layout?: "inline" | "stacked";
 };
 
 const KIT_HINT_TEXT =
@@ -40,15 +43,52 @@ export function ProductPricingBlock({
   isOnSale,
   kitPrice,
   className,
+  variant = "default",
+  layout = "inline",
 }: ProductPricingBlockProps) {
+  const isCompact = variant === "compact";
+
   if (kitPrice == null) {
     return (
       <ProductPrice
         price={price}
         compareAtPrice={compareAtPrice}
         isOnSale={isOnSale}
-        className={cn("text-2xl font-semibold tabular-nums text-zinc-900", className)}
+        layout={isCompact ? "stacked" : "inline"}
+        className={cn(
+          isCompact ? "text-base font-medium text-zinc-800" : "text-2xl font-semibold tabular-nums text-zinc-900",
+          className,
+        )}
+        compareClassName={isCompact ? "text-xs" : "text-sm"}
       />
+    );
+  }
+
+  if (isCompact && layout === "stacked") {
+    return (
+      <div className={cn("flex flex-col gap-1.5", className)}>
+        <div className="flex flex-col gap-0.5">
+          <ProductPrice
+            price={price}
+            compareAtPrice={compareAtPrice}
+            isOnSale={isOnSale}
+            layout="stacked"
+            className="text-base font-medium text-zinc-800"
+            compareClassName="text-xs"
+          />
+          <span className="text-[10px] text-zinc-400">за полотно</span>
+        </div>
+        <div className="flex flex-col gap-0.5">
+          <span className="inline-flex items-baseline gap-1">
+            <PriceTag
+              price={kitPrice}
+              className="text-sm font-semibold tabular-nums text-zinc-500"
+            />
+            <KitPriceHint text={KIT_HINT_TEXT} />
+          </span>
+          <span className="text-[10px] text-zinc-400">за комплект</span>
+        </div>
+      </div>
     );
   }
 
@@ -60,14 +100,20 @@ export function ProductPricingBlock({
           compareAtPrice={compareAtPrice}
           isOnSale={isOnSale}
           layout="stacked"
-          className="text-2xl font-semibold leading-tight tabular-nums text-zinc-900"
-          compareClassName="text-sm"
+          className={cn(
+            "font-semibold leading-tight tabular-nums text-zinc-900",
+            isCompact ? "text-base" : "text-2xl",
+          )}
+          compareClassName={isCompact ? "text-xs" : "text-sm"}
         />
-        <span className="text-xs text-zinc-400">за полотно</span>
+        <span className={cn("text-zinc-400", isCompact ? "text-[10px]" : "text-xs")}>за полотно</span>
       </div>
 
       <span
-        className="pt-0.5 text-2xl font-light leading-none text-zinc-300"
+        className={cn(
+          "font-light leading-none text-zinc-300",
+          isCompact ? "pt-1 text-base" : "pt-0.5 text-2xl",
+        )}
         aria-hidden="true"
       >
         /
@@ -77,11 +123,14 @@ export function ProductPricingBlock({
         <span className="inline-flex items-baseline gap-1.5">
           <PriceTag
             price={kitPrice}
-            className="text-xl font-semibold leading-tight tabular-nums text-zinc-500"
+            className={cn(
+              "font-semibold leading-tight tabular-nums text-zinc-500",
+              isCompact ? "text-sm" : "text-xl",
+            )}
           />
           <KitPriceHint text={KIT_HINT_TEXT} />
         </span>
-        <span className="text-xs text-zinc-400">за комплект</span>
+        <span className={cn("text-zinc-400", isCompact ? "text-[10px]" : "text-xs")}>за комплект</span>
       </div>
     </div>
   );

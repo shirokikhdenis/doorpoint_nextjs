@@ -12,6 +12,7 @@ const links = [
   { href: "/contact", label: "Контакты" },
   { href: "/uslugi", label: "Доставка и монтаж" },
   { href: "/portfolio", label: "Наши работы" },
+  { href: "/fabriki", label: "Фабрики" },
 ];
 
 function NavItem({

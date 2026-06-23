@@ -10,6 +10,7 @@ import {
   reorderImagesList,
   type PortfolioImageItem,
 } from "@/features/admin/portfolio-image-reorder";
+import { uploadAdminImages } from "@/features/admin/admin-image-upload";
 import { toPublicImageSrc } from "@/lib/client/image-src";
 
 type PortfolioImage = PortfolioImageItem;
@@ -72,18 +73,10 @@ export default function AdminPortfolioPage() {
   }, [reload]);
 
   const uploadFiles = async (projectId: number, files: File[]) => {
-    if (files.length === 0) return;
-    const formData = new FormData();
-    files.forEach((file) => formData.append("files", file));
-    const response = await fetch(`/api/admin/portfolio/${projectId}/images`, {
-      method: "POST",
-      credentials: "same-origin",
-      body: formData,
+    await uploadAdminImages({
+      url: `/api/admin/portfolio/${projectId}/images`,
+      files,
     });
-    if (!response.ok) {
-      const payload = await response.json().catch(() => ({}));
-      throw new Error(payload.message || "Не удалось загрузить фото");
-    }
   };
 
   const handleCreate = async (event: FormEvent) => {

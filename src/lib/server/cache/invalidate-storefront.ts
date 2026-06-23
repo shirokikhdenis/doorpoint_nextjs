@@ -1,6 +1,6 @@
 import { revalidatePath, revalidateTag } from "next/cache";
 
-export type StorefrontCacheScope = "products" | "catalog-pages" | "promotions" | "all";
+export type StorefrontCacheScope = "products" | "catalog-pages" | "promotions" | "factories" | "all";
 
 const expireTag = (tag: string) => {
   revalidateTag(tag, { expire: 0 });
@@ -20,6 +20,10 @@ export async function invalidateStorefrontCache(scope: StorefrontCacheScope = "a
 
   if (scope === "all" || scope === "promotions") {
     expireTag("promotions");
+  }
+
+  if (scope === "all" || scope === "factories") {
+    revalidatePath("/fabriki", "layout");
   }
 
   if (scope === "all" || scope === "products" || scope === "promotions") {

@@ -5,6 +5,7 @@ const productRepository = require("../repositories/productRepository");
 const catalogPageRepository = require("../repositories/catalogPageRepository");
 const catalogPageLabelRepository = require("../repositories/catalogPageLabelRepository");
 const saleSettingsRepository = require("../repositories/saleSettingsRepository");
+const storefrontSettingsRepository = require("../repositories/storefrontSettingsRepository");
 const { describeSaleRule } = require("../domain/salePricing");
 
 const slugify = (value) =>
@@ -333,6 +334,11 @@ const updateSaleSettings = async (body) => {
   };
 };
 
+const getStorefrontSettings = async () => storefrontSettingsRepository.getStorefrontSettings();
+
+const updateStorefrontSettings = async (body) =>
+  storefrontSettingsRepository.updateStorefrontSettings(body);
+
 const patchProductDisplayOrder = async (id, body) =>
   productRepository.patchProductDisplayOrder(Number(id), body?.displayOrder ?? body?.sortOrder);
 
@@ -378,6 +384,8 @@ module.exports = {
   getProductsTable,
   getSaleSettings,
   updateSaleSettings,
+  getStorefrontSettings,
+  updateStorefrontSettings,
   patchProductDisplayOrder,
   patchProductBadges,
   patchProductSale,

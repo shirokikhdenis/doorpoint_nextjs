@@ -1,9 +1,8 @@
-import Link from "next/link";
 import { StorefrontImage } from "@/features/store/storefront-image";
 import { CATALOG_CARD_IMAGE_HEIGHT } from "@/features/catalog/catalog-constants";
 import { CatalogProductLink } from "@/features/catalog/catalog-product-link";
+import { ProductPricingBlock } from "@/features/product/product-pricing-block";
 import { AddToCartIconButton } from "@/features/store/add-to-cart-icon-button";
-import { ProductPrice } from "@/features/store/price-tag";
 import { ProductCardBadges } from "@/features/store/product-card-badges";
 import { isPogonazhCategoryLabel } from "@/lib/client/cart-store";
 import { toPublicImageSrc } from "@/lib/client/image-src";
@@ -68,12 +67,14 @@ export function CatalogProductCard({
         onBeforeNavigate={onNavigateToProduct}
       >
         <h3 className="line-clamp-2 min-h-[2.5rem] text-sm leading-snug text-zinc-900">{displayName}</h3>
-        <ProductPrice
+        <ProductPricingBlock
           price={item.price}
           compareAtPrice={item.compareAtPrice}
           isOnSale={item.isOnSale}
-          layout="stacked"
-          className="mt-2 text-base font-medium text-zinc-800"
+          kitPrice={item.kitPrice}
+          variant="compact"
+          align="end"
+          className="mt-2"
         />
       </CatalogProductLink>
     </article>

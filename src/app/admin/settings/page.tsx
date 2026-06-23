@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminStorefrontSettings } from "@/features/admin/admin-storefront-settings";
 import { AdminCard } from "@/features/admin/ui/admin-card";
 import { AdminPage } from "@/features/admin/ui/admin-page";
 import {
@@ -20,7 +21,8 @@ export default function AdminSettingsPage() {
   const { theme, setTheme, ready } = useAdminTheme();
 
   return (
-    <AdminPage title="Настройки" description="Внешний вид панели администратора.">
+    <AdminPage title="Настройки" description="Витрина и внешний вид панели администратора.">
+      <AdminStorefrontSettings className="mb-6" />
       <AdminCard title="Тема оформления" description="Сохраняется в браузере на этом устройстве.">
         <div className="grid gap-3 sm:grid-cols-3">
           {ADMIN_THEMES.map((option) => {

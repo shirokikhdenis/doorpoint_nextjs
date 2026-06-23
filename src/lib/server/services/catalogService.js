@@ -1,7 +1,9 @@
 const productRepository = require("../repositories/productRepository");
 const catalogPageRepository = require("../repositories/catalogPageRepository");
+const storefrontSettingsRepository = require("../repositories/storefrontSettingsRepository");
 const catalogPageLabelRepository = require("../repositories/catalogPageLabelRepository");
 const subcategoryRepository = require("../repositories/subcategoryRepository");
+const { loadRelatedCollectionDoors } = require("../domain/collectionRelatedDoors");
 
 const HANDLES_SUBCATEGORY_SLUGS = ["handles", "ручки"];
 
@@ -134,7 +136,11 @@ const getProducts = async (query) => {
       }
     }
   }
-  const { total, items } = await productRepository.listProducts(filters);
+  const storefrontSettings = await storefrontSettingsRepository.getStorefrontSettings();
+  const { total, items } = await productRepository.listProducts({
+    ...filters,
+    includeKitPrice: storefrontSettings.showCatalogKitPrice,
+  });
   return {
     items,
     total,
@@ -200,12 +206,19 @@ const pickRandomHandles = async ({ count = 4, excludeIds = [] } = {}) => {
 
 const INTERIOR_DOORS_CATEGORY_SLUG = "interior-doors";
 
-const attachSuggestedHandles = async (product) => {
+const attachInteriorDoorExtras = async (product) => {
   if (!product || product.categorySlug !== INTERIOR_DOORS_CATEGORY_SLUG) {
     return product;
   }
-  const suggestedHandles = await pickRandomHandles({ count: 4 });
-  return { ...product, suggestedHandles };
+  const [suggestedHandles, relatedCollectionDoors] = await Promise.all([
+    pickRandomHandles({ count: 4 }),
+    loadRelatedCollectionDoors({ product, getProducts }),
+  ]);
+  return {
+    ...product,
+    suggestedHandles,
+    ...(relatedCollectionDoors ? { relatedCollectionDoors } : {}),
+  };
 };
 
 const getProductById = async (id) => {
@@ -214,7 +227,7 @@ const getProductById = async (id) => {
     return null;
   }
   const product = await productRepository.getProductById(numericId);
-  return product ? attachSuggestedHandles(product) : null;
+  return product ? attachInteriorDoorExtras(product) : null;
 };
 
 const getProductByRef = async (ref) => {
@@ -224,7 +237,7 @@ const getProductByRef = async (ref) => {
     return getProductById(raw);
   }
   const product = await productRepository.getProductBySlug(raw);
-  return product ? attachSuggestedHandles(product) : null;
+  return product ? attachInteriorDoorExtras(product) : null;
 };
 
 const listActiveProductSlugs = async () => productRepository.listActiveProductSlugs();

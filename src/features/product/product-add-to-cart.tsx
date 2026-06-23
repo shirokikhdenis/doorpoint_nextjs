@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { CartQuantityStepper } from "@/features/store/cart-quantity-stepper";
 import { CartLineRef, findCartLine } from "@/lib/client/cart-store";
 import { useCart } from "@/lib/client/use-cart";
+import { cn } from "@/lib/utils";
 
 type ProductAddToCartProps = {
   productId: number;
@@ -13,6 +14,7 @@ type ProductAddToCartProps = {
   cartImage: string;
   price: number;
   sku?: string;
+  className?: string;
 };
 
 export function ProductAddToCart({
@@ -22,6 +24,7 @@ export function ProductAddToCart({
   cartImage,
   price,
   sku,
+  className,
 }: ProductAddToCartProps) {
   const { items, addItem, setQuantity: setCartQuantity } = useCart();
   const lineRef = useMemo<CartLineRef>(
@@ -56,7 +59,7 @@ export function ProductAddToCart({
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-3">
+    <div className={cn("!mt-6 flex flex-wrap items-center gap-3", className)}>
       <Button type="button" variant="brand" onClick={handleAdd}>
         Добавить в корзину
       </Button>

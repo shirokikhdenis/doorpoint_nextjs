@@ -27,7 +27,10 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
     items: [
       { href: "/admin/catalog-pages", label: "Витрины каталога" },
       { href: "/admin/catalog-labels", label: "Ярлыки витрин" },
+      { href: "/admin/factories", label: "Фабрики" },
+      { href: "/admin/factory-collections", label: "Коллекции фабрик" },
       { href: "/admin/promotions", label: "Акции на главной" },
+      { href: "/admin/related-fittings", label: "Сопутствующая фурнитура" },
     ],
   },
   {
@@ -60,7 +63,10 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin/import": "Импорт CSV",
   "/admin/catalog-pages": "Витрины каталога",
   "/admin/catalog-labels": "Ярлыки витрин",
+  "/admin/factories": "Фабрики",
+  "/admin/factory-collections": "Коллекции фабрик",
   "/admin/promotions": "Акции на главной",
+  "/admin/related-fittings": "Сопутствующая фурнитура",
   "/admin/portfolio": "Портфолио",
   "/admin/services": "Услуги",
   "/admin/attributes": "Атрибуты",

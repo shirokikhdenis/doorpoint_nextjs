@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ProductAccessoriesTable } from "@/features/product/product-accessories-table";
 import { ProductAddToCart } from "@/features/product/product-add-to-cart";
 import { ProductGallery } from "@/features/product/product-gallery";
+import { ProductRelatedCollectionDoors } from "@/features/product/product-related-collection-doors";
 import { ProductRelatedFittings } from "@/features/product/product-related-fittings";
 import { ProductSuggestedHandles } from "@/features/product/product-suggested-handles";
 import { ProductVariantSelectors } from "@/features/product/product-variant-selectors";
@@ -50,11 +51,7 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
     product.images.length > 0 ? product.images : product.image ? [product.image] : [];
   const price = resolveProductDisplayPrice(product, page.selectedVariant?.price);
   const kitPrice = computeInteriorKitPrice(price, product.kitPricing);
-  const relatedFittings = product.relatedFittings ?? {
-    fixators: [],
-    latches: [],
-    hinges: [],
-  };
+  const relatedFittings = product.relatedFittings ?? { items: [] };
   const cartName = page.selectedVariant
     ? `${product.name} (${variantCartSuffix(page.selectedVariant)})`
     : product.name;
@@ -159,7 +156,7 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
               {product.attributes.map((attr) => (
                 <div
                   key={attr.code}
-                  className="flex items-start justify-between gap-3 border-b py-1 text-sm"
+                  className="flex items-start justify-between gap-3 border-b border-zinc-200 py-1 text-sm"
                 >
                   <span className="min-w-0">{attr.name}</span>
                   <strong className="shrink-0 text-right">{attr.value || "-"}</strong>
@@ -175,6 +172,7 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
           doorColor={page.cartColorLabel}
         />
         <ProductSuggestedHandles handles={product.suggestedHandles ?? []} />
+        <ProductRelatedCollectionDoors relatedCollectionDoors={product.relatedCollectionDoors} />
       </main>
       <ImageLightbox
         src={image}

@@ -399,6 +399,8 @@ const listProducts = async (filters) => {
       p.is_on_sale AS "isOnSale",
       p.compare_at_price AS "compareAtPrice",
       p.badges,
+      p.attrs->>'pogonazh_id' AS "_pogonazhIdRaw",
+      COALESCE(parent.id, c.id) AS "_rootCategoryId",
       p.attrs->>'color' AS color,
       (
         SELECT COALESCE(
@@ -433,7 +435,7 @@ const listProducts = async (filters) => {
     params,
   );
 
-  const items = itemsRes.rows.map((row) => {
+  const baseItems = itemsRes.rows.map((row) => {
     const taxonomy = splitTaxonomy(row);
     return {
       id: Number(row.id),
@@ -471,10 +473,46 @@ const listProducts = async (filters) => {
       categorySlug: taxonomy.categorySlug,
       subcategory: taxonomy.subcategory,
       subcategorySlug: taxonomy.subcategorySlug,
+      _pogonazhIdRaw: row._pogonazhIdRaw || null,
+      _rootCategoryId: Number(row._rootCategoryId) || null,
     };
   });
 
+  const items = filters.includeKitPrice === false
+    ? baseItems.map(({ _pogonazhIdRaw, _rootCategoryId, ...rest }) => ({ ...rest, kitPrice: null }))
+    : await attachInteriorKitPricesToListItems(baseItems);
+
   return { total: countRes.rows[0].total, items };
+};
+
+const attachInteriorKitPricesToListItems = async (items) => {
+  const cache = new Map();
+
+  return Promise.all(
+    items.map(async (item) => {
+      let kitPrice = null;
+
+      if (item.categorySlug === INTERIOR_DOORS_CATEGORY_SLUG && item._pogonazhIdRaw) {
+        const pogonazhIds = parsePogonazhIdList(item._pogonazhIdRaw);
+        if (pogonazhIds.length > 0) {
+          const cacheKey = `${[...pogonazhIds].sort().join("|")}:${item._rootCategoryId ?? ""}`;
+          if (!cache.has(cacheKey)) {
+            cache.set(
+              cacheKey,
+              await loadInteriorKitParts({
+                pogonazhIds,
+                excludeRootCategoryId: item._rootCategoryId,
+              }),
+            );
+          }
+          kitPrice = computeInteriorKitPrice(item.price, cache.get(cacheKey));
+        }
+      }
+
+      const { _pogonazhIdRaw, _rootCategoryId, ...publicItem } = item;
+      return { ...publicItem, kitPrice };
+    }),
+  );
 };
 
 const buildMetaScope = (constraints) => {
@@ -2307,10 +2345,140 @@ const listActiveProductSlugs = async () => {
   return result.rows.map((row) => String(row.slug));
 };
 
+/** Публичный список фабрик (производителей) для витрины: имя, число моделей, обложка. */
+const listPublicManufacturers = async ({
+  categoryRootSlug = null,
+  manufacturerNames = null,
+} = {}) => {
+  const params = [];
+  const addParam = (value) => {
+    params.push(value);
+    return `$${params.length}`;
+  };
+
+  const whereParts = [
+    "p.is_active = TRUE",
+    storefrontListedProductPredicatesSql,
+    `TRIM(COALESCE(p.attrs->>'manufacturer', '')) <> ''`,
+  ];
+
+  if (categoryRootSlug) {
+    whereParts.push(`COALESCE(parent.slug, c.slug) = ${addParam(String(categoryRootSlug).trim())}`);
+  }
+
+  if (Array.isArray(manufacturerNames) && manufacturerNames.length > 0) {
+    const normalizedNames = manufacturerNames
+      .map((name) => String(name || "").trim().toLowerCase())
+      .filter(Boolean);
+    if (normalizedNames.length > 0) {
+      whereParts.push(
+        `LOWER(TRIM(p.attrs->>'manufacturer')) = ANY(${addParam(normalizedNames)}::text[])`,
+      );
+    }
+  }
+
+  const res = await query(
+    `
+    WITH ranked AS (
+      SELECT
+        TRIM(p.attrs->>'manufacturer') AS name,
+        ${productImageSubquery} AS image,
+        ROW_NUMBER() OVER (
+          PARTITION BY LOWER(TRIM(p.attrs->>'manufacturer'))
+          ORDER BY ${displayOrderExpr} DESC, p.id ASC
+        ) AS rn,
+        COUNT(*) OVER (PARTITION BY LOWER(TRIM(p.attrs->>'manufacturer'))) AS product_count
+      FROM products p
+      ${taxonomyJoin}
+      WHERE ${whereParts.join(" AND ")}
+    )
+    SELECT
+      name,
+      product_count::int AS "productCount",
+      NULLIF(TRIM(image), '') AS "coverImage"
+    FROM ranked
+    WHERE rn = 1
+    ORDER BY name ASC
+    `,
+    params,
+  );
+  return res.rows.map((row) => ({
+    name: String(row.name || "").trim(),
+    productCount: Number(row.productCount) || 0,
+    coverImage: row.coverImage ? String(row.coverImage) : null,
+  }));
+};
+
+/** Публичный список коллекций производителя в рамках категории. */
+const listPublicCollections = async ({
+  categoryRootSlug = null,
+  manufacturerName = null,
+  collectionAttrCode = "collection",
+} = {}) => {
+  const attrCode = String(collectionAttrCode || "collection").trim() || "collection";
+  if (!/^[a-z0-9_]+$/i.test(attrCode)) {
+    return [];
+  }
+  const collectionExpr = `p.attrs->>'${attrCode}'`;
+
+  const params = [];
+  const addParam = (value) => {
+    params.push(value);
+    return `$${params.length}`;
+  };
+
+  const manufacturerTrimmed = String(manufacturerName || "").trim();
+  if (!manufacturerTrimmed) return [];
+
+  const whereParts = [
+    "p.is_active = TRUE",
+    storefrontListedProductPredicatesSql,
+    `TRIM(COALESCE(${collectionExpr}, '')) <> ''`,
+    `LOWER(TRIM(COALESCE(p.attrs->>'manufacturer', ''))) = LOWER(${addParam(manufacturerTrimmed)})`,
+  ];
+
+  if (categoryRootSlug) {
+    whereParts.push(`COALESCE(parent.slug, c.slug) = ${addParam(String(categoryRootSlug).trim())}`);
+  }
+
+  const res = await query(
+    `
+    WITH ranked AS (
+      SELECT
+        TRIM(${collectionExpr}) AS name,
+        ${productImageSubquery} AS image,
+        ROW_NUMBER() OVER (
+          PARTITION BY LOWER(TRIM(${collectionExpr}))
+          ORDER BY ${displayOrderExpr} DESC, p.id ASC
+        ) AS rn,
+        COUNT(*) OVER (PARTITION BY LOWER(TRIM(${collectionExpr}))) AS product_count
+      FROM products p
+      ${taxonomyJoin}
+      WHERE ${whereParts.join(" AND ")}
+    )
+    SELECT
+      name,
+      product_count::int AS "productCount",
+      NULLIF(TRIM(image), '') AS "coverImage"
+    FROM ranked
+    WHERE rn = 1
+    ORDER BY name ASC
+    `,
+    params,
+  );
+  return res.rows.map((row) => ({
+    name: String(row.name || "").trim(),
+    productCount: Number(row.productCount) || 0,
+    coverImage: row.coverImage ? String(row.coverImage) : null,
+  }));
+};
+
 module.exports = {
   listProducts,
   listFilterMeta,
   listActiveProductSlugs,
+  listPublicManufacturers,
+  listPublicCollections,
   getProductById,
   getProductBySlug,
   listAdminProducts,
