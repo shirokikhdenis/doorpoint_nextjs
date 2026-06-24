@@ -134,6 +134,7 @@ const syncCollectionCards = async (sectionId, manufacturerName) => {
 
 const listPublicFactorySections = async () => {
   const { buildManufacturerCatalogHref } = require("./collectionService");
+  const { buildEntryFactoryCatalogLinks } = require("../domain/subcategoryRelatedDoors");
   const sections = await Promise.all(
     FACTORY_SECTIONS.map(async (section) => {
       await syncFactoryCards(section.id);
@@ -152,19 +153,22 @@ const listPublicFactorySections = async () => {
           const setting = settingsByName.get(name.trim().toLowerCase());
           if (setting?.isActive === false) return null;
           const product = productsByName.get(name.trim().toLowerCase());
+          const linkTarget = resolveLinkTarget(setting?.linkTarget);
+          const catalogLinks =
+            section.id === "entry" && linkTarget === "catalog"
+              ? buildEntryFactoryCatalogLinks(name)
+              : null;
           return {
             name,
             badgeLabel: resolveBadgeLabel(setting?.badgeLabel),
             productCount: product?.productCount ?? 0,
             logoImage: resolveImageUrl(setting?.logoUrl, null),
             doorImage: resolveImageUrl(setting?.imageUrl, product?.coverImage),
-            linkTarget: resolveLinkTarget(setting?.linkTarget),
-            href: resolveFactoryCardHref(
-              section,
-              name,
-              setting?.linkTarget,
-              buildManufacturerCatalogHref,
-            ),
+            linkTarget,
+            catalogLinks,
+            href:
+              catalogLinks?.[0]?.href ??
+              resolveFactoryCardHref(section, name, linkTarget, buildManufacturerCatalogHref),
             sortOrder: setting?.sortOrder ?? index * 10,
           };
         })

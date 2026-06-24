@@ -10,4 +10,5 @@ export const emptyCatalogMeta: CatalogMeta = {
   attributeFilters: [],
   price: { min: 0, max: 0 },
   labels: [],
+  collapsedFilterSections: null,
 };

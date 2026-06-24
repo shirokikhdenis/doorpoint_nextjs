@@ -2,6 +2,11 @@ const fs = require("fs/promises");
 const path = require("path");
 const { randomUUID } = require("crypto");
 const { ensureWritableSubdir } = require("../uploadsPath");
+const {
+  optimizeRasterBuffer,
+  resolveImagePreset,
+  shouldOptimizeExtension,
+} = require("../imageOptimize");
 
 const RASTER_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp"]);
 const SVG_EXTENSION = ".svg";
@@ -56,8 +61,23 @@ const saveFilesToSubdir = async (relativeSubdir, fileEntries, options = {}) => {
       );
     }
 
-    const fileName = `${Date.now()}-${randomUUID()}${ext}`;
-    await fs.writeFile(path.join(dir, fileName), buffer);
+    let outputBuffer = buffer;
+    let outputExt = ext;
+
+    if (ext === SVG_EXTENSION && allowSvg) {
+      // SVG is stored as-is.
+    } else if (shouldOptimizeExtension(ext)) {
+      const optimized = await optimizeRasterBuffer(buffer, {
+        preset: resolveImagePreset(relativeSubdir),
+      });
+      outputBuffer = optimized.buffer;
+      outputExt = optimized.extension;
+    } else {
+      throw new Error(`Недопустимый формат файла: ${originalName}`);
+    }
+
+    const fileName = `${Date.now()}-${randomUUID()}${outputExt}`;
+    await fs.writeFile(path.join(dir, fileName), outputBuffer);
     savedUrls.push(`${publicPrefix}/${fileName}`);
   }
 

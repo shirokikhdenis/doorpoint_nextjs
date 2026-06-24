@@ -14,8 +14,8 @@ export type CatalogActiveFilterChip =
 const sortLabels: Record<string, string> = {
   "alphabet-asc": "По алфавиту (А-Я)",
   "alphabet-desc": "По алфавиту (Я-А)",
-  "price-asc": "Цена по возрастанию",
-  "price-desc": "Цена по убыванию",
+  "price-asc": "Сначала дешевле",
+  "price-desc": "Сначала дороже",
 };
 
 const formatRangePart = (value: string, suffix = "") => {
@@ -65,9 +65,48 @@ export const isAttrFilterCollapsedByDefault = (filter: CatalogAttributeFilter): 
   return true;
 };
 
+/** Атрибуты, полностью покрытые одной подборкой (одно значение) — не дублируем в сайдбаре. */
+export const attributeFiltersForSidebar = (meta: CatalogMeta): CatalogAttributeFilter[] => {
+  const labelCoveredCodes = new Set<string>();
+  for (const label of meta.labels) {
+    for (const rule of label.filters) {
+      labelCoveredCodes.add(rule.code);
+    }
+  }
+
+  return meta.attributeFilters.filter((filter) => {
+    if (filter.type === "number") return true;
+    if (!labelCoveredCodes.has(filter.code)) return true;
+    const values = filter.values || [];
+    return values.length > 1;
+  });
+};
+
+export const shouldShowCategoryFilters = (meta: CatalogMeta) => meta.categories.length > 1;
+
+export const shouldShowSubcategoryFilters = (meta: CatalogMeta) => meta.subcategories.length > 1;
+
+export const buildFallbackCollapsedSectionIds = (
+  filterAttributes: CatalogAttributeFilter[],
+): string[] => {
+  const collapsed: string[] = ["categories", "subcategories"];
+  for (const filter of filterAttributes) {
+    if (isAttrFilterCollapsedByDefault(filter)) {
+      collapsed.push(`attr-${filter.code}`);
+    }
+  }
+  return collapsed;
+};
+
 export const buildDefaultCollapsedSections = (meta: CatalogMeta): Set<string> => {
+  if (meta.collapsedFilterSections !== null) {
+    return new Set(meta.collapsedFilterSections);
+  }
+
   const collapsed = new Set<string>();
-  for (const filter of meta.attributeFilters) {
+  if (shouldShowCategoryFilters(meta)) collapsed.add("categories");
+  if (shouldShowSubcategoryFilters(meta)) collapsed.add("subcategories");
+  for (const filter of attributeFiltersForSidebar(meta)) {
     if (isAttrFilterCollapsedByDefault(filter)) {
       collapsed.add(`attr-${filter.code}`);
     }
@@ -104,9 +143,7 @@ export const expandSectionsWithActiveFilters = (
   if (filters.priceRange.min.trim() !== "" || filters.priceRange.max.trim() !== "") {
     next.delete("price");
   }
-  if (filters.labels.some((label) => labelMatchesSelections(label, filters.attrSelections))) {
-    next.delete("labels");
-  }
+  if (filters.onSale) next.delete("promotions");
   for (const [code, values] of Object.entries(filters.attrSelections)) {
     if (values.length > 0) next.delete(`attr-${code}`);
   }
@@ -148,7 +185,7 @@ export const buildCatalogActiveFilterChips = (
   }
 
   if (filters.onSale) {
-    chips.push({ id: "onSale", label: "Акции", value: "Только акционные", kind: "onSale" });
+    chips.push({ id: "onSale", label: "Двери со скидкой", value: "Да", kind: "onSale" });
   }
 
   for (const slug of filters.categories) {

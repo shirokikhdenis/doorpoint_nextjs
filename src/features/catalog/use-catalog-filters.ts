@@ -22,6 +22,7 @@ import {
   catalogPageFromPathname,
   catalogPagePath,
 } from "@/lib/catalog-url";
+import { catalogPageSupportsOnSaleFilter } from "@/lib/catalog-page-slugs";
 
 const SEARCH_DEBOUNCE_MS = 300;
 
@@ -108,6 +109,9 @@ export function useCatalogFilters(meta: CatalogMeta, options?: UseCatalogFilters
     clearCatalogReturnPayload();
   }, []);
 
+  const onSaleApplies = catalogPageSupportsOnSaleFilter(catalogPage);
+  const effectiveOnSale = onSaleApplies && onSale;
+
   const filterState: CatalogFilterState = useMemo(
     () => ({
       search: debouncedSearch,
@@ -117,9 +121,9 @@ export function useCatalogFilters(meta: CatalogMeta, options?: UseCatalogFilters
       attrSelections,
       attrRanges,
       priceRange,
-      onSale,
+      onSale: effectiveOnSale,
     }),
-    [debouncedSearch, sort, categories, subcategories, attrSelections, attrRanges, priceRange, onSale],
+    [debouncedSearch, sort, categories, subcategories, attrSelections, attrRanges, priceRange, effectiveOnSale],
   );
 
   const query = useMemo(
@@ -140,7 +144,7 @@ export function useCatalogFilters(meta: CatalogMeta, options?: UseCatalogFilters
     Object.keys(attrRanges).length > 0 ||
     priceRange.min.trim() !== "" ||
     priceRange.max.trim() !== "" ||
-    onSale;
+    effectiveOnSale;
 
   const isFilterSectionCollapsed = (sectionId: string) => collapsedFilterSections.has(sectionId);
 
@@ -241,9 +245,9 @@ export function useCatalogFilters(meta: CatalogMeta, options?: UseCatalogFilters
     setOnSale(value);
   };
 
-  const setSearchInputWithClear = (value: string) => {
+  const setSearchInputWithClear = useCallback((value: string) => {
     setSearchInput(value);
-  };
+  }, []);
 
   const removeActiveFilterChip = useCallback(
     (chip: CatalogActiveFilterChip) => {
@@ -341,16 +345,23 @@ export function useCatalogFilters(meta: CatalogMeta, options?: UseCatalogFilters
     setAttrSelections({});
     setAttrRanges({});
     setPriceRange({ min: "", max: "" });
-    setOnSale(searchParams?.get("onSale") === "1");
+    setOnSale(
+      catalogPageSupportsOnSaleFilter(pageFromPath) && searchParams?.get("onSale") === "1",
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
   useEffect(() => {
     if (!searchParams) return;
+    if (!catalogPageSupportsOnSaleFilter(catalogPage)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setOnSale(false);
+      return;
+    }
     // Keep browser history navigation in sync with the controlled sale checkbox.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setOnSale(searchParams.get("onSale") === "1");
-  }, [searchParams]);
+  }, [searchParams, catalogPage]);
 
   useEffect(() => {
     if (isMetaEmpty(meta)) {

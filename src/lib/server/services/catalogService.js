@@ -4,6 +4,7 @@ const storefrontSettingsRepository = require("../repositories/storefrontSettings
 const catalogPageLabelRepository = require("../repositories/catalogPageLabelRepository");
 const subcategoryRepository = require("../repositories/subcategoryRepository");
 const { loadRelatedCollectionDoors } = require("../domain/collectionRelatedDoors");
+const { loadRelatedSubcategoryDoors } = require("../domain/subcategoryRelatedDoors");
 const { loadFinishOptionsForProduct } = require("../domain/doorFinishes");
 const { attachManufacturerBrand } = require("../domain/productManufacturerBrand");
 const { resolveFinishPickerTemplateId } = require("../domain/doorFinishPickerSettings");
@@ -158,9 +159,11 @@ const getFilterMeta = async (query = {}) => {
   const pageSlug = normalizeCatalogPageFromQuery(query);
   const filters = {};
   let labels = [];
+  let collapsedFilterSections = null;
   if (pageSlug) {
     const page = await catalogPageRepository.findCatalogPageBySlug(pageSlug);
     if (page) {
+      collapsedFilterSections = page.collapsedFilterSections ?? null;
       const labelRows = await catalogPageLabelRepository.listByCatalogPageId(page.id);
       labels = labelRows.map((label) => ({
         id: label.id,
@@ -189,7 +192,11 @@ const getFilterMeta = async (query = {}) => {
     }
   }
   const meta = await productRepository.listFilterMeta(filters);
-  return { ...meta, labels };
+  return {
+    ...meta,
+    labels,
+    collapsedFilterSections,
+  };
 };
 
 const listCatalogPages = async () => catalogPageRepository.listCatalogPages();
@@ -209,6 +216,22 @@ const pickRandomHandles = async ({ count = 4, excludeIds = [] } = {}) => {
 };
 
 const INTERIOR_DOORS_CATEGORY_SLUG = "interior-doors";
+const ENTRY_DOORS_CATEGORY_SLUG = "entry-doors";
+
+const attachEntryDoorExtras = async (product) => {
+  if (!product || product.categorySlug !== ENTRY_DOORS_CATEGORY_SLUG) {
+    return product;
+  }
+  const relatedSubcategoryDoors = await loadRelatedSubcategoryDoors({
+    product,
+    getProducts,
+    shuffle,
+  });
+  return {
+    ...product,
+    ...(relatedSubcategoryDoors ? { relatedSubcategoryDoors } : {}),
+  };
+};
 
 const attachInteriorDoorExtras = async (product) => {
   if (!product || product.categorySlug !== INTERIOR_DOORS_CATEGORY_SLUG) {
@@ -237,7 +260,8 @@ const attachInteriorDoorExtras = async (product) => {
 const attachProductPageExtras = async (product) => {
   if (!product) return null;
   const withBrand = await attachManufacturerBrand(product);
-  return attachInteriorDoorExtras(withBrand);
+  const withEntryDoors = await attachEntryDoorExtras(withBrand);
+  return attachInteriorDoorExtras(withEntryDoors);
 };
 
 const getProductById = async (id) => {

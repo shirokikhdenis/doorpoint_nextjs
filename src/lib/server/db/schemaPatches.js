@@ -10,6 +10,7 @@ let promotionTablesEnsured = false;
 let leadTablesEnsured = false;
 let servicesTablesEnsured = false;
 let seoColumnsEnsured = false;
+let catalogPageFilterDefaultsEnsured = false;
 let catalogPageSlugRenamesEnsured = false;
 let factoryStorefrontTablesEnsured = false;
 let doorFinishTablesEnsured = false;
@@ -227,6 +228,16 @@ const ensureSeoColumns = async () => {
   seoColumnsEnsured = true;
 };
 
+const ensureCatalogPageFilterDefaultsColumn = async () => {
+  if (catalogPageFilterDefaultsEnsured) return;
+  await ensureSeoColumns();
+  await query(`
+    ALTER TABLE catalog_pages
+    ADD COLUMN IF NOT EXISTS collapsed_filter_sections TEXT[]
+  `);
+  catalogPageFilterDefaultsEnsured = true;
+};
+
 const ensureCatalogPageSlugRenames = async () => {
   if (catalogPageSlugRenamesEnsured) return;
   for (const [oldSlug, newSlug] of CATALOG_PAGE_SLUG_RENAMES) {
@@ -337,6 +348,7 @@ module.exports = {
   ensureSaleSettingsTable,
   ensureServicesTables,
   ensureSeoColumns,
+  ensureCatalogPageFilterDefaultsColumn,
   ensureCatalogPageSlugRenames,
   ensureFactoryStorefrontTables,
   ensureDoorFinishTables,

@@ -9,6 +9,11 @@ const {
   catalogQueryObjectFromQueryString,
   flattenSearchParams,
   parseCatalogFilterStateFromSearchParams,
+  attributeFiltersForSidebar,
+  shouldShowCategoryFilters,
+  shouldShowSubcategoryFilters,
+  buildDefaultCollapsedSections,
+  buildFallbackCollapsedSectionIds,
 } = require("../src/features/catalog/catalog-filter-utils.ts");
 
 test("dedupeProductsById keeps first occurrence", () => {
@@ -104,6 +109,80 @@ test("parseCatalogFilterStateFromSearchParams reads catalog filters", () => {
   assert.deepEqual(filters.attrRanges.thickness, { min: "70", max: "95" });
   assert.deepEqual(filters.priceRange, { min: "10000", max: "50000" });
   assert.equal(filters.onSale, true);
+});
+
+test("attributeFiltersForSidebar hides single-value attrs covered by labels", () => {
+  const meta = {
+    categories: [],
+    subcategories: [],
+    price: { min: 0, max: 0 },
+    labels: [
+      {
+        id: 1,
+        title: "С зеркалом",
+        imageUrl: null,
+        sortOrder: 0,
+        filters: [{ code: "mirror", value: "Да" }],
+      },
+    ],
+    attributeFilters: [
+      {
+        code: "mirror",
+        name: "С зеркалом",
+        type: "text",
+        values: ["Да"],
+      },
+      {
+        code: "manufacturer",
+        name: "Производитель",
+        type: "text",
+        values: ["ARMA", "Феррони"],
+      },
+    ],
+  };
+
+  const filters = attributeFiltersForSidebar(meta);
+  assert.equal(filters.length, 1);
+  assert.equal(filters[0].code, "manufacturer");
+});
+
+test("category sections hidden when only one option", () => {
+  const meta = {
+    categories: [{ slug: "entry", name: "Входные двери" }],
+    subcategories: [{ slug: "flat", name: "Двери в квартиру", categorySlug: "entry" }],
+    attributeFilters: [],
+    price: { min: 0, max: 0 },
+    labels: [],
+  };
+
+  assert.equal(shouldShowCategoryFilters(meta), false);
+  assert.equal(shouldShowSubcategoryFilters(meta), false);
+});
+
+test("buildDefaultCollapsedSections uses vitrine config when provided", () => {
+  const meta = {
+    categories: [{ slug: "a", name: "A" }, { slug: "b", name: "B" }],
+    subcategories: [{ slug: "s1", name: "S1", categorySlug: "a" }],
+    attributeFilters: [{ code: "manufacturer", name: "Производитель", type: "text", values: ["X"] }],
+    price: { min: 0, max: 100 },
+    labels: [],
+    collapsedFilterSections: ["attr-manufacturer"],
+  };
+
+  const collapsed = buildDefaultCollapsedSections(meta);
+  assert.equal(collapsed.has("attr-manufacturer"), true);
+  assert.equal(collapsed.has("categories"), false);
+});
+
+test("buildFallbackCollapsedSectionIds includes categories and subcategories", () => {
+  const ids = buildFallbackCollapsedSectionIds([
+    { code: "thickness", name: "Толщина полотна", type: "number", min: 40, max: 120 },
+    { code: "manufacturer", name: "Производитель", type: "text", values: ["A"] },
+  ]);
+  assert.ok(ids.includes("categories"));
+  assert.ok(ids.includes("subcategories"));
+  assert.ok(!ids.includes("attr-thickness"));
+  assert.ok(ids.includes("attr-manufacturer"));
 });
 
 test("buildCatalogQuery round-trips through catalogQueryObjectFromQueryString", () => {

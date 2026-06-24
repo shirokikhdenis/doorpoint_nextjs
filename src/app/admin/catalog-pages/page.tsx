@@ -11,6 +11,8 @@ import {
   AdminCatalogPage,
   normalizeAdminBootstrap,
 } from "@/lib/client/normalizers";
+import { buildFallbackCollapsedSectionIds, isAttrFilterCollapsedByDefault } from "@/features/catalog/catalog-filter-utils";
+import type { CatalogAttributeFilter } from "@/lib/client/normalizers";
 
 type EditorState = {
   name: string;
@@ -20,8 +22,34 @@ type EditorState = {
   categoryIds: number[];
   subcategoryIds: number[];
   filterAttributeIds: number[];
+  collapsedFilterSections: string[];
   seoTitle: string;
   seoDescription: string;
+};
+
+const toCatalogAttributeFilters = (
+  attributes: AdminCatalogPage["filterAttributes"],
+): CatalogAttributeFilter[] =>
+  attributes.map((attribute) => ({
+    code: attribute.code,
+    name: attribute.name,
+    type: (attribute.type || "text") as CatalogAttributeFilter["type"],
+  }));
+
+const initCollapsedFilterSections = (page: AdminCatalogPage, bootstrap: AdminBootstrap): string[] => {
+  if (page.collapsedFilterSections !== null) {
+    return [...page.collapsedFilterSections];
+  }
+  const attributes =
+    page.filterAttributes.length > 0
+      ? page.filterAttributes
+      : bootstrap.attributes.map((attribute) => ({
+          id: attribute.id,
+          code: attribute.code,
+          name: attribute.name,
+          type: "text",
+        }));
+  return buildFallbackCollapsedSectionIds(toCatalogAttributeFilters(attributes));
 };
 
 const initEditorFromPage = (
@@ -49,6 +77,7 @@ const initEditorFromPage = (
       .map((sub) => subcategoryIdBySlug.get(sub.slug) ?? 0)
       .filter((id) => id > 0),
     filterAttributeIds: page.filterAttributes.map((attr) => attr.id),
+    collapsedFilterSections: initCollapsedFilterSections(page, bootstrap),
     seoTitle: page.seoTitle || "",
     seoDescription: page.seoDescription || "",
   };
@@ -56,6 +85,11 @@ const initEditorFromPage = (
 
 const toggleId = (list: number[], id: number): number[] =>
   list.includes(id) ? list.filter((current) => current !== id) : [...list, id];
+
+const toggleCollapsedSection = (list: string[], sectionId: string): string[] =>
+  list.includes(sectionId) ? list.filter((id) => id !== sectionId) : [...list, sectionId];
+
+const attrSectionId = (code: string) => `attr-${code}`;
 
 const moveId = (list: number[], id: number, direction: -1 | 1): number[] => {
   const index = list.indexOf(id);
@@ -247,9 +281,43 @@ function CatalogPageEditor({ page, bootstrap, onSaved, onDeleted, onError }: Edi
   const dirty = useMemo(() => JSON.stringify(state) !== JSON.stringify(initial), [state, initial]);
 
   const onCheckbox =
-    (key: "categoryIds" | "subcategoryIds" | "filterAttributeIds", id: number) =>
+    (key: "categoryIds" | "subcategoryIds", id: number) =>
     () =>
       setState((prev) => ({ ...prev, [key]: toggleId(prev[key], id) }));
+
+  const onCollapsedSectionToggle = (sectionId: string) => () =>
+    setState((prev) => ({
+      ...prev,
+      collapsedFilterSections: toggleCollapsedSection(prev.collapsedFilterSections, sectionId),
+    }));
+
+  const onFilterAttributeToggle = (id: number) => {
+    setState((prev) => {
+      const attribute = attributeById.get(id);
+      const removing = prev.filterAttributeIds.includes(id);
+      const filterAttributeIds = toggleId(prev.filterAttributeIds, id);
+      if (!attribute) {
+        return { ...prev, filterAttributeIds };
+      }
+
+      const sectionId = attrSectionId(attribute.code);
+      let collapsedFilterSections = prev.collapsedFilterSections;
+      if (removing) {
+        collapsedFilterSections = collapsedFilterSections.filter((item) => item !== sectionId);
+      } else if (
+        isAttrFilterCollapsedByDefault({
+          code: attribute.code,
+          name: attribute.name,
+          type: "text",
+        }) &&
+        !collapsedFilterSections.includes(sectionId)
+      ) {
+        collapsedFilterSections = [...collapsedFilterSections, sectionId];
+      }
+
+      return { ...prev, filterAttributeIds, collapsedFilterSections };
+    });
+  };
 
   const onText = (key: "name" | "slug") => (event: ChangeEvent<HTMLInputElement>) =>
     setState((prev) => ({ ...prev, [key]: event.target.value }));
@@ -285,6 +353,11 @@ function CatalogPageEditor({ page, bootstrap, onSaved, onDeleted, onError }: Edi
     [bootstrap.attributes, state.filterAttributeIds],
   );
 
+  const collapseConfigurableAttributes = useMemo(
+    () => (selectedFilterAttributes.length > 0 ? selectedFilterAttributes : bootstrap.attributes),
+    [bootstrap.attributes, selectedFilterAttributes],
+  );
+
   const save = async (event: FormEvent) => {
     event.preventDefault();
     if (saving) return;
@@ -306,6 +379,7 @@ function CatalogPageEditor({ page, bootstrap, onSaved, onDeleted, onError }: Edi
           categoryIds: state.categoryIds,
           subcategoryIds: state.subcategoryIds,
           filterAttributeIds: state.filterAttributeIds,
+          collapsedFilterSections: state.collapsedFilterSections,
           seoTitle: state.seoTitle.trim() || null,
           seoDescription: state.seoDescription.trim() || null,
         }),
@@ -549,7 +623,7 @@ function CatalogPageEditor({ page, bootstrap, onSaved, onDeleted, onError }: Edi
                         </button>
                         <button
                           type="button"
-                          onClick={onCheckbox("filterAttributeIds", attribute.id)}
+                          onClick={() => onFilterAttributeToggle(attribute.id)}
                           className="rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-xs text-zinc-600 hover:bg-zinc-100"
                           title="Убрать"
                         >
@@ -576,7 +650,7 @@ function CatalogPageEditor({ page, bootstrap, onSaved, onDeleted, onError }: Edi
                         type="checkbox"
                         className="mt-1"
                         checked={false}
-                        onChange={onCheckbox("filterAttributeIds", attribute.id)}
+                        onChange={() => onFilterAttributeToggle(attribute.id)}
                       />
                       <span>
                         {attribute.name}{" "}
@@ -586,11 +660,43 @@ function CatalogPageEditor({ page, bootstrap, onSaved, onDeleted, onError }: Edi
                   ))}
                 </div>
               ) : null}
+              <div className="space-y-1.5 border-t border-zinc-100 pt-3">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+                  По умолчанию свёрнуты
+                </p>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={state.collapsedFilterSections.includes("categories")}
+                    onChange={onCollapsedSectionToggle("categories")}
+                  />
+                  Категории
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={state.collapsedFilterSections.includes("subcategories")}
+                    onChange={onCollapsedSectionToggle("subcategories")}
+                  />
+                  Подкатегории
+                </label>
+                {collapseConfigurableAttributes.map((attribute) => (
+                  <label key={attribute.id} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={state.collapsedFilterSections.includes(attrSectionId(attribute.code))}
+                      onChange={onCollapsedSectionToggle(attrSectionId(attribute.code))}
+                    />
+                    {attribute.name}
+                  </label>
+                ))}
+              </div>
             </>
           )}
           <p className="text-[11px] text-zinc-500">
             Порядок в списке — порядок блоков фильтров в каталоге. Если выбрано хотя бы одно
-            поле — на витрине видны только они.
+            поле — на витрине видны только они. Галочки «По умолчанию свёрнуты» задают
+            начальное состояние аккордеонов в каталоге.
           </p>
         </fieldset>
       </div>

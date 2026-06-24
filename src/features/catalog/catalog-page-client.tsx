@@ -1,9 +1,11 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { CatalogActiveFilterChips } from "@/features/catalog/catalog-active-filter-chips";
 import { CatalogFilterSidebar } from "@/features/catalog/catalog-filter-sidebar";
 import { CatalogProductGrid } from "@/features/catalog/catalog-product-grid";
+import { CatalogSearchRegistrar } from "@/features/catalog/catalog-search-context";
+import { CatalogSortSelect } from "@/features/catalog/catalog-sort-select";
 import {
   buildCatalogReturnHrefFromFilters,
   saveCatalogReturnPayload,
@@ -63,19 +65,25 @@ function CatalogPageContent({ initial }: CatalogPageClientProps) {
     });
   }, [filters.catalogPage, filters.filterState, meta.labels, page]);
 
+  const catalogSearchApi = useMemo(
+    () => ({
+      searchInput: filters.searchInput,
+      setSearchInput: filters.setSearchInput,
+    }),
+    [filters.searchInput, filters.setSearchInput],
+  );
+
   return (
     <>
+      <CatalogSearchRegistrar api={catalogSearchApi} />
       <main className="mx-auto flex w-full max-w-[1920px] flex-1 flex-col gap-4 px-4 pb-6 pt-4 sm:px-6 lg:px-8">
         <div className="flex w-full flex-1 flex-col gap-4 lg:flex-row lg:items-start lg:gap-6">
           <aside
             className={`${filters.isMobileFiltersOpen ? "block" : "hidden"} w-full shrink-0 rounded-lg border border-zinc-200 bg-white p-4 lg:sticky lg:top-[var(--storefront-sticky-offset)] lg:flex lg:max-h-[calc(100vh-var(--storefront-sticky-offset)-2rem)] lg:w-72 lg:flex-col lg:rounded-none lg:border-0 lg:border-r lg:border-zinc-200 lg:bg-transparent lg:p-0 lg:pr-6`}
           >
             <CatalogFilterSidebar
+              catalogPage={filters.catalogPage}
               meta={meta}
-              searchInput={filters.searchInput}
-              onSearchChange={filters.setSearchInput}
-              sort={filters.sort}
-              onSortChange={filters.setSort}
               categories={filters.categories}
               subcategories={filters.subcategories}
               attrSelections={filters.attrSelections}
@@ -101,17 +109,30 @@ function CatalogPageContent({ initial }: CatalogPageClientProps) {
           </aside>
 
           <div className="min-w-0 flex-1 space-y-4">
-            <div className="flex items-center justify-between gap-2 lg:hidden">
-              <button
-                type="button"
-                className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-800"
-                onClick={() => filters.setIsMobileFiltersOpen((current) => !current)}
-              >
-                {filters.isMobileFiltersOpen ? "Скрыть фильтры" : "Показать фильтры"}
-              </button>
-              <span className="text-xs text-zinc-500">
-                {products.length > 0 ? `${products.length} из ${total}` : "Подберите параметры"}
-              </span>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2 lg:hidden">
+                <button
+                  type="button"
+                  className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-800"
+                  onClick={() => filters.setIsMobileFiltersOpen((current) => !current)}
+                >
+                  {filters.isMobileFiltersOpen ? "Скрыть фильтры" : "Показать фильтры"}
+                </button>
+                <span className="text-xs text-zinc-500">
+                  {products.length > 0 ? `${products.length} из ${total}` : "Подберите параметры"}
+                </span>
+              </div>
+              <div className="ml-auto flex min-w-0 items-center gap-2">
+                <label htmlFor="catalog-sort" className="shrink-0 text-xs text-zinc-500 sm:text-sm">
+                  Сортировка
+                </label>
+                <CatalogSortSelect
+                  id="catalog-sort"
+                  value={filters.sort}
+                  onChange={filters.setSort}
+                  className="w-auto min-w-[11rem] py-1.5"
+                />
+              </div>
             </div>
 
             <section className="space-y-4">

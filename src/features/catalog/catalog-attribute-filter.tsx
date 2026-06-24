@@ -14,6 +14,7 @@ type AttributeFilterBlockProps = {
   range: NumericRange;
   collapsed: boolean;
   onToggleCollapse: (sectionId: string) => void;
+  activeCount?: number;
   onToggleValue: (value: string) => void;
   onChangeRange: (min: number, max: number) => void;
 };
@@ -24,6 +25,7 @@ export function AttributeFilterBlock({
   range,
   collapsed,
   onToggleCollapse,
+  activeCount = 0,
   onToggleValue,
   onChangeRange,
 }: AttributeFilterBlockProps) {
@@ -49,6 +51,7 @@ export function AttributeFilterBlock({
         title={title}
         collapsed={collapsed}
         onToggle={onToggleCollapse}
+        activeCount={activeCount}
       >
         {filter.code === "thickness" ? (
           <RangeSlider
@@ -101,6 +104,7 @@ export function AttributeFilterBlock({
       title={title}
       collapsed={collapsed}
       onToggle={onToggleCollapse}
+      activeCount={activeCount}
     >
       <div className="space-y-1.5">
         {values.map((value) => (

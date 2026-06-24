@@ -8,6 +8,11 @@ export const catalogPagePath = (slug: string | null | undefined): string => {
 };
 
 /** Slug from `/catalog/[slug]` pathname, or `"all"` for `/catalog`. */
+export const isCatalogPathname = (pathname: string | null | undefined): boolean => {
+  const normalized = String(pathname || "").replace(/\/+$/, "") || "/";
+  return normalized === "/catalog" || normalized.startsWith("/catalog/");
+};
+
 export const catalogPageFromPathname = (pathname: string): string => {
   const normalized = String(pathname || "").replace(/\/+$/, "") || "/";
   if (normalized === "/catalog") return CATALOG_PAGE_SLUG.all;

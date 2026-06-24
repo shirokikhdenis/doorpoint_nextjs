@@ -72,7 +72,7 @@ test.describe("Catalog navigation", () => {
     const countBeforeFilter = await getVisibleCardCount(page);
 
     await openMobileFiltersIfNeeded(page);
-    await page.locator('[data-testid="catalog-filter-on-sale"]:visible').check();
+    await page.locator('[data-testid="catalog-filter-on-sale"]:visible').click();
     await page.waitForTimeout(400);
     await waitForCatalogReady(page);
 
@@ -110,7 +110,7 @@ test.describe("Catalog navigation", () => {
     await waitForCatalogReady(page);
 
     expect(page.url()).toContain("/catalog/vhodnye-dveri");
-    await expect(page.getByTestId("catalog-filter-on-sale")).not.toBeChecked();
+    await expect(page.getByTestId("catalog-filter-on-sale")).toHaveAttribute("aria-pressed", "false");
 
     const cardsAfter = await getVisibleCardCount(page);
     expect(cardsAfter).toBeGreaterThan(0);
@@ -131,10 +131,10 @@ test.describe("Catalog navigation", () => {
     await page.goto("/catalog?onSale=1");
     await waitForCatalogReady(page);
 
-    const saleChip = page.getByTestId("catalog-active-filter-chip").filter({ hasText: "Акции" });
+    const saleChip = page.getByTestId("catalog-active-filter-chip").filter({ hasText: "Двери со скидкой" });
     await expect(saleChip).toBeVisible();
     await saleChip.click();
-    await expect(page.getByTestId("catalog-active-filter-chip").filter({ hasText: "Акции" })).toHaveCount(0);
+    await expect(page.getByTestId("catalog-active-filter-chip").filter({ hasText: "Двери со скидкой" })).toHaveCount(0);
     await expect(page).not.toHaveURL(/onSale=1/);
 
     if (isMobile) return;
@@ -220,7 +220,7 @@ test.describe("Catalog navigation", () => {
     await page.goto("/catalog?onSale=1");
     await waitForCatalogReady(page);
 
-    await expect(page.getByTestId("catalog-filter-on-sale")).toBeChecked();
+    await expect(page.getByTestId("catalog-filter-on-sale")).toHaveAttribute("aria-pressed", "true");
     const scrollY = await getScrollY(page);
     expect(scrollY).toBeLessThan(100);
   });

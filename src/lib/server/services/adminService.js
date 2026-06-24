@@ -62,6 +62,9 @@ const updateCatalogPage = async (id, payload) =>
     filterAttributeIds: Array.isArray(payload.filterAttributeIds) ? payload.filterAttributeIds.map(Number) : [],
     seoTitle: payload.seoTitle ?? null,
     seoDescription: payload.seoDescription ?? null,
+    collapsedFilterSections: Array.isArray(payload.collapsedFilterSections)
+      ? payload.collapsedFilterSections.map(String).filter(Boolean)
+      : null,
   });
 
 const deleteCatalogPage = async (id) => catalogPageRepository.deleteCatalogPage(Number(id));

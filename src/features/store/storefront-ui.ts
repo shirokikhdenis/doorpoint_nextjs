@@ -42,12 +42,20 @@ export const catalogFilterOptionLabelClass =
 
 /** Кнопка-подборка в фильтрах */
 export const catalogFilterChipButtonClass =
-  "w-full rounded-md border px-2.5 py-1.5 text-left text-sm transition";
+  "flex w-full items-center rounded-md border px-3 py-2 text-left text-sm font-medium transition";
+
+/** Заголовок группы в колонке фильтров (подборки, характеристики) */
+export const catalogFilterStaticSectionHeadingClass =
+  "py-3 text-center text-xs font-semibold uppercase tracking-wide text-zinc-500";
+
+/** Кнопка сброса в шапке фильтров */
+export const catalogFilterClearButtonClass =
+  "shrink-0 text-xs font-medium text-zinc-500 transition hover:text-brand disabled:pointer-events-none disabled:opacity-40";
 
 const chipToneBase = "border transition";
-const chipToneActive = "border-brand bg-brand font-medium text-white";
+const chipToneActive = "border-brand bg-brand text-white";
 const chipToneIdle =
-  "border-zinc-200 bg-white font-normal text-zinc-700 hover:border-zinc-400 hover:bg-zinc-50";
+  "border-zinc-200 bg-zinc-50 text-zinc-700 hover:border-zinc-300 hover:bg-white";
 
 export function chipToneClass(isActive: boolean): string {
   return cn(chipToneBase, isActive ? chipToneActive : chipToneIdle);

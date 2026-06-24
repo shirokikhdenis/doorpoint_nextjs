@@ -1,6 +1,9 @@
 const factoryStorefrontService = require("./factoryStorefrontService");
 const { resolveCollectionAttrCode } = require("../domain/collectionAttrCode");
-
+const {
+  buildManufacturerSubcategoryCatalogHref,
+  buildEntryFactoryCatalogLinks,
+} = require("../domain/subcategoryRelatedDoors");
 const MANUFACTURER_ATTR_CODE = "manufacturer";
 
 const catalogPagePath = (slug) => {
@@ -40,4 +43,6 @@ module.exports = {
   resolveCollectionAttrCode,
   buildCollectionCatalogHref,
   buildManufacturerCatalogHref,
+  buildManufacturerSubcategoryCatalogHref,
+  buildEntryFactoryCatalogLinks,
 };

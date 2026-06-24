@@ -205,6 +205,10 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
         />
         <ProductSuggestedHandles handles={product.suggestedHandles ?? []} />
         <ProductRelatedCollectionDoors relatedCollectionDoors={product.relatedCollectionDoors} />
+        <ProductRelatedCollectionDoors
+          relatedCollectionDoors={product.relatedSubcategoryDoors}
+          variant="subcategory"
+        />
       </main>
       <ImageLightbox
         src={image}

@@ -22,3 +22,7 @@ export const resolveCatalogPageSlug = (slug: string): string => {
 
 export const isLegacyCatalogPageSlug = (slug: string): boolean =>
   Object.prototype.hasOwnProperty.call(LEGACY_CATALOG_PAGE_SLUG_ALIASES, String(slug ?? "").trim());
+
+/** Акционный фильтр «Двери со скидкой» — только для дверных витрин. */
+export const catalogPageSupportsOnSaleFilter = (catalogPage: string): boolean =>
+  resolveCatalogPageSlug(catalogPage) !== CATALOG_PAGE_SLUG.fittings;

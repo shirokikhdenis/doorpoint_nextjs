@@ -27,6 +27,8 @@ export type CatalogMeta = {
   attributeFilters: CatalogAttributeFilter[];
   price: { min: number; max: number };
   labels: CatalogLabel[];
+  /** null — встроенные правила; массив — явная настройка витрины в админке */
+  collapsedFilterSections: string[] | null;
 };
 export type ProductGlassOption = { id: number; label: string };
 
@@ -175,6 +177,7 @@ export type ProductData = {
   relatedFittings: RelatedFittings;
   suggestedHandles?: ProductCard[];
   relatedCollectionDoors?: RelatedCollectionDoors;
+  relatedSubcategoryDoors?: RelatedCollectionDoors;
   finishOptions?: DoorFinishOptions;
   manufacturerName?: string;
   manufacturerLogo?: string;
@@ -195,6 +198,7 @@ export type AdminCatalogPage = {
   categories: Array<{ id: number; name: string; slug: string }>;
   subcategories: Array<{ id: number; name: string; slug: string; categorySlug: string | null }>;
   filterAttributes: Array<{ id: number; code: string; name: string; type: string }>;
+  collapsedFilterSections: string[] | null;
 };
 
 export type AdminBootstrap = {
@@ -249,6 +253,9 @@ export const normalizeCatalogMeta = (value: unknown): CatalogMeta => {
         }))
         .filter((f) => f.code && f.value),
     })),
+    collapsedFilterSections: Array.isArray(source.collapsedFilterSections)
+      ? source.collapsedFilterSections.map(String).filter(Boolean)
+      : null,
   };
 };
 
@@ -481,6 +488,7 @@ export const normalizeProductData = (value: unknown): ProductData => {
     relatedFittings: normalizeRelatedFittings(source.relatedFittings),
     suggestedHandles: normalizeProductsResponse({ items: source.suggestedHandles }),
     relatedCollectionDoors: normalizeRelatedCollectionDoors(source.relatedCollectionDoors),
+    relatedSubcategoryDoors: normalizeRelatedCollectionDoors(source.relatedSubcategoryDoors),
     finishOptions: normalizeFinishOptions(source.finishOptions),
     manufacturerName: source.manufacturerName ? String(source.manufacturerName) : undefined,
     manufacturerLogo: source.manufacturerLogo
@@ -533,6 +541,9 @@ export const normalizeAdminBootstrap = (value: unknown): AdminBootstrap => {
         categorySlug: sub.categorySlug ? String(sub.categorySlug) : null,
       })),
       filterAttributes: asArray<AdminCatalogPage["filterAttributes"][number]>(entry.filterAttributes),
+      collapsedFilterSections: Array.isArray(entry.collapsedFilterSections)
+        ? entry.collapsedFilterSections.map(String).filter(Boolean)
+        : null,
     })),
   };
 };

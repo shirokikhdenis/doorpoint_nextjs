@@ -5,6 +5,7 @@ const attributeRepository = require("../repositories/attributeRepository");
 const fs = require("fs/promises");
 const path = require("path");
 const crypto = require("crypto");
+const { optimizeRasterBuffer } = require("../imageOptimize");
 
 const requiredColumns = ["sku"];
 
@@ -230,18 +231,6 @@ const ensureUploadsDir = async () => {
   await fs.mkdir(uploadsDir, { recursive: true });
 };
 
-const getExtFromUrl = (urlValue, contentType = "") => {
-  const clean = String(urlValue || "").split("?")[0].split("#")[0];
-  const ext = path.extname(clean).toLowerCase();
-  if (ext && ext.length <= 6) {
-    return ext;
-  }
-  if (contentType.includes("image/png")) return ".png";
-  if (contentType.includes("image/webp")) return ".webp";
-  if (contentType.includes("image/gif")) return ".gif";
-  return ".jpg";
-};
-
 const isHttpUrl = (value) => /^https?:\/\//i.test(String(value || "").trim());
 
 const downloadImageToLocal = async (urlValue, urlCache) => {
@@ -260,12 +249,12 @@ const downloadImageToLocal = async (urlValue, urlCache) => {
     throw new Error(`invalid image content-type: ${contentType || "unknown"}`);
   }
   const arrayBuffer = await response.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
+  const sourceBuffer = Buffer.from(arrayBuffer);
+  const optimized = await optimizeRasterBuffer(sourceBuffer, { preset: "productCard" });
   const hash = crypto.createHash("sha1").update(rawUrl).digest("hex");
-  const ext = getExtFromUrl(rawUrl, contentType);
-  const fileName = `${hash}${ext}`;
+  const fileName = `${hash}${optimized.extension}`;
   const fullPath = path.join(uploadsDir, fileName);
-  await fs.writeFile(fullPath, buffer);
+  await fs.writeFile(fullPath, optimized.buffer);
   const localUrl = `${localUploadsPrefix}${fileName}`;
   urlCache.set(rawUrl, localUrl);
   return localUrl;

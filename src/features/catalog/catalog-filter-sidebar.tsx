@@ -1,27 +1,32 @@
 import { RangeSlider } from "@/components/ui/range-slider";
 import { AttributeFilterBlock } from "@/features/catalog/catalog-attribute-filter";
-import { CollapsibleFilterSection } from "@/features/catalog/catalog-filter-section";
 import {
+  CollapsibleFilterSection,
+  StaticFilterSection,
+} from "@/features/catalog/catalog-filter-section";
+import {
+  attributeFiltersForSidebar,
   getEffectiveRange,
   labelMatchesSelections,
   priceSliderStep,
+  shouldShowCategoryFilters,
+  shouldShowSubcategoryFilters,
 } from "@/features/catalog/catalog-filter-utils";
 import type { NumericRange } from "@/features/catalog/catalog-types";
 import {
   catalogFilterChipButtonClass,
-  catalogFilterFieldClass,
+  catalogFilterClearButtonClass,
   catalogFilterHeadingClass,
   catalogFilterOptionLabelClass,
+  catalogFilterStaticSectionHeadingClass,
   chipToneClass,
 } from "@/features/store/storefront-ui";
 import type { CatalogLabel, CatalogMeta } from "@/lib/client/normalizers";
+import { catalogPageSupportsOnSaleFilter } from "@/lib/catalog-page-slugs";
 
 type CatalogFilterSidebarProps = {
+  catalogPage: string;
   meta: CatalogMeta;
-  searchInput: string;
-  onSearchChange: (value: string) => void;
-  sort: string;
-  onSortChange: (value: string) => void;
   categories: string[];
   subcategories: string[];
   attrSelections: Record<string, string[]>;
@@ -47,12 +52,13 @@ type CatalogFilterSidebarProps = {
   onLabelClick: (label: CatalogLabel) => void;
 };
 
+function countAttrSelections(selected: string[]): number {
+  return selected.length;
+}
+
 export function CatalogFilterSidebar({
+  catalogPage,
   meta,
-  searchInput,
-  onSearchChange,
-  sort,
-  onSortChange,
   categories,
   subcategories,
   attrSelections,
@@ -71,52 +77,31 @@ export function CatalogFilterSidebar({
   onUpdateAttrRange,
   onLabelClick,
 }: CatalogFilterSidebarProps) {
-  return (
-    <div className="catalog-filters-scroll min-h-0 flex-1 space-y-4 lg:overflow-y-auto lg:pb-6 lg:pr-3">
-      <h2 className={catalogFilterHeadingClass}>Фильтры</h2>
-      <input
-        className={catalogFilterFieldClass}
-        placeholder="Поиск"
-        value={searchInput}
-        onChange={(event) => onSearchChange(event.target.value)}
-      />
-      <select
-        className={catalogFilterFieldClass}
-        value={sort}
-        onChange={(event) => onSortChange(event.target.value)}
-      >
-        <option value="popularity">По популярности</option>
-        <option value="alphabet-asc">По алфавиту (А-Я)</option>
-        <option value="alphabet-desc">По алфавиту (Я-А)</option>
-        <option value="price-asc">Цена по возрастанию</option>
-        <option value="price-desc">Цена по убыванию</option>
-      </select>
+  const sidebarAttributeFilters = attributeFiltersForSidebar(meta);
+  const showCategories = shouldShowCategoryFilters(meta);
+  const showSubcategories = shouldShowSubcategoryFilters(meta);
+  const showCharacteristicsBlock = showSubcategories || sidebarAttributeFilters.length > 0;
+  const showOnSaleFilter = catalogPageSupportsOnSaleFilter(catalogPage);
 
-      <CollapsibleFilterSection
-        sectionId="promotions"
-        title="Акции"
-        collapsed={isFilterSectionCollapsed("promotions")}
-        onToggle={onToggleFilterSection}
-      >
-        <label className={catalogFilterOptionLabelClass}>
-          <input
-            type="checkbox"
-            data-testid="catalog-filter-on-sale"
-            checked={onSale}
-            onChange={(event) => onOnSaleChange(event.target.checked)}
-          />
-          Только акционные
-        </label>
-      </CollapsibleFilterSection>
+  return (
+    <div className="catalog-filters-scroll min-h-0 flex-1 space-y-3 lg:overflow-y-auto lg:pb-6 lg:pr-3">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className={catalogFilterHeadingClass}>Фильтры</h2>
+        <button
+          type="button"
+          data-testid="catalog-clear-filters"
+          onClick={onClearAllFilters}
+          disabled={!hasActiveFilters}
+          className={catalogFilterClearButtonClass}
+        >
+          Сбросить
+        </button>
+      </div>
 
       {meta.labels.length > 0 ? (
-        <CollapsibleFilterSection
-          sectionId="labels"
-          title="Подборки"
-          collapsed={isFilterSectionCollapsed("labels")}
-          onToggle={onToggleFilterSection}
-        >
-          <div className="flex flex-col gap-1.5">
+        <div>
+          <p className={catalogFilterStaticSectionHeadingClass}>Подборки</p>
+          <div className="flex flex-col gap-2 pb-1">
             {meta.labels.map((label) => {
               const active = labelMatchesSelections(label, attrSelections);
               return (
@@ -131,15 +116,42 @@ export function CatalogFilterSidebar({
               );
             })}
           </div>
-        </CollapsibleFilterSection>
+        </div>
       ) : null}
 
-      {meta.categories.length > 0 ? (
+      {meta.price.max > meta.price.min ? (
+        <StaticFilterSection title="Цена, ₽">
+          <RangeSlider
+            min={meta.price.min}
+            max={meta.price.max}
+            step={priceSliderStep(meta.price.min, meta.price.max)}
+            valueMin={getEffectiveRange(priceRange, meta.price.min, meta.price.max).min}
+            valueMax={getEffectiveRange(priceRange, meta.price.min, meta.price.max).max}
+            onChange={onUpdatePriceRange}
+            formatValue={(value) => `${value.toLocaleString("ru-RU")} ₽`}
+          />
+        </StaticFilterSection>
+      ) : null}
+
+      {showOnSaleFilter ? (
+        <button
+          type="button"
+          data-testid="catalog-filter-on-sale"
+          aria-pressed={onSale}
+          onClick={() => onOnSaleChange(!onSale)}
+          className={`${catalogFilterChipButtonClass} ${chipToneClass(onSale)}`}
+        >
+          Двери со скидкой
+        </button>
+      ) : null}
+
+      {showCategories ? (
         <CollapsibleFilterSection
           sectionId="categories"
           title="Категории"
           collapsed={isFilterSectionCollapsed("categories")}
           onToggle={onToggleFilterSection}
+          activeCount={categories.length}
         >
           <div className="space-y-1.5">
             {meta.categories.map((category) => (
@@ -156,71 +168,60 @@ export function CatalogFilterSidebar({
         </CollapsibleFilterSection>
       ) : null}
 
-      {meta.subcategories.length > 0 ? (
-        <CollapsibleFilterSection
-          sectionId="subcategories"
-          title="Подкатегории"
-          collapsed={isFilterSectionCollapsed("subcategories")}
-          onToggle={onToggleFilterSection}
-        >
-          <div className="space-y-1.5">
-            {meta.subcategories.map((subcategory) => (
-              <label key={subcategory.slug} className={catalogFilterOptionLabelClass}>
-                <input
-                  type="checkbox"
-                  checked={subcategories.includes(subcategory.slug)}
-                  onChange={() => onToggleSubcategory(subcategory.slug)}
+      {showCharacteristicsBlock ? (
+        <div className="border-t border-zinc-100">
+          <p className={catalogFilterStaticSectionHeadingClass}>Характеристики</p>
+          <div className="space-y-0">
+            {showSubcategories ? (
+              <CollapsibleFilterSection
+                sectionId="subcategories"
+                title="Подкатегории"
+                collapsed={isFilterSectionCollapsed("subcategories")}
+                onToggle={onToggleFilterSection}
+                activeCount={subcategories.length}
+              >
+                <div className="space-y-1.5">
+                  {meta.subcategories.map((subcategory) => (
+                    <label key={subcategory.slug} className={catalogFilterOptionLabelClass}>
+                      <input
+                        type="checkbox"
+                        checked={subcategories.includes(subcategory.slug)}
+                        onChange={() => onToggleSubcategory(subcategory.slug)}
+                      />
+                      {subcategory.name}
+                    </label>
+                  ))}
+                </div>
+              </CollapsibleFilterSection>
+            ) : null}
+
+            {sidebarAttributeFilters.map((filter) => {
+              const selected = attrSelections[filter.code] || [];
+              const range = attrRanges[filter.code] || { min: "", max: "" };
+              const rangeActive =
+                range.min.trim() !== "" || range.max.trim() !== "" ? 1 : 0;
+              const activeCount =
+                filter.type === "number" ? rangeActive : countAttrSelections(selected);
+
+              return (
+                <AttributeFilterBlock
+                  key={filter.code}
+                  filter={filter}
+                  selected={selected}
+                  range={range}
+                  collapsed={isFilterSectionCollapsed(`attr-${filter.code}`)}
+                  onToggleCollapse={onToggleFilterSection}
+                  activeCount={activeCount}
+                  onToggleValue={(value) => onToggleAttrValue(filter.code, value)}
+                  onChangeRange={(min, max) =>
+                    onUpdateAttrRange(filter.code, filter.min ?? 0, filter.max ?? 0, min, max)
+                  }
                 />
-                {subcategory.name}
-              </label>
-            ))}
+              );
+            })}
           </div>
-        </CollapsibleFilterSection>
+        </div>
       ) : null}
-
-      {meta.price.max > meta.price.min ? (
-        <CollapsibleFilterSection
-          sectionId="price"
-          title="Цена, ₽"
-          collapsed={isFilterSectionCollapsed("price")}
-          onToggle={onToggleFilterSection}
-        >
-          <RangeSlider
-            min={meta.price.min}
-            max={meta.price.max}
-            step={priceSliderStep(meta.price.min, meta.price.max)}
-            valueMin={getEffectiveRange(priceRange, meta.price.min, meta.price.max).min}
-            valueMax={getEffectiveRange(priceRange, meta.price.min, meta.price.max).max}
-            onChange={onUpdatePriceRange}
-            formatValue={(value) => `${value.toLocaleString("ru-RU")} ₽`}
-          />
-        </CollapsibleFilterSection>
-      ) : null}
-
-      {meta.attributeFilters.map((filter) => (
-        <AttributeFilterBlock
-          key={filter.code}
-          filter={filter}
-          selected={attrSelections[filter.code] || []}
-          range={attrRanges[filter.code] || { min: "", max: "" }}
-          collapsed={isFilterSectionCollapsed(`attr-${filter.code}`)}
-          onToggleCollapse={onToggleFilterSection}
-          onToggleValue={(value) => onToggleAttrValue(filter.code, value)}
-          onChangeRange={(min, max) =>
-            onUpdateAttrRange(filter.code, filter.min ?? 0, filter.max ?? 0, min, max)
-          }
-        />
-      ))}
-
-      <button
-        type="button"
-        data-testid="catalog-clear-filters"
-        onClick={onClearAllFilters}
-        disabled={!hasActiveFilters}
-        className={`${catalogFilterFieldClass} font-medium transition hover:border-zinc-400 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:border-zinc-200 disabled:bg-zinc-50 disabled:text-zinc-400`}
-      >
-        Сбросить фильтры
-      </button>
     </div>
   );
 }

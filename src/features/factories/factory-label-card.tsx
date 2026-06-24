@@ -2,6 +2,11 @@ import Link from "next/link";
 import { StorefrontImage } from "@/features/store/storefront-image";
 import { toPublicImageSrc } from "@/lib/client/image-src";
 
+export type FactoryCatalogLink = {
+  label: string;
+  href: string;
+};
+
 export type FactoryLabelItem = {
   name: string;
   badgeLabel: string;
@@ -10,11 +15,18 @@ export type FactoryLabelItem = {
   doorImage: string | null;
   linkTarget: "collections" | "catalog";
   href: string;
+  catalogLinks: FactoryCatalogLink[] | null;
 };
 
 type FactoryLabelCardProps = {
   item: FactoryLabelItem;
 };
+
+const cardClassName =
+  "group flex min-h-[240px] w-full overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-md transition hover:border-brand/25 hover:shadow-lg sm:min-h-[270px]";
+
+const ctaClassName =
+  "text-xs font-medium text-zinc-700 transition hover:text-brand sm:text-sm";
 
 function modelsInCatalogLabel(count: number): string {
   const mod10 = count % 10;
@@ -24,18 +36,12 @@ function modelsInCatalogLabel(count: number): string {
   return "моделей в каталоге";
 }
 
-export function FactoryLabelCard({ item }: FactoryLabelCardProps) {
+function FactoryCardBody({ item }: FactoryLabelCardProps) {
   const logoSrc = toPublicImageSrc(item.logoImage);
   const doorSrc = toPublicImageSrc(item.doorImage);
-  const ctaLabel =
-    item.linkTarget === "catalog" ? "Смотреть модели →" : "Смотреть коллекции →";
 
   return (
-    <Link
-      href={item.href}
-      prefetch={false}
-      className="group flex min-h-[240px] w-full overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-md transition hover:border-brand/25 hover:shadow-lg sm:min-h-[270px]"
-    >
+    <>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col justify-between gap-4 p-5 sm:gap-5 sm:p-6">
         <div className="space-y-2">
           <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500 sm:text-xs">
@@ -56,18 +62,31 @@ export function FactoryLabelCard({ item }: FactoryLabelCardProps) {
             <h3 className="text-lg font-bold leading-tight text-zinc-900 sm:text-xl">{item.name}</h3>
           )}
 
-          {logoSrc ? (
-            <p className="sr-only">{item.name}</p>
-          ) : null}
+          {logoSrc ? <p className="sr-only">{item.name}</p> : null}
 
           <p className="text-xs text-zinc-600 sm:text-sm">
             {item.productCount} {modelsInCatalogLabel(item.productCount)}
           </p>
         </div>
 
-        <span className="text-xs font-medium text-zinc-700 transition group-hover:text-brand sm:text-sm">
-          {ctaLabel}
-        </span>
+        {item.catalogLinks?.length ? (
+          <div className="flex flex-col gap-2">
+            {item.catalogLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                prefetch={false}
+                className={ctaClassName}
+              >
+                {link.label} →
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <span className={ctaClassName}>
+            {item.linkTarget === "catalog" ? "Смотреть модели →" : "Смотреть коллекции →"}
+          </span>
+        )}
       </div>
 
       <div className="relative w-[38%] shrink-0 self-stretch border-l border-zinc-100 bg-zinc-50 sm:w-[36%]">
@@ -83,6 +102,22 @@ export function FactoryLabelCard({ item }: FactoryLabelCardProps) {
           <div className="absolute inset-0 bg-gradient-to-br from-zinc-100 to-zinc-200" aria-hidden />
         )}
       </div>
+    </>
+  );
+}
+
+export function FactoryLabelCard({ item }: FactoryLabelCardProps) {
+  if (item.catalogLinks?.length) {
+    return (
+      <div className={cardClassName}>
+        <FactoryCardBody item={item} />
+      </div>
+    );
+  }
+
+  return (
+    <Link href={item.href} prefetch={false} className={cardClassName}>
+      <FactoryCardBody item={item} />
     </Link>
   );
 }

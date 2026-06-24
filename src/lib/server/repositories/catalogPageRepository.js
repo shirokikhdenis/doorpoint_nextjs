@@ -2,6 +2,7 @@ const { query, withTransaction } = require("../db/postgres");
 const {
   CATALOG_PAGE_SLUG_RENAMES,
   ensureCatalogPageSlugRenames,
+  ensureCatalogPageFilterDefaultsColumn,
   ensureSeoColumns,
 } = require("../db/schemaPatches");
 
@@ -31,6 +32,9 @@ const mapBaseRow = (row) => ({
   isDefault: row.slug === DEFAULT_SLUG,
   seoTitle: row.seoTitle || null,
   seoDescription: row.seoDescription || null,
+  collapsedFilterSections: Array.isArray(row.collapsedFilterSections)
+    ? row.collapsedFilterSections.filter(Boolean)
+    : null,
 });
 
 const expandPages = async (rows) => {
@@ -132,7 +136,7 @@ const expandPages = async (rows) => {
 };
 
 const listCatalogPages = async () => {
-  await ensureSeoColumns();
+  await ensureCatalogPageFilterDefaultsColumn();
   await ensureCatalogPageSlugRenames();
   const res = await query(
     `
@@ -144,7 +148,8 @@ const listCatalogPages = async () => {
       category_slugs AS "categorySlugs",
       filter_codes AS "filterCodes",
       seo_title AS "seoTitle",
-      seo_description AS "seoDescription"
+      seo_description AS "seoDescription",
+      collapsed_filter_sections AS "collapsedFilterSections"
     FROM catalog_pages
     ORDER BY sort_order ASC, id ASC
     `,
@@ -153,7 +158,7 @@ const listCatalogPages = async () => {
 };
 
 const findCatalogPageBySlug = async (slug) => {
-  await ensureSeoColumns();
+  await ensureCatalogPageFilterDefaultsColumn();
   await ensureCatalogPageSlugRenames();
   const normalized = resolveCatalogPageSlug(slug).toLowerCase();
   if (!normalized) return null;
@@ -167,7 +172,8 @@ const findCatalogPageBySlug = async (slug) => {
       category_slugs AS "categorySlugs",
       filter_codes AS "filterCodes",
       seo_title AS "seoTitle",
-      seo_description AS "seoDescription"
+      seo_description AS "seoDescription",
+      collapsed_filter_sections AS "collapsedFilterSections"
     FROM catalog_pages
     WHERE slug = $1
     LIMIT 1
@@ -180,7 +186,7 @@ const findCatalogPageBySlug = async (slug) => {
 };
 
 const findCatalogPageById = async (id) => {
-  await ensureSeoColumns();
+  await ensureCatalogPageFilterDefaultsColumn();
   const numericId = Number(id);
   if (!Number.isFinite(numericId) || numericId <= 0) return null;
   const res = await query(
@@ -193,7 +199,8 @@ const findCatalogPageById = async (id) => {
       category_slugs AS "categorySlugs",
       filter_codes AS "filterCodes",
       seo_title AS "seoTitle",
-      seo_description AS "seoDescription"
+      seo_description AS "seoDescription",
+      collapsed_filter_sections AS "collapsedFilterSections"
     FROM catalog_pages
     WHERE id = $1
     LIMIT 1
@@ -301,7 +308,8 @@ const updateCatalogPage = async (id, payload) =>
         category_slugs = $5::text[],
         filter_codes = $6::text[],
         seo_title = $7,
-        seo_description = $8
+        seo_description = $8,
+        collapsed_filter_sections = $9::text[]
       WHERE id = $1
       RETURNING id
       `,
@@ -314,6 +322,7 @@ const updateCatalogPage = async (id, payload) =>
         uniqueOrdered(filterCodes),
         payload.seoTitle ?? null,
         payload.seoDescription ?? null,
+        Array.isArray(payload.collapsedFilterSections) ? payload.collapsedFilterSections : null,
       ],
     );
     return res.rows[0] ? Number(res.rows[0].id) : null;

@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import { CatalogHeaderSearch } from "@/features/catalog/catalog-header-search";
 import { CartNavLink } from "@/features/navigation/cart-nav-link";
+import { isCatalogPathname } from "@/lib/catalog-page-paths";
 import { siteNavLinkClass, storefrontHeaderTripleGridClass } from "@/features/store/storefront-ui";
 
 const links = [
@@ -49,6 +51,7 @@ function NavItem({
 export function AppNav() {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const showCatalogSearch = isCatalogPathname(pathname);
 
   useEffect(() => {
     setIsMobileMenuOpen(false);
@@ -59,13 +62,22 @@ export function AppNav() {
       ? pathname === "/"
       : pathname === href || pathname?.startsWith(`${href}/`);
 
+  const headerActions = (
+    <div className="flex min-w-0 items-center justify-end gap-2 sm:gap-3">
+      {showCatalogSearch ? (
+        <CatalogHeaderSearch className="min-w-0 flex-1 sm:flex-none sm:w-44 md:w-56" />
+      ) : null}
+      <CartNavLink className="shrink-0" />
+    </div>
+  );
+
   return (
     <header className="sticky top-0 z-40 border-b border-zinc-200 bg-white/95 backdrop-blur print:hidden">
       <nav
         className="mx-auto w-full max-w-[1920px] px-4 py-2 sm:px-6 lg:px-8"
         aria-label="Основная навигация"
       >
-        <div className="flex items-center justify-between gap-3 md:hidden">
+        <div className="flex items-center justify-between gap-2 md:hidden">
           <button
             type="button"
             aria-expanded={isMobileMenuOpen}
@@ -77,7 +89,7 @@ export function AppNav() {
             <span className="text-lg leading-none">{isMobileMenuOpen ? "✕" : "☰"}</span>
           </button>
 
-          <CartNavLink />
+          <div className="min-w-0 flex-1">{headerActions}</div>
         </div>
 
         <div className="hidden items-center gap-3 md:flex lg:hidden">
@@ -92,7 +104,7 @@ export function AppNav() {
               />
             ))}
           </div>
-          <CartNavLink />
+          {headerActions}
         </div>
 
         <div className={`hidden items-center gap-8 lg:grid ${storefrontHeaderTripleGridClass}`}>
@@ -108,9 +120,7 @@ export function AppNav() {
               />
             ))}
           </div>
-          <div className="flex justify-end">
-            <CartNavLink className="pr-0" />
-          </div>
+          {headerActions}
         </div>
       </nav>
 
