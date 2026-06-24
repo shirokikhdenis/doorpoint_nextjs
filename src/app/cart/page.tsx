@@ -262,11 +262,11 @@ export default function CartPage() {
                       href={productHref(item)}
                       className="font-medium leading-snug text-zinc-900 underline-offset-2 hover:text-brand hover:underline"
                     >
-                      {formatCartItemName(item.name, item.color)}
+                      {formatCartItemName(item.name, item.color, item.finishName)}
                     </Link>
                   ) : (
                     <p className="font-medium leading-snug text-zinc-900">
-                      {formatCartItemName(item.name, item.color)}
+                      {formatCartItemName(item.name, item.color, item.finishName)}
                     </p>
                   )}
                 </td>

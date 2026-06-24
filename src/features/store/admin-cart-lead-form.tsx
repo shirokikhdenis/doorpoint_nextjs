@@ -108,7 +108,7 @@ export function AdminCartLeadForm({ items, totalPrice, onSubmitted }: AdminCartL
                       <tr key={`${item.id}-${item.name}-${item.color ?? ""}`}>
                         <td className="px-3 py-2">
                           <p className="font-medium text-zinc-900">
-                            {formatCartItemName(item.name, item.color)}
+                            {formatCartItemName(item.name, item.color, item.finishName)}
                           </p>
                         </td>
                         <td className="whitespace-nowrap px-3 py-2">{formatPrice(item.price)}</td>

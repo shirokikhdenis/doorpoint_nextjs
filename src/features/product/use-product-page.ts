@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { productHref } from "@/lib/client/product-url";
 import { serializeVariantAxes } from "@/features/product/product-utils";
 import { ProductData, Variant, normalizeProductData } from "@/lib/client/normalizers";
+import type { DoorFinishItem } from "@/lib/client/normalizers";
 
 const seedProductCache = (
   cache: Map<string, ProductData>,
@@ -32,6 +33,7 @@ export function useProductPage(
   const [displayedImage, setDisplayedImage] = useState("");
   const [isManualImageSelection, setIsManualImageSelection] = useState(false);
   const [imageLightboxOpen, setImageLightboxOpen] = useState(false);
+  const [selectedFinish, setSelectedFinish] = useState<DoorFinishItem | null>(null);
 
   const cacheRef = useRef<Map<string, ProductData>>(new Map());
   const cacheSeededRef = useRef(false);
@@ -76,6 +78,7 @@ export function useProductPage(
     }
     setProduct(data);
     setVariantSku(nextSku);
+    setSelectedFinish(null);
     setLoading(false);
     setError("");
   }, []);
@@ -261,5 +264,10 @@ export function useProductPage(
     prefetchProduct,
     switchToSlug,
     selectAxisValue,
+    selectedFinish,
+    setSelectedFinish,
+    requiresFinish:
+      Boolean(product?.finishOptions?.groups?.length) &&
+      product?.finishOptions?.pickerTemplateId != null,
   };
 }

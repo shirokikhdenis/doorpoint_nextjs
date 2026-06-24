@@ -16,3 +16,10 @@ test("formatCartItemName keeps name when color already included", () => {
 test("formatCartItemName returns base name without color", () => {
   assert.equal(formatCartItemName("Дверь", ""), "Дверь");
 });
+
+test("formatCartItemName appends finish suffix", () => {
+  assert.equal(
+    formatCartItemName("Прима-2", "Cream Silk", "Дуб натуральный"),
+    "Прима-2 Cream Silk · покрытие: Дуб натуральный",
+  );
+});

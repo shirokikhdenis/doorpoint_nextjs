@@ -108,6 +108,27 @@ const upsertIfMissing = async ({ sectionId, manufacturerName, sortOrder = 0 }) =
   return existing.rows[0] ? mapRow(existing.rows[0]) : null;
 };
 
+const getLogoUrlByManufacturerName = async (manufacturerName) => {
+  await ensureFactoryStorefrontTables();
+  const name = String(manufacturerName || "").trim();
+  if (!name) return null;
+
+  const res = await query(
+    `
+    SELECT logo_url AS "logoUrl"
+    FROM factory_cards
+    WHERE LOWER(TRIM(manufacturer_name)) = LOWER(TRIM($1))
+      AND NULLIF(TRIM(logo_url), '') IS NOT NULL
+    ORDER BY is_active DESC, sort_order ASC, id ASC
+    LIMIT 1
+    `,
+    [name],
+  );
+
+  const logoUrl = res.rows[0]?.logoUrl;
+  return logoUrl ? String(logoUrl).trim() : null;
+};
+
 const update = async (id, payload) => {
   await ensureFactoryStorefrontTables();
   const numericId = Number(id);
@@ -170,5 +191,6 @@ module.exports = {
   listBySection,
   getById,
   upsertIfMissing,
+  getLogoUrlByManufacturerName,
   update,
 };

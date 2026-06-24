@@ -4,6 +4,10 @@ const storefrontSettingsRepository = require("../repositories/storefrontSettings
 const catalogPageLabelRepository = require("../repositories/catalogPageLabelRepository");
 const subcategoryRepository = require("../repositories/subcategoryRepository");
 const { loadRelatedCollectionDoors } = require("../domain/collectionRelatedDoors");
+const { loadFinishOptionsForProduct } = require("../domain/doorFinishes");
+const { attachManufacturerBrand } = require("../domain/productManufacturerBrand");
+const { resolveFinishPickerTemplateId } = require("../domain/doorFinishPickerSettings");
+const doorFinishPickerSettingsRepository = require("../repositories/doorFinishPickerSettingsRepository");
 
 const HANDLES_SUBCATEGORY_SLUGS = ["handles", "ручки"];
 
@@ -210,15 +214,30 @@ const attachInteriorDoorExtras = async (product) => {
   if (!product || product.categorySlug !== INTERIOR_DOORS_CATEGORY_SLUG) {
     return product;
   }
-  const [suggestedHandles, relatedCollectionDoors] = await Promise.all([
+  const [suggestedHandles, relatedCollectionDoors, finishOptionsRaw, pickerSettings] = await Promise.all([
     pickRandomHandles({ count: 4 }),
     loadRelatedCollectionDoors({ product, getProducts }),
+    loadFinishOptionsForProduct(product),
+    doorFinishPickerSettingsRepository.getDoorFinishPickerSettings(),
   ]);
+  const finishOptions = finishOptionsRaw
+    ? {
+        ...finishOptionsRaw,
+        pickerTemplateId: resolveFinishPickerTemplateId(pickerSettings),
+      }
+    : null;
   return {
     ...product,
     suggestedHandles,
     ...(relatedCollectionDoors ? { relatedCollectionDoors } : {}),
+    ...(finishOptions ? { finishOptions } : {}),
   };
+};
+
+const attachProductPageExtras = async (product) => {
+  if (!product) return null;
+  const withBrand = await attachManufacturerBrand(product);
+  return attachInteriorDoorExtras(withBrand);
 };
 
 const getProductById = async (id) => {
@@ -227,7 +246,7 @@ const getProductById = async (id) => {
     return null;
   }
   const product = await productRepository.getProductById(numericId);
-  return product ? attachInteriorDoorExtras(product) : null;
+  return product ? attachProductPageExtras(product) : null;
 };
 
 const getProductByRef = async (ref) => {
@@ -237,7 +256,7 @@ const getProductByRef = async (ref) => {
     return getProductById(raw);
   }
   const product = await productRepository.getProductBySlug(raw);
-  return product ? attachInteriorDoorExtras(product) : null;
+  return product ? attachProductPageExtras(product) : null;
 };
 
 const listActiveProductSlugs = async () => productRepository.listActiveProductSlugs();

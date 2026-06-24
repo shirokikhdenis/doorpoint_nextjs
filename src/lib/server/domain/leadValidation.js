@@ -28,6 +28,7 @@ const normalizeLeadItem = (item, index) => {
   const name = formatCartItemName(
     String(item?.name || "").trim(),
     String(item?.color || "").trim(),
+    String(item?.finishName || "").trim(),
   );
   if (!name) return { error: `Позиция ${index + 1}: укажите наименование` };
   if (!Number.isFinite(price) || price < 0) {

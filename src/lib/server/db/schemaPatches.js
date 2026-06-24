@@ -12,6 +12,7 @@ let servicesTablesEnsured = false;
 let seoColumnsEnsured = false;
 let catalogPageSlugRenamesEnsured = false;
 let factoryStorefrontTablesEnsured = false;
+let doorFinishTablesEnsured = false;
 
 const CATALOG_PAGE_SLUG_RENAMES = [
   ["entry-doors", "vhodnye-dveri"],
@@ -300,6 +301,30 @@ const ensureFactoryStorefrontTables = async () => {
   factoryStorefrontTablesEnsured = true;
 };
 
+const ensureDoorFinishTables = async () => {
+  if (doorFinishTablesEnsured) return;
+  await query(`
+    CREATE TABLE IF NOT EXISTS door_finishes (
+      id BIGSERIAL PRIMARY KEY,
+      manufacturer_name TEXT NOT NULL,
+      group_key TEXT NOT NULL DEFAULT 'other',
+      name TEXT NOT NULL,
+      image_url TEXT NOT NULL DEFAULT '',
+      price_delta INTEGER NOT NULL DEFAULT 0,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(manufacturer_name, name)
+    )
+  `);
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_door_finishes_manufacturer_active_sort
+    ON door_finishes(manufacturer_name, is_active, sort_order, id)
+  `);
+  doorFinishTablesEnsured = true;
+};
+
 module.exports = {
   CATALOG_PAGE_SLUG_RENAMES,
   ensureProductBadgesColumn,
@@ -314,4 +339,5 @@ module.exports = {
   ensureSeoColumns,
   ensureCatalogPageSlugRenames,
   ensureFactoryStorefrontTables,
+  ensureDoorFinishTables,
 };

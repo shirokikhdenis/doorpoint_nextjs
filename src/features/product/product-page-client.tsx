@@ -4,6 +4,8 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ProductAccessoriesTable } from "@/features/product/product-accessories-table";
 import { ProductAddToCart } from "@/features/product/product-add-to-cart";
+import { ProductFinishSelector } from "@/features/product/product-finish-selector";
+import { getFinishPickerPlacement } from "@/lib/door-finish-picker-templates.js";
 import { ProductGallery } from "@/features/product/product-gallery";
 import { ProductRelatedCollectionDoors } from "@/features/product/product-related-collection-doors";
 import { ProductRelatedFittings } from "@/features/product/product-related-fittings";
@@ -18,6 +20,7 @@ import {
 } from "@/features/product/product-utils";
 import { useCatalogBackHref } from "@/features/product/use-catalog-back-href";
 import { ProductPricingBlock } from "@/features/product/product-pricing-block";
+import { ProductManufacturerLogo } from "@/features/product/product-manufacturer-logo";
 import { ProductPageSkeleton } from "@/features/product/product-page-skeleton";
 import { useProductPage } from "@/features/product/use-product-page";
 import { ImageLightbox } from "@/features/store/image-lightbox";
@@ -49,7 +52,9 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
   const image = page.displayedImage || page.targetImage;
   const galleryImages =
     product.images.length > 0 ? product.images : product.image ? [product.image] : [];
-  const price = resolveProductDisplayPrice(product, page.selectedVariant?.price);
+  const basePrice = resolveProductDisplayPrice(product, page.selectedVariant?.price);
+  const finishDelta = page.selectedFinish?.priceDelta ?? 0;
+  const price = basePrice + finishDelta;
   const kitPrice = computeInteriorKitPrice(price, product.kitPricing);
   const relatedFittings = product.relatedFittings ?? { items: [] };
   const cartName = page.selectedVariant
@@ -63,6 +68,16 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
   );
   const taxonomyLinkClass =
     "text-zinc-600 transition hover:text-brand hover:underline underline-offset-2";
+  const finishPickerId = product.finishOptions?.pickerTemplateId ?? null;
+  const showFinishPicker = product.finishOptions != null && finishPickerId != null;
+  const finishPickerProps = showFinishPicker
+    ? {
+        finishOptions: product.finishOptions!,
+        selectedFinish: page.selectedFinish,
+        onSelectFinish: page.setSelectedFinish,
+      }
+    : null;
+  const finishPickerPlacement = finishPickerId ? getFinishPickerPlacement(finishPickerId) : null;
 
   return (
     <>
@@ -90,7 +105,14 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
             Назад в каталог
           </Link>
         </Button>
-        <div className="mt-4 grid gap-6 md:grid-cols-2">
+        <div className="relative mt-4">
+          {product.manufacturerLogo ? (
+            <ProductManufacturerLogo
+              logoUrl={product.manufacturerLogo}
+              manufacturerName={product.manufacturerName || "Производитель"}
+            />
+          ) : null}
+          <div className="grid gap-6 md:grid-cols-2">
           <ProductGallery
             productName={product.name}
             image={image}
@@ -144,6 +166,9 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
               onSelectAxisValue={page.selectAxisValue}
               onVariantSkuChange={page.setVariantSku}
             />
+            {finishPickerProps && finishPickerPlacement === "sidebar" ? (
+              <ProductFinishSelector placement="sidebar" {...finishPickerProps} />
+            ) : null}
             <ProductAddToCart
               productId={product.id}
               cartName={cartName}
@@ -151,6 +176,9 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
               cartImage={image}
               price={price}
               sku={cartSku}
+              finishId={page.selectedFinish?.id}
+              finishName={page.selectedFinish?.name}
+              requiresFinish={page.requiresFinish}
             />
             <div className="space-y-2">
               {product.attributes.map((attr) => (
@@ -165,8 +193,12 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
             </div>
           </div>
         </div>
+        </div>
 
         <ProductRelatedFittings relatedFittings={relatedFittings} />
+        {finishPickerProps && finishPickerPlacement === "below-card" ? (
+          <ProductFinishSelector placement="below-card" {...finishPickerProps} />
+        ) : null}
         <ProductAccessoriesTable
           accessories={product.accessories}
           doorColor={page.cartColorLabel}

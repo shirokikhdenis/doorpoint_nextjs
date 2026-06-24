@@ -7,6 +7,7 @@ const csvImportService = require("@/lib/server/services/csvImportService");
 const promotionService = require("@/lib/server/services/promotionService");
 const leadService = require("@/lib/server/services/leadService");
 const factoryStorefrontService = require("@/lib/server/services/factoryStorefrontService");
+const doorFinishAdminService = require("@/lib/server/services/doorFinishAdminService");
 const { withErrorHandling, json, empty, getQuery, readBody } = require("@/lib/server/http/handlers");
 const { requestHasAdminSession } = require("@/lib/server/auth/adminAuth");
 
@@ -321,6 +322,46 @@ const handle = async (request, context) =>
       if (!result.ok) return json({ message: result.message }, result.status || 404);
       await invalidateStorefrontCache("factories");
       return json(result.card);
+    }
+
+    if (match(path, method, "GET", "door-finishes")) {
+      const result = await doorFinishAdminService.listAdminDoorFinishes(query);
+      return json(result);
+    }
+    if (match(path, method, "PATCH", "door-finishes", "picker-template")) {
+      const result = await doorFinishAdminService.updateAdminDoorFinishPickerSettings(body);
+      if (!result.ok) return json({ message: result.message }, result.status || 400);
+      await invalidateStorefrontCache("products");
+      return json(result);
+    }
+    if (match(path, method, "POST", "door-finishes", "import")) {
+      const result = await doorFinishAdminService.importDoorFinishesFromRows(body?.rows, {
+        defaultManufacturer: body?.defaultManufacturer || query.manufacturer || "",
+      });
+      if (!result.ok && result.status) {
+        return json({ message: result.message }, result.status);
+      }
+      return json(result);
+    }
+    if (match(path, method, "POST", "door-finishes")) {
+      const result = await doorFinishAdminService.createAdminDoorFinish(body);
+      if (!result.ok) return json({ message: result.message }, result.status || 400);
+      return json(result.finish, 201);
+    }
+    if (match(path, method, "DELETE", "door-finishes")) {
+      const result = await doorFinishAdminService.deleteAdminDoorFinishesByManufacturer(query);
+      if (!result.ok) return json({ message: result.message }, result.status || 400);
+      return json({ deleted: result.deleted, manufacturerName: result.manufacturerName });
+    }
+    if (path[0] === "door-finishes" && path.length === 2 && method === "PUT") {
+      const result = await doorFinishAdminService.updateAdminDoorFinish(Number(path[1]), body);
+      if (!result.ok) return json({ message: result.message }, result.status || 400);
+      return json(result.finish);
+    }
+    if (path[0] === "door-finishes" && path.length === 2 && method === "DELETE") {
+      const result = await doorFinishAdminService.deleteAdminDoorFinish(Number(path[1]));
+      if (!result.ok) return json({ message: result.message }, result.status || 404);
+      return empty(204);
     }
 
     return json({ message: "Not found" }, 404);

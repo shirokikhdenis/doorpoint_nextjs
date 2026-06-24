@@ -1,16 +1,30 @@
-const formatCartItemName = (name, color) => {
+const formatCartItemName = (name, color, finishName) => {
   const base = String(name || "").trim();
   const colorValue = String(color || "").trim();
-  if (!colorValue) return base;
-  if (!base) return colorValue;
+  const finishValue = String(finishName || "").trim();
 
-  const baseLower = base.toLowerCase();
-  const colorLower = colorValue.toLowerCase();
-  if (baseLower.endsWith(colorLower) || baseLower.includes(` ${colorLower}`)) {
-    return base;
+  let result = base;
+  if (colorValue) {
+    const baseLower = result.toLowerCase();
+    const colorLower = colorValue.toLowerCase();
+    if (!baseLower.endsWith(colorLower) && !baseLower.includes(` ${colorLower}`)) {
+      result = result ? `${result} ${colorValue}` : colorValue;
+    }
   }
 
-  return `${base} ${colorValue}`;
+  if (finishValue) {
+    const resultLower = result.toLowerCase();
+    const finishLower = finishValue.toLowerCase();
+    const finishSuffix = `покрытие: ${finishValue}`;
+    if (
+      !resultLower.includes(finishLower) &&
+      !resultLower.includes(`покрытие: ${finishLower}`)
+    ) {
+      result = result ? `${result} · ${finishSuffix}` : finishSuffix;
+    }
+  }
+
+  return result;
 };
 
 module.exports = {

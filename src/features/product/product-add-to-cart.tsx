@@ -14,6 +14,9 @@ type ProductAddToCartProps = {
   cartImage: string;
   price: number;
   sku?: string;
+  finishId?: number;
+  finishName?: string;
+  requiresFinish?: boolean;
   className?: string;
 };
 
@@ -24,6 +27,9 @@ export function ProductAddToCart({
   cartImage,
   price,
   sku,
+  finishId,
+  finishName,
+  requiresFinish = false,
   className,
 }: ProductAddToCartProps) {
   const { items, addItem, setQuantity: setCartQuantity } = useCart();
@@ -32,16 +38,17 @@ export function ProductAddToCart({
       id: productId,
       name: cartName,
       color: cartColorLabel.trim(),
+      finishId,
       hideCartImage: false,
     }),
-    [productId, cartName, cartColorLabel],
+    [productId, cartName, cartColorLabel, finishId],
   );
   const existing = findCartLine(items, lineRef);
   const quantity = existing?.quantity ?? 1;
   const showQuantity = Boolean(existing);
 
   const handleAdd = () => {
-    if (showQuantity) return;
+    if (showQuantity || (requiresFinish && !finishId)) return;
     addItem({
       id: productId,
       name: cartName,
@@ -50,6 +57,7 @@ export function ProductAddToCart({
       quantity: 1,
       ...(sku ? { sku } : {}),
       ...(cartColorLabel.trim() ? { color: cartColorLabel.trim() } : {}),
+      ...(finishId ? { finishId, finishName: finishName?.trim() || "" } : {}),
     });
   };
 
@@ -58,9 +66,11 @@ export function ProductAddToCart({
     setCartQuantity(lineRef, next);
   };
 
+  const addDisabled = requiresFinish && !finishId;
+
   return (
     <div className={cn("!mt-6 flex flex-wrap items-center gap-3", className)}>
-      <Button type="button" variant="brand" onClick={handleAdd}>
+      <Button type="button" variant="brand" onClick={handleAdd} disabled={addDisabled}>
         Добавить в корзину
       </Button>
       {showQuantity ? (

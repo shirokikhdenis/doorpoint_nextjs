@@ -73,7 +73,6 @@ export function CatalogProductCard({
           isOnSale={item.isOnSale}
           kitPrice={item.kitPrice}
           variant="compact"
-          align="end"
           className="mt-2"
         />
       </CatalogProductLink>

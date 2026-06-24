@@ -30,6 +30,10 @@ const sanitizeItem = (item: Partial<CartItem>): CartItem => {
   if (c) base.color = c;
   const sku = String(item.sku ?? "").trim();
   if (sku) base.sku = sku;
+  const finishId = Number(item.finishId);
+  if (Number.isInteger(finishId) && finishId > 0) base.finishId = finishId;
+  const finishName = String(item.finishName ?? "").trim();
+  if (finishName) base.finishName = finishName;
   if (item.hideCartImage === true) base.hideCartImage = true;
   if (item.noProductLink === true) base.noProductLink = true;
   return base;
@@ -108,6 +112,8 @@ export const cartStore = {
     if (existing) {
       existing.quantity += next.quantity;
       if (next.sku && !existing.sku) existing.sku = next.sku;
+      if (next.finishId && !existing.finishId) existing.finishId = next.finishId;
+      if (next.finishName && !existing.finishName) existing.finishName = next.finishName;
       if (next.noProductLink && !existing.noProductLink) existing.noProductLink = true;
     } else {
       items.push(next);

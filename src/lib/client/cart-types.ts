@@ -6,11 +6,16 @@ export type CartItem = {
   quantity: number;
   sku?: string;
   color?: string;
+  finishId?: number;
+  finishName?: string;
   hideCartImage?: boolean;
   noProductLink?: boolean;
 };
 
-export type CartLineRef = Pick<CartItem, "id" | "name" | "color" | "hideCartImage">;
+export type CartLineRef = Pick<
+  CartItem,
+  "id" | "name" | "color" | "finishId" | "hideCartImage"
+>;
 
 export type AddCartItemOptions = {
   toast?: string | false;

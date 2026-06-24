@@ -124,6 +124,22 @@ export type RelatedCollectionDoors = {
   catalogHref: string;
   items: ProductCard[];
 };
+export type DoorFinishItem = {
+  id: number;
+  name: string;
+  image: string;
+  priceDelta: number;
+};
+export type DoorFinishGroup = {
+  key: string;
+  title: string;
+  items: DoorFinishItem[];
+};
+export type DoorFinishOptions = {
+  manufacturerName: string;
+  groups: DoorFinishGroup[];
+  pickerTemplateId?: string | null;
+};
 export type KitPart = {
   id: number;
   sku: string;
@@ -159,6 +175,9 @@ export type ProductData = {
   relatedFittings: RelatedFittings;
   suggestedHandles?: ProductCard[];
   relatedCollectionDoors?: RelatedCollectionDoors;
+  finishOptions?: DoorFinishOptions;
+  manufacturerName?: string;
+  manufacturerLogo?: string;
   badges?: ProductBadge[];
   kitPricing?: KitPricing | null;
   kitPrice?: number | null;
@@ -345,6 +364,40 @@ const normalizeRelatedCollectionDoors = (value: unknown): RelatedCollectionDoors
   };
 };
 
+const normalizeFinishOptions = (value: unknown): DoorFinishOptions | undefined => {
+  if (!value || typeof value !== "object") return undefined;
+  const source = value as Record<string, unknown>;
+  const manufacturerName = String(source.manufacturerName || "").trim();
+  if (!manufacturerName) return undefined;
+
+  const groups = asArray<Record<string, unknown>>(source.groups)
+    .map((group) => {
+      const key = String(group.key || "other").trim() || "other";
+      const title = String(group.title || "").trim();
+      const items = asArray<Record<string, unknown>>(group.items)
+        .map((item) => ({
+          id: Number(item.id) || 0,
+          name: String(item.name || "").trim(),
+          image: toPublicImageSrc(String(item.image || "")),
+          priceDelta: Number(item.priceDelta) || 0,
+        }))
+        .filter((item) => item.id > 0 && item.name);
+      if (items.length === 0) return null;
+      return { key, title: title || key, items };
+    })
+    .filter((group): group is DoorFinishGroup => group !== null);
+
+  if (groups.length === 0) return undefined;
+  const pickerTemplateIdRaw = source.pickerTemplateId;
+  const pickerTemplateId =
+    pickerTemplateIdRaw === undefined
+      ? undefined
+      : pickerTemplateIdRaw === null
+        ? null
+        : String(pickerTemplateIdRaw).trim() || null;
+  return { manufacturerName, groups, pickerTemplateId };
+};
+
 const normalizeKitPart = (value: unknown): KitPart | null => {
   if (!value || typeof value !== "object") return null;
   const source = value as Record<string, unknown>;
@@ -428,6 +481,11 @@ export const normalizeProductData = (value: unknown): ProductData => {
     relatedFittings: normalizeRelatedFittings(source.relatedFittings),
     suggestedHandles: normalizeProductsResponse({ items: source.suggestedHandles }),
     relatedCollectionDoors: normalizeRelatedCollectionDoors(source.relatedCollectionDoors),
+    finishOptions: normalizeFinishOptions(source.finishOptions),
+    manufacturerName: source.manufacturerName ? String(source.manufacturerName) : undefined,
+    manufacturerLogo: source.manufacturerLogo
+      ? toPublicImageSrc(String(source.manufacturerLogo))
+      : undefined,
     badges: parseProductBadges(source.badges),
     kitPricing: normalizeKitPricing(source.kitPricing),
     kitPrice:
