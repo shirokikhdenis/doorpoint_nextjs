@@ -52,7 +52,11 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
   const image = page.displayedImage || page.targetImage;
   const galleryImages =
     product.images.length > 0 ? product.images : product.image ? [product.image] : [];
-  const basePrice = resolveProductDisplayPrice(product, page.selectedVariant?.price);
+  const basePrice = resolveProductDisplayPrice(
+    product,
+    page.selectedVariant?.price,
+    product.variants,
+  );
   const finishDelta = page.selectedFinish?.priceDelta ?? 0;
   const price = basePrice + finishDelta;
   const kitPrice = computeInteriorKitPrice(price, product.kitPricing);

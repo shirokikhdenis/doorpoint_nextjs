@@ -5,6 +5,8 @@ const {
   INTERIOR_DOORS_CATEGORY_SLUG,
   computeInteriorKitPrice,
   loadInteriorKitParts,
+  buildPogonazhAccessoriesOrderSql,
+  KIT_PART_TRUTHY,
 } = require("../domain/interiorKitPrice");
 const { normalizeProductBadges, resolveProductBadges, syncSaleBadge } = require("../domain/productBadges");
 const {
@@ -1089,17 +1091,10 @@ const getProductById = async (id) => {
         )
         AND ($3::bigint IS NULL OR COALESCE(parent.id, c.id) <> $3::bigint)
       ORDER BY
-        -- Сначала «Наличники» и «Коробки» (на «Н»/«К»), потом «Доборы» (на «Д»),
-        -- потом всё остальное. Внутри каждой группы — по алфавиту.
-        CASE
-          WHEN LOWER(LEFT(TRIM(p.name), 1)) IN ('н', 'к') THEN 0
-          WHEN LOWER(LEFT(TRIM(p.name), 1)) = 'д' THEN 1
-          ELSE 2
-        END,
-        p.name
+        ${buildPogonazhAccessoriesOrderSql(4)}
       LIMIT 50
       `,
-      [numericId, pogonazhIds, currentRootCategoryId],
+      [numericId, pogonazhIds, currentRootCategoryId, Array.from(KIT_PART_TRUTHY)],
     );
     accessories = accRes.rows.map((accRow) => {
       const accAttrs = ensureAttrs(accRow.attrs);

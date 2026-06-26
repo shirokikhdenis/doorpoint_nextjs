@@ -11,6 +11,15 @@ const allowedDevOrigins = [
 
 const nextConfig: NextConfig = {
   allowedDevOrigins,
+  // pdfkit/fontkit — нативные Node-модули; при бандлинге ломается `new PDFDocument()`.
+  serverExternalPackages: [
+    "pdfkit",
+    "fontkit",
+    "linebreak",
+    "png-js",
+    "@noble/hashes",
+    "@noble/ciphers",
+  ],
   experimental: {
     // Совпадает с nginx client_max_body_size; иначе proxy обрезает multipart-загрузки.
     proxyClientMaxBodySize: "25mb",

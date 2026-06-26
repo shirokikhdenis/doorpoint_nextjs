@@ -1,28 +1,12 @@
 import type { Variant } from "@/lib/client/normalizers";
 import type { KitPricing } from "@/lib/client/normalizers";
+import {
+  isProductSaleActive,
+  isSingleVariantWithoutAxes,
+  resolveProductDisplayPrice,
+} from "@/features/product/product-display-price";
 
-type SalePriceSource = {
-  price: number;
-  isOnSale?: boolean;
-  compareAtPrice?: number | null;
-};
-
-export const isProductSaleActive = (product: SalePriceSource): boolean =>
-  product.isOnSale === true &&
-  product.compareAtPrice != null &&
-  Number.isFinite(product.compareAtPrice) &&
-  product.compareAtPrice > product.price;
-
-/** Акция на уровне товара: показываем products.price, не цену варианта. */
-export const resolveProductDisplayPrice = (
-  product: SalePriceSource,
-  variantPrice?: number | null,
-): number => {
-  if (isProductSaleActive(product)) {
-    return product.price;
-  }
-  return variantPrice ?? product.price;
-};
+export { isProductSaleActive, isSingleVariantWithoutAxes, resolveProductDisplayPrice };
 
 /** Цена комплекта: полотно + 2,5 коробки + 5 наличников (погонаж с pogonazh_komplekt). */
 export const computeInteriorKitPrice = (

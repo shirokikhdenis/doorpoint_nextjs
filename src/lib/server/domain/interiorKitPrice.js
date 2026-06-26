@@ -3,6 +3,7 @@ const { query } = require("../db/postgres");
 const INTERIOR_DOORS_CATEGORY_SLUG = "interior-doors";
 const POGONAZH_KOROBKA_SUBCATEGORY_SLUG = "коробки";
 const POGONAZH_NALICHNIK_SUBCATEGORY_SLUG = "наличники";
+const POGONAZH_DOBORY_SUBCATEGORY_SLUG = "доборы";
 const KIT_PART_ATTR_CODE = "pogonazh_komplekt";
 const KOROBKA_QTY = 2.5;
 const NALICHNIK_QTY = 5;
@@ -12,6 +13,30 @@ const KIT_PART_TRUTHY = new Set(["да", "yes", "1", "true"]);
 const isKitPartAttrValue = (raw) => KIT_PART_TRUTHY.has(String(raw ?? "").trim().toLowerCase());
 
 const isKitPartAttrs = (attrs) => isKitPartAttrValue(attrs?.[KIT_PART_ATTR_CODE]);
+
+/** Порядок строк в таблице «Погонаж» на карточке двери (0 — выше). */
+const getPogonazhAccessorySortRank = (categorySlug, pogonazhKomplektRaw) => {
+  const slug = String(categorySlug ?? "").trim().toLowerCase();
+  const isKitPart = isKitPartAttrValue(pogonazhKomplektRaw);
+  if (slug === POGONAZH_KOROBKA_SUBCATEGORY_SLUG && isKitPart) return 0;
+  if (slug === POGONAZH_NALICHNIK_SUBCATEGORY_SLUG && isKitPart) return 1;
+  if (slug === POGONAZH_DOBORY_SUBCATEGORY_SLUG) return 2;
+  return 3;
+};
+
+/** SQL ORDER BY для accessories: коробки (комплект) → наличники (комплект) → доборы → остальное. */
+const buildPogonazhAccessoriesOrderSql = (kitPartParamIndex = 4) => `
+  CASE
+    WHEN lower(c.slug) = '${POGONAZH_KOROBKA_SUBCATEGORY_SLUG}'
+      AND lower(trim(COALESCE(p.attrs->>'${KIT_PART_ATTR_CODE}', ''))) = ANY($${kitPartParamIndex}::text[])
+      THEN 0
+    WHEN lower(c.slug) = '${POGONAZH_NALICHNIK_SUBCATEGORY_SLUG}'
+      AND lower(trim(COALESCE(p.attrs->>'${KIT_PART_ATTR_CODE}', ''))) = ANY($${kitPartParamIndex}::text[])
+      THEN 1
+    WHEN lower(c.slug) = '${POGONAZH_DOBORY_SUBCATEGORY_SLUG}' THEN 2
+    ELSE 3
+  END,
+  p.name`;
 
 /**
  * @param {number} doorPrice
@@ -101,11 +126,15 @@ module.exports = {
   INTERIOR_DOORS_CATEGORY_SLUG,
   POGONAZH_KOROBKA_SUBCATEGORY_SLUG,
   POGONAZH_NALICHNIK_SUBCATEGORY_SLUG,
+  POGONAZH_DOBORY_SUBCATEGORY_SLUG,
   KIT_PART_ATTR_CODE,
+  KIT_PART_TRUTHY,
   KOROBKA_QTY,
   NALICHNIK_QTY,
   isKitPartAttrValue,
   isKitPartAttrs,
+  getPogonazhAccessorySortRank,
+  buildPogonazhAccessoriesOrderSql,
   computeInteriorKitPrice,
   loadInteriorKitParts,
 };
