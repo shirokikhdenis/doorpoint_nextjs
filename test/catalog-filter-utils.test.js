@@ -146,6 +146,28 @@ test("attributeFiltersForSidebar hides single-value attrs covered by labels", ()
   assert.equal(filters[0].code, "manufacturer");
 });
 
+test("attributeFiltersForSidebar hides manufacturer and collection when tree is present", () => {
+  const meta = {
+    categories: [],
+    subcategories: [],
+    attributeFilters: [
+      { code: "manufacturer", name: "Производитель", type: "text", values: ["A", "B"] },
+      { code: "productline", name: "Коллекция", type: "text", values: ["Classic", "Modern"] },
+      { code: "color", name: "Цвет", type: "text", values: ["Белый", "Серый"] },
+    ],
+    price: { min: 0, max: 0 },
+    labels: [],
+    collectionAttrCode: "productline",
+    manufacturerCollectionTree: [{ manufacturer: "A", collections: ["Classic"] }],
+  };
+
+  const filters = attributeFiltersForSidebar(meta);
+  assert.deepEqual(
+    filters.map((filter) => filter.code),
+    ["color"],
+  );
+});
+
 test("category sections hidden when only one option", () => {
   const meta = {
     categories: [{ slug: "entry", name: "Входные двери" }],

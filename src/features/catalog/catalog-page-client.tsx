@@ -105,6 +105,8 @@ function CatalogPageContent({ initial }: CatalogPageClientProps) {
               onUpdatePriceRange={filters.updatePriceRange}
               onUpdateAttrRange={filters.updateAttrRange}
               onLabelClick={filters.handleLabelClick}
+              onSelectManufacturerCollection={filters.selectManufacturerCollection}
+              onSelectManufacturer={filters.selectManufacturer}
             />
           </aside>
 

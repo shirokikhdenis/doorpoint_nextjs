@@ -194,6 +194,47 @@ export function useCatalogFilters(meta: CatalogMeta, options?: UseCatalogFilters
     });
   };
 
+  const selectManufacturerCollection = (manufacturer: string, collection: string) => {
+    const collectionCode = meta.collectionAttrCode?.trim() || "collection";
+    notifyUserFilterChange();
+    const curManufacturer = attrSelections.manufacturer?.[0];
+    const curCollection = attrSelections[collectionCode]?.[0];
+    if (curManufacturer === manufacturer && curCollection === collection) {
+      setAttrSelections((prev) => {
+        const next = { ...prev };
+        delete next.manufacturer;
+        delete next[collectionCode];
+        return next;
+      });
+      return;
+    }
+    setAttrSelections((prev) => ({
+      ...prev,
+      manufacturer: [manufacturer],
+      [collectionCode]: [collection],
+    }));
+  };
+
+  const selectManufacturer = (manufacturer: string) => {
+    const collectionCode = meta.collectionAttrCode?.trim() || "collection";
+    notifyUserFilterChange();
+    const curManufacturer = attrSelections.manufacturer?.[0];
+    const curCollection = attrSelections[collectionCode]?.[0];
+    if (curManufacturer === manufacturer && !curCollection) {
+      setAttrSelections((prev) => {
+        const next = { ...prev };
+        delete next.manufacturer;
+        return next;
+      });
+      return;
+    }
+    setAttrSelections((prev) => {
+      const next = { ...prev, manufacturer: [manufacturer] };
+      delete next[collectionCode];
+      return next;
+    });
+  };
+
   const updatePriceRange = (min: number, max: number) => {
     notifyUserFilterChange();
     setPriceRange(rangeToFilterState(meta.price.min, meta.price.max, min, max));
@@ -426,6 +467,8 @@ export function useCatalogFilters(meta: CatalogMeta, options?: UseCatalogFilters
     clearAllFilters,
     toggle,
     toggleAttrValue,
+    selectManufacturerCollection,
+    selectManufacturer,
     updatePriceRange,
     updateAttrRange,
     handleLabelClick,

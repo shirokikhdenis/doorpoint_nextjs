@@ -4,6 +4,7 @@ import {
   CollapsibleFilterSection,
   StaticFilterSection,
 } from "@/features/catalog/catalog-filter-section";
+import { CatalogManufacturerTree } from "@/features/catalog/catalog-manufacturer-tree";
 import {
   attributeFiltersForSidebar,
   getEffectiveRange,
@@ -22,7 +23,10 @@ import {
   chipToneClass,
 } from "@/features/store/storefront-ui";
 import type { CatalogLabel, CatalogMeta } from "@/lib/client/normalizers";
-import { catalogPageSupportsOnSaleFilter } from "@/lib/catalog-page-slugs";
+import {
+  catalogPageSupportsManufacturerTree,
+  catalogPageSupportsOnSaleFilter,
+} from "@/lib/catalog-page-slugs";
 
 type CatalogFilterSidebarProps = {
   catalogPage: string;
@@ -50,6 +54,8 @@ type CatalogFilterSidebarProps = {
     max: number,
   ) => void;
   onLabelClick: (label: CatalogLabel) => void;
+  onSelectManufacturerCollection: (manufacturer: string, collection: string) => void;
+  onSelectManufacturer: (manufacturer: string) => void;
 };
 
 function countAttrSelections(selected: string[]): number {
@@ -76,12 +82,21 @@ export function CatalogFilterSidebar({
   onUpdatePriceRange,
   onUpdateAttrRange,
   onLabelClick,
+  onSelectManufacturerCollection,
+  onSelectManufacturer,
 }: CatalogFilterSidebarProps) {
   const sidebarAttributeFilters = attributeFiltersForSidebar(meta);
   const showCategories = shouldShowCategoryFilters(meta);
   const showSubcategories = shouldShowSubcategoryFilters(meta);
   const showCharacteristicsBlock = showSubcategories || sidebarAttributeFilters.length > 0;
   const showOnSaleFilter = catalogPageSupportsOnSaleFilter(catalogPage);
+  const manufacturerTree =
+    catalogPageSupportsManufacturerTree(catalogPage) && meta.manufacturerCollectionTree?.length
+      ? meta.manufacturerCollectionTree
+      : null;
+  const selectedManufacturer = attrSelections.manufacturer?.[0] ?? "";
+  const collectionAttrCode = meta.collectionAttrCode?.trim() || "collection";
+  const selectedCollection = attrSelections[collectionAttrCode]?.[0] ?? "";
 
   return (
     <div className="catalog-filters-scroll min-h-0 flex-1 space-y-3 lg:overflow-y-auto lg:pb-6 lg:pr-3">
@@ -97,6 +112,16 @@ export function CatalogFilterSidebar({
           Сбросить
         </button>
       </div>
+
+      {manufacturerTree ? (
+        <CatalogManufacturerTree
+          tree={manufacturerTree}
+          selectedManufacturer={selectedManufacturer}
+          selectedCollection={selectedCollection}
+          onSelectCollection={onSelectManufacturerCollection}
+          onSelectManufacturer={onSelectManufacturer}
+        />
+      ) : null}
 
       {meta.labels.length > 0 ? (
         <div>

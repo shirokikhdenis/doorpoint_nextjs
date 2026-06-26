@@ -14,6 +14,7 @@ let catalogPageFilterDefaultsEnsured = false;
 let catalogPageSlugRenamesEnsured = false;
 let factoryStorefrontTablesEnsured = false;
 let doorFinishTablesEnsured = false;
+let homeProductSectionTablesEnsured = false;
 
 const CATALOG_PAGE_SLUG_RENAMES = [
   ["entry-doors", "vhodnye-dveri"],
@@ -336,6 +337,28 @@ const ensureDoorFinishTables = async () => {
   doorFinishTablesEnsured = true;
 };
 
+const ensureHomeProductSectionTables = async () => {
+  if (homeProductSectionTablesEnsured) return;
+  await query(`
+    CREATE TABLE IF NOT EXISTS home_product_sections (
+      id BIGSERIAL PRIMARY KEY,
+      title TEXT NOT NULL,
+      catalog_page_slug TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      product_limit INTEGER NOT NULL DEFAULT 8,
+      filters JSONB NOT NULL DEFAULT '{}'::jsonb,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_home_product_sections_active_sort
+    ON home_product_sections(is_active, sort_order, id)
+  `);
+  homeProductSectionTablesEnsured = true;
+};
+
 module.exports = {
   CATALOG_PAGE_SLUG_RENAMES,
   ensureProductBadgesColumn,
@@ -352,4 +375,5 @@ module.exports = {
   ensureCatalogPageSlugRenames,
   ensureFactoryStorefrontTables,
   ensureDoorFinishTables,
+  ensureHomeProductSectionTables,
 };

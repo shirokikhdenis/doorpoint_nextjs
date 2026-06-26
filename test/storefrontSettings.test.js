@@ -10,3 +10,14 @@ test("normalizeStorefrontSettings defaults showCatalogKitPrice to true", () => {
   assert.equal(normalizeStorefrontSettings({ showCatalogKitPrice: true }).showCatalogKitPrice, true);
   assert.equal(normalizeStorefrontSettings({ showCatalogKitPrice: false }).showCatalogKitPrice, false);
 });
+
+test("normalizeStorefrontSettings defaults showCatalogManufacturerTree to true", () => {
+  assert.equal(
+    normalizeStorefrontSettings({ showCatalogManufacturerTree: true }).showCatalogManufacturerTree,
+    true,
+  );
+  assert.equal(
+    normalizeStorefrontSettings({ showCatalogManufacturerTree: false }).showCatalogManufacturerTree,
+    false,
+  );
+});

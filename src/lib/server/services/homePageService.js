@@ -1,4 +1,5 @@
 const catalogService = require("./catalogService");
+const homeProductSectionService = require("./homeProductSectionService");
 
 const shuffle = (items) => {
   const copy = [...items];
@@ -32,9 +33,10 @@ const pickRandomHits = async (catalogPage, { excludeIds = [], count = 8 } = {}) 
 };
 
 const getHomePageData = async () => {
-  const [interiorHits, entryHits] = await Promise.all([
+  const [interiorHits, entryHits, customSections] = await Promise.all([
     pickTopHits("dveri-mezhkomnatnyye"),
     pickTopHits("vhodnye-dveri"),
+    homeProductSectionService.listActiveSectionsWithProducts(),
   ]);
 
   return {
@@ -42,6 +44,7 @@ const getHomePageData = async () => {
     entryHits,
     interiorCoverImage: interiorHits.find((item) => item.image)?.image || "",
     entryCoverImage: entryHits.find((item) => item.image)?.image || "",
+    customSections,
   };
 };
 

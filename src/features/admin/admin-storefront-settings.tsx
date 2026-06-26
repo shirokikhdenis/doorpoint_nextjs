@@ -7,6 +7,7 @@ import { AdminNotice } from "@/features/admin/ui/admin-notice";
 
 export type StorefrontSettings = {
   showCatalogKitPrice: boolean;
+  showCatalogManufacturerTree: boolean;
 };
 
 type AdminStorefrontSettingsProps = {
@@ -14,7 +15,10 @@ type AdminStorefrontSettingsProps = {
 };
 
 export function AdminStorefrontSettings({ className }: AdminStorefrontSettingsProps) {
-  const [settings, setSettings] = useState<StorefrontSettings>({ showCatalogKitPrice: true });
+  const [settings, setSettings] = useState<StorefrontSettings>({
+    showCatalogKitPrice: true,
+    showCatalogManufacturerTree: true,
+  });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -76,33 +80,61 @@ export function AdminStorefrontSettings({ className }: AdminStorefrontSettingsPr
   return (
     <AdminCard
       title="Витрина"
-      description="Отображение цен в каталоге и на карточках в списках товаров."
+      description="Отображение цен и фильтров на витрине каталога."
       className={className}
     >
-      <label className="flex cursor-pointer items-start gap-3">
-        <input
-          type="checkbox"
-          className="mt-1"
-          disabled={loading || saving}
-          checked={settings.showCatalogKitPrice}
-          onChange={(event) => {
-            setSaved(false);
-            setSettings((current) => ({
-              ...current,
-              showCatalogKitPrice: event.target.checked,
-            }));
-          }}
-        />
-        <span className="min-w-0">
-          <span className="block text-sm font-medium text-admin-text">
-            Показывать в каталоге цену за комплект
+      <div className="space-y-4">
+        <label className="flex cursor-pointer items-start gap-3">
+          <input
+            type="checkbox"
+            className="mt-1"
+            disabled={loading || saving}
+            checked={settings.showCatalogKitPrice}
+            onChange={(event) => {
+              setSaved(false);
+              setSettings((current) => ({
+                ...current,
+                showCatalogKitPrice: event.target.checked,
+              }));
+            }}
+          />
+          <span className="min-w-0">
+            <span className="block text-sm font-medium text-admin-text">
+              Показывать в каталоге цену за комплект
+            </span>
+            <span className="mt-1 block text-xs text-admin-text-muted">
+              Для межкомнатных дверей рядом с ценой за полотно показывается расчёт комплекта
+              (полотно + коробка + наличники). На странице товара цены не скрываются.
+            </span>
           </span>
-          <span className="mt-1 block text-xs text-admin-text-muted">
-            Для межкомнатных дверей рядом с ценой за полотно показывается расчёт комплекта (полотно
-            + коробка + наличники). На странице товара цены не скрываются.
+        </label>
+
+        <label className="flex cursor-pointer items-start gap-3">
+          <input
+            type="checkbox"
+            className="mt-1"
+            disabled={loading || saving}
+            checked={settings.showCatalogManufacturerTree}
+            onChange={(event) => {
+              setSaved(false);
+              setSettings((current) => ({
+                ...current,
+                showCatalogManufacturerTree: event.target.checked,
+              }));
+            }}
+          />
+          <span className="min-w-0">
+            <span className="block text-sm font-medium text-admin-text">
+              Древовидное меню «Фабрики → коллекции» в фильтрах
+            </span>
+            <span className="mt-1 block text-xs text-admin-text-muted">
+              Только для витрины межкомнатных дверей: список производителей с раскрывающимися
+              коллекциями над подборками в фильтрах межкомнатных. Если выключено, производитель и коллекция
+              остаются в блоке «Характеристики».
+            </span>
           </span>
-        </span>
-      </label>
+        </label>
+      </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <Button type="button" size="sm" disabled={loading || saving} onClick={() => void save()}>

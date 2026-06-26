@@ -1,5 +1,6 @@
 const DEFAULT_STOREFRONT_SETTINGS = {
   showCatalogKitPrice: true,
+  showCatalogManufacturerTree: true,
 };
 
 const normalizeStorefrontSettings = (payload) => ({
@@ -7,6 +8,10 @@ const normalizeStorefrontSettings = (payload) => ({
     payload?.showCatalogKitPrice === undefined
       ? DEFAULT_STOREFRONT_SETTINGS.showCatalogKitPrice
       : payload.showCatalogKitPrice === true,
+  showCatalogManufacturerTree:
+    payload?.showCatalogManufacturerTree === undefined
+      ? DEFAULT_STOREFRONT_SETTINGS.showCatalogManufacturerTree
+      : payload.showCatalogManufacturerTree === true,
 });
 
 module.exports = {

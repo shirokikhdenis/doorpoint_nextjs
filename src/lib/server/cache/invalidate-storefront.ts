@@ -1,6 +1,12 @@
 import { revalidatePath, revalidateTag } from "next/cache";
 
-export type StorefrontCacheScope = "products" | "catalog-pages" | "promotions" | "factories" | "all";
+export type StorefrontCacheScope =
+  | "products"
+  | "catalog-pages"
+  | "promotions"
+  | "home-sections"
+  | "factories"
+  | "all";
 
 const expireTag = (tag: string) => {
   revalidateTag(tag, { expire: 0 });
@@ -22,11 +28,16 @@ export async function invalidateStorefrontCache(scope: StorefrontCacheScope = "a
     expireTag("promotions");
   }
 
+  if (scope === "all" || scope === "home-sections") {
+    expireTag("home-sections");
+    expireTag("home-hits");
+  }
+
   if (scope === "all" || scope === "factories") {
     revalidatePath("/fabriki", "layout");
   }
 
-  if (scope === "all" || scope === "products" || scope === "promotions") {
+  if (scope === "all" || scope === "products" || scope === "promotions" || scope === "home-sections") {
     revalidatePath("/");
   }
 

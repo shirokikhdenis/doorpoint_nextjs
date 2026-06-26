@@ -26,3 +26,7 @@ export const isLegacyCatalogPageSlug = (slug: string): boolean =>
 /** Акционный фильтр «Двери со скидкой» — только для дверных витрин. */
 export const catalogPageSupportsOnSaleFilter = (catalogPage: string): boolean =>
   resolveCatalogPageSlug(catalogPage) !== CATALOG_PAGE_SLUG.fittings;
+
+/** Древовидный фильтр «фабрика → коллекция» — только для витрины межкомнатных. */
+export const catalogPageSupportsManufacturerTree = (catalogPage: string): boolean =>
+  resolveCatalogPageSlug(catalogPage) === CATALOG_PAGE_SLUG.interiorDoors;

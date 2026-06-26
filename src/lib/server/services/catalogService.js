@@ -1,3 +1,4 @@
+const { resolveCollectionAttrCode } = require("../domain/collectionAttrCode");
 const productRepository = require("../repositories/productRepository");
 const catalogPageRepository = require("../repositories/catalogPageRepository");
 const storefrontSettingsRepository = require("../repositories/storefrontSettingsRepository");
@@ -191,11 +192,22 @@ const getFilterMeta = async (query = {}) => {
       }
     }
   }
-  const meta = await productRepository.listFilterMeta(filters);
+  const [meta, storefrontSettings, collectionAttrCode] = await Promise.all([
+    productRepository.listFilterMeta(filters),
+    storefrontSettingsRepository.getStorefrontSettings(),
+    resolveCollectionAttrCode(),
+  ]);
+  const interiorCatalogSlugs = new Set(["dveri-mezhkomnatnyye", "interior-doors"]);
+  const manufacturerCollectionTree =
+    storefrontSettings.showCatalogManufacturerTree && interiorCatalogSlugs.has(pageSlug)
+      ? await productRepository.listManufacturerCollectionTree(filters, collectionAttrCode)
+      : [];
   return {
     ...meta,
     labels,
     collapsedFilterSections,
+    manufacturerCollectionTree,
+    collectionAttrCode,
   };
 };
 

@@ -5,6 +5,7 @@ const require = createRequire(import.meta.url);
 const adminService = require("@/lib/server/services/adminService");
 const csvImportService = require("@/lib/server/services/csvImportService");
 const promotionService = require("@/lib/server/services/promotionService");
+const homeProductSectionService = require("@/lib/server/services/homeProductSectionService");
 const leadService = require("@/lib/server/services/leadService");
 const factoryStorefrontService = require("@/lib/server/services/factoryStorefrontService");
 const doorFinishAdminService = require("@/lib/server/services/doorFinishAdminService");
@@ -265,6 +266,28 @@ const handle = async (request, context) =>
       const result = await promotionService.reorderPromotions(orderedIds);
       await invalidateStorefrontCache("promotions");
       return json(result);
+    }
+
+    if (match(path, method, "GET", "home-sections")) {
+      return json(await homeProductSectionService.listAllSections());
+    }
+    if (match(path, method, "POST", "home-sections")) {
+      const result = await homeProductSectionService.createSection(body);
+      if (!result.ok) return json({ message: result.message }, 400);
+      await invalidateStorefrontCache("home-sections");
+      return json(result.section, 201);
+    }
+    if (path[0] === "home-sections" && path.length === 2 && method === "PUT") {
+      const result = await homeProductSectionService.updateSection(Number(path[1]), body);
+      if (!result.ok) return json({ message: result.message }, result.status || 400);
+      await invalidateStorefrontCache("home-sections");
+      return json(result.section);
+    }
+    if (path[0] === "home-sections" && path.length === 2 && method === "DELETE") {
+      const result = await homeProductSectionService.deleteSection(Number(path[1]));
+      if (!result.ok) return json({ message: result.message }, result.status || 404);
+      await invalidateStorefrontCache("home-sections");
+      return empty(204);
     }
 
     if (match(path, method, "POST", "leads")) {

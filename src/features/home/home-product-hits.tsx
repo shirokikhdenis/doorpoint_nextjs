@@ -15,6 +15,8 @@ type HomeProductHitsProps = {
   catalogPage: string;
   catalogHref: string;
   products: ProductCard[];
+  sectionId?: number;
+  loadMoreCount?: number;
 };
 
 function HomeProductSkeleton() {
@@ -32,6 +34,8 @@ export function HomeProductHits({
   catalogPage,
   catalogHref,
   products,
+  sectionId,
+  loadMoreCount = 8,
 }: HomeProductHitsProps) {
   const { addItem } = useCart();
   const [hoveredProductId, setHoveredProductId] = useState<number | null>(null);
@@ -44,12 +48,19 @@ export function HomeProductHits({
 
     setLoadingMore(true);
     try {
+      const exclude = displayedProducts.map((item) => item.id).join(",");
       const params = new URLSearchParams({
-        catalogPage,
-        exclude: displayedProducts.map((item) => item.id).join(","),
-        count: "8",
+        exclude,
+        count: String(loadMoreCount),
       });
-      const response = await fetch(`/api/home/product-hits?${params.toString()}`);
+      const url = sectionId
+        ? `/api/home/sections/${sectionId}/products?${params.toString()}`
+        : `/api/home/product-hits?${new URLSearchParams({
+            catalogPage,
+            exclude,
+            count: String(loadMoreCount),
+          }).toString()}`;
+      const response = await fetch(url);
       if (!response.ok) return;
 
       const data = await response.json();
@@ -60,7 +71,7 @@ export function HomeProductHits({
       }
 
       setDisplayedProducts((prev) => [...prev, ...next]);
-      if (next.length < 8) {
+      if (next.length < loadMoreCount) {
         setCanLoadMore(false);
       }
     } finally {

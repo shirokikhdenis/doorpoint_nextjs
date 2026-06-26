@@ -21,6 +21,10 @@ export type CatalogLabel = {
   sortOrder: number;
   filters: CatalogLabelFilter[];
 };
+export type CatalogManufacturerTreeItem = {
+  manufacturer: string;
+  collections: string[];
+};
 export type CatalogMeta = {
   categories: Array<{ slug: string; name: string }>;
   subcategories: Array<{ slug: string; name: string; categorySlug: string }>;
@@ -29,6 +33,10 @@ export type CatalogMeta = {
   labels: CatalogLabel[];
   /** null — встроенные правила; массив — явная настройка витрины в админке */
   collapsedFilterSections: string[] | null;
+  /** Древовидный фильтр фабрика → коллекция (межкомнатные). */
+  manufacturerCollectionTree?: CatalogManufacturerTreeItem[];
+  /** Код атрибута коллекции в attrs (например productline). */
+  collectionAttrCode?: string;
 };
 export type ProductGlassOption = { id: number; label: string };
 
@@ -256,6 +264,18 @@ export const normalizeCatalogMeta = (value: unknown): CatalogMeta => {
     collapsedFilterSections: Array.isArray(source.collapsedFilterSections)
       ? source.collapsedFilterSections.map(String).filter(Boolean)
       : null,
+    manufacturerCollectionTree: asArray<Record<string, unknown>>(source.manufacturerCollectionTree)
+      .map((entry) => {
+        const manufacturer = String(entry.manufacturer || "").trim();
+        const collections = asArray<string>(entry.collections).map(String).filter(Boolean);
+        if (!manufacturer || collections.length === 0) return null;
+        return { manufacturer, collections };
+      })
+      .filter((entry): entry is CatalogManufacturerTreeItem => entry !== null),
+    collectionAttrCode:
+      source.collectionAttrCode != null && String(source.collectionAttrCode).trim()
+        ? String(source.collectionAttrCode).trim()
+        : undefined,
   };
 };
 
@@ -517,11 +537,72 @@ export const normalizePromotionBanners = (value: unknown): PromotionBanner[] =>
     href: String(entry.href || ""),
   }));
 
+export type HomeProductSection = {
+  id: number;
+  title: string;
+  catalogPageSlug: string;
+  catalogHref: string;
+  productLimit: number;
+  products: ProductCard[];
+};
+
+const normalizeHomeSectionFilters = (value: unknown) => {
+  const source = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  const attrSelectionsRaw =
+    source.attrSelections && typeof source.attrSelections === "object"
+      ? (source.attrSelections as Record<string, unknown>)
+      : {};
+  const attrSelections: Record<string, string[]> = {};
+  for (const [code, values] of Object.entries(attrSelectionsRaw)) {
+    const list = asArray<unknown>(values).map((v) => String(v).trim()).filter(Boolean);
+    if (list.length) attrSelections[String(code)] = list;
+  }
+  return {
+    categories: asArray<unknown>(source.categories).map(String).filter(Boolean),
+    subcategories: asArray<unknown>(source.subcategories).map(String).filter(Boolean),
+    attrSelections,
+    onSale: source.onSale === true,
+  };
+};
+
+export const normalizeHomeProductSections = (value: unknown): HomeProductSection[] =>
+  asArray<Record<string, unknown>>(value).map((entry) => ({
+    id: Number(entry.id) || 0,
+    title: String(entry.title || ""),
+    catalogPageSlug: String(entry.catalogPageSlug || ""),
+    catalogHref: String(entry.catalogHref || ""),
+    productLimit: Math.min(24, Math.max(1, Number(entry.productLimit) || 8)),
+    products: normalizeProductsResponse({ items: entry.products }),
+  }));
+
+export const normalizeAdminHomeProductSection = (value: unknown) => {
+  const entry = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  return {
+    id: Number(entry.id) || 0,
+    title: String(entry.title || ""),
+    catalogPageSlug: String(entry.catalogPageSlug || ""),
+    sortOrder: Number(entry.sortOrder) || 0,
+    isActive: entry.isActive !== false,
+    productLimit: Math.min(24, Math.max(1, Number(entry.productLimit) || 8)),
+    filters: normalizeHomeSectionFilters(entry.filters),
+    catalogHref: String(entry.catalogHref || ""),
+  };
+};
+
 export const normalizeAdminBootstrap = (value: unknown): AdminBootstrap => {
   const source = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
   return {
-    categories: asArray<AdminBootstrap["categories"][number]>(source.categories),
-    subcategories: asArray<AdminBootstrap["subcategories"][number]>(source.subcategories),
+    categories: asArray<Record<string, unknown>>(source.categories).map((cat) => ({
+      id: Number(cat.id) || 0,
+      name: String(cat.name || ""),
+      slug: String(cat.slug || ""),
+    })),
+    subcategories: asArray<Record<string, unknown>>(source.subcategories).map((sub) => ({
+      id: Number(sub.id) || 0,
+      name: String(sub.name || ""),
+      slug: String(sub.slug || ""),
+      categoryId: Number(sub.categoryId) || 0,
+    })),
     attributes: asArray<AdminBootstrap["attributes"][number]>(source.attributes),
     products: asArray<AdminBootstrap["products"][number]>(source.products),
     catalogPages: asArray<Record<string, unknown>>(source.catalogPages).map((entry) => ({

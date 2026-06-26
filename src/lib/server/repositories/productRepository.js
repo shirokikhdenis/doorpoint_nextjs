@@ -825,6 +825,52 @@ const listFilterMeta = async (constraints = {}) => {
   };
 };
 
+/** Фабрики и коллекции в рамках витрины — для древовидного фильтра межкомнатных. */
+const listManufacturerCollectionTree = async (constraints = {}, collectionAttrCode = "collection") => {
+  const attrCode = String(collectionAttrCode || "collection").trim() || "collection";
+  if (!/^[a-z0-9_]+$/i.test(attrCode)) {
+    return [];
+  }
+  const collectionExpr = `p.attrs->>'${attrCode}'`;
+
+  const { mode, pageCats, pageSubs } = buildMetaScope(constraints);
+  const bind = makeBindings();
+  const scope = buildMetaScopeSql(mode, pageCats, pageSubs, bind.addParam);
+
+  const res = await query(
+    `
+    SELECT
+      TRIM(p.attrs->>'manufacturer') AS manufacturer,
+      TRIM(${collectionExpr}) AS collection
+    FROM products p
+    ${taxonomyJoin}
+    WHERE p.is_active = TRUE
+      AND ${storefrontListedProductPredicatesSql}
+      AND TRIM(COALESCE(p.attrs->>'manufacturer', '')) <> ''
+      AND TRIM(COALESCE(${collectionExpr}, '')) <> ''
+      ${scope.productScopeCondition}
+    GROUP BY 1, 2
+    ORDER BY 1, 2
+    `,
+    bind.params,
+  );
+
+  const treeMap = new Map();
+  for (const row of res.rows) {
+    const manufacturer = String(row.manufacturer || "").trim();
+    const collection = String(row.collection || "").trim();
+    if (!manufacturer || !collection) continue;
+    if (!treeMap.has(manufacturer)) treeMap.set(manufacturer, []);
+    const bucket = treeMap.get(manufacturer);
+    if (!bucket.includes(collection)) bucket.push(collection);
+  }
+
+  return Array.from(treeMap.entries()).map(([manufacturer, collections]) => ({
+    manufacturer,
+    collections,
+  }));
+};
+
 const getProductBySlug = async (slug) => {
   await ensureLatinProductSlugs();
   const raw = String(slug || "").trim();
@@ -2471,6 +2517,7 @@ const listPublicCollections = async ({
 module.exports = {
   listProducts,
   listFilterMeta,
+  listManufacturerCollectionTree,
   listActiveProductSlugs,
   listPublicManufacturers,
   listPublicCollections,

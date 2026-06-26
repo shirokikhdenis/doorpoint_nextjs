@@ -74,7 +74,13 @@ export const attributeFiltersForSidebar = (meta: CatalogMeta): CatalogAttributeF
     }
   }
 
+  const treeHiddenCodes =
+    meta.manufacturerCollectionTree && meta.manufacturerCollectionTree.length > 0
+      ? new Set(["manufacturer", meta.collectionAttrCode?.trim() || "collection"])
+      : null;
+
   return meta.attributeFilters.filter((filter) => {
+    if (treeHiddenCodes?.has(filter.code)) return false;
     if (filter.type === "number") return true;
     if (!labelCoveredCodes.has(filter.code)) return true;
     const values = filter.values || [];

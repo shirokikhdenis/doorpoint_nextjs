@@ -4,7 +4,7 @@ import { HomeProductHits } from "@/features/home/home-product-hits";
 import { HomePromotions } from "@/features/home/home-promotions";
 import { LocalBusinessJsonLd } from "@/features/store/local-business-json-ld";
 import { MeasureLeadForm } from "@/features/store/measure-lead-form";
-import { normalizeProductsResponse, normalizePromotionBanners } from "@/lib/client/normalizers";
+import { normalizeProductsResponse, normalizePromotionBanners, normalizeHomeProductSections } from "@/lib/client/normalizers";
 import { CATALOG_PAGE_SLUG } from "@/lib/catalog-page-slugs";
 import { catalogPagePath } from "@/lib/catalog-url";
 import { getCachedActivePromotions, getCachedHomePageData } from "@/lib/server/cache/storefront-cache";
@@ -37,9 +37,11 @@ export default async function HomePage() {
     entryHits: unknown[];
     interiorCoverImage: string;
     entryCoverImage: string;
+    customSections?: unknown[];
   };
   const interiorHits = normalizeProductsResponse({ items: homeData.interiorHits });
   const entryHits = normalizeProductsResponse({ items: homeData.entryHits });
+  const customSections = normalizeHomeProductSections(homeData.customSections);
   const promotionBanners = normalizePromotionBanners(promotionRows);
 
   return (
@@ -63,6 +65,17 @@ export default async function HomePage() {
           catalogHref={catalogPagePath(CATALOG_PAGE_SLUG.entryDoors)}
           products={entryHits}
         />
+        {customSections.map((section) => (
+          <HomeProductHits
+            key={section.id}
+            title={section.title}
+            catalogPage={section.catalogPageSlug}
+            catalogHref={section.catalogHref}
+            products={section.products}
+            sectionId={section.id}
+            loadMoreCount={section.productLimit}
+          />
+        ))}
       </main>
       <MeasureLeadForm />
     </>
