@@ -88,6 +88,8 @@ const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
     ${paragraph("Перечень продукции:")}
     ${itemsTable}
     ${paragraph("")}
+    ${paragraph("Срок поставки: {srokPostavki}")}
+    ${paragraph("")}
     ${paragraph("Подпись заказчика: ___________________ / {customerName} /")}
     ${paragraph("")}
     ${paragraph("Подпись исполнителя: ___________________ / ___________________ /")}

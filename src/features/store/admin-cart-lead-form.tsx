@@ -25,6 +25,7 @@ export function AdminCartLeadForm({ items, totalPrice, onSubmitted }: AdminCartL
   const [phone, setPhone] = useState("");
   const [contractNumber, setContractNumber] = useState("");
   const [contractDate, setContractDate] = useState(todayIsoDate);
+  const [deliveryDays, setDeliveryDays] = useState("15");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -46,6 +47,7 @@ export function AdminCartLeadForm({ items, totalPrice, onSubmitted }: AdminCartL
           phone,
           contractNumber,
           contractDate: contractDate || null,
+          deliveryDays: deliveryDays.trim() ? Number(deliveryDays) : null,
           items: items.map((item) => ({
             id: item.id,
             name: item.name,
@@ -185,6 +187,21 @@ export function AdminCartLeadForm({ items, totalPrice, onSubmitted }: AdminCartL
                     type="date"
                     value={contractDate}
                     onChange={(event) => setContractDate(event.target.value)}
+                    disabled={loading}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="admin-lead-delivery-days">Срок поставки, дней</Label>
+                  <Input
+                    id="admin-lead-delivery-days"
+                    name="deliveryDays"
+                    type="number"
+                    min={1}
+                    max={999}
+                    step={1}
+                    placeholder="15"
+                    value={deliveryDays}
+                    onChange={(event) => setDeliveryDays(event.target.value)}
                     disabled={loading}
                   />
                 </div>

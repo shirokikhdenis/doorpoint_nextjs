@@ -9,7 +9,7 @@ const { formatCartItemName } = require("../../cart-item-name");
 const normalizePhone = (value) => String(value || "").replace(/[^\d+]/g, "").trim();
 
 const parseContractDate = (value) => {
-  if (value === undefined || value === null || value === "") return null;
+  if (value === undefined || value === null || value === "") return { value: null };
   const raw = String(value).trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
     return { error: "Некорректная дата договора" };
@@ -17,6 +17,17 @@ const parseContractDate = (value) => {
   const date = new Date(`${raw}T00:00:00.000Z`);
   if (Number.isNaN(date.getTime())) {
     return { error: "Некорректная дата договора" };
+  }
+  return { value: raw };
+};
+
+const parseDeliveryDays = (value) => {
+  if (value === undefined || value === null || value === "") {
+    return { value: null };
+  }
+  const raw = Number(value);
+  if (!Number.isInteger(raw) || raw < 1 || raw > 999) {
+    return { error: "Срок поставки: укажите целое число от 1 до 999" };
   }
   return { value: raw };
 };
@@ -69,6 +80,11 @@ const validateAdminOrderPayload = (body) => {
     return { ok: false, message: contractDateResult.error };
   }
 
+  const deliveryDaysResult = parseDeliveryDays(body?.deliveryDays);
+  if (deliveryDaysResult?.error) {
+    return { ok: false, message: deliveryDaysResult.error };
+  }
+
   const rawItems = Array.isArray(body?.items) ? body.items : [];
   if (rawItems.length === 0) {
     return { ok: false, message: "Добавьте хотя бы одну позицию в корзину" };
@@ -92,6 +108,7 @@ const validateAdminOrderPayload = (body) => {
       phone,
       contractNumber: String(body?.contractNumber || "").trim(),
       contractDate: contractDateResult.value,
+      deliveryDays: deliveryDaysResult.value ?? 15,
       totalPrice: computeItemsTotal(items),
       clientComment: "",
       sourcePage: "",
@@ -125,6 +142,7 @@ const validateCartLeadPayload = (body, meta = {}) => {
       phone,
       contractNumber: "",
       contractDate: null,
+      deliveryDays: null,
       clientComment: comment,
       sourcePage: String(meta.sourcePage || "").trim(),
       totalPrice: computeItemsTotal(items),
@@ -149,6 +167,7 @@ const validateMeasureLeadPayload = (body, meta = {}) => {
       phone,
       contractNumber: "",
       contractDate: null,
+      deliveryDays: null,
       clientComment: comment,
       sourcePage: String(meta.sourcePage || "").trim(),
       totalPrice: 0,
@@ -218,6 +237,14 @@ const validateLeadPatch = (body) => {
     data.items = items;
   }
 
+  if (body?.deliveryDays !== undefined) {
+    const deliveryDaysResult = parseDeliveryDays(body.deliveryDays);
+    if (deliveryDaysResult?.error) {
+      return { ok: false, message: deliveryDaysResult.error };
+    }
+    data.deliveryDays = deliveryDaysResult.value;
+  }
+
   if (Object.keys(data).length === 0) {
     return { ok: false, message: "Нет данных для обновления" };
   }
@@ -237,6 +264,7 @@ module.exports = {
   MEASURE_LEAD_TYPE,
   normalizePhone,
   parseContractDate,
+  parseDeliveryDays,
   normalizeLeadItem,
   computeItemsTotal,
   validateAdminOrderPayload,

@@ -180,6 +180,10 @@ const ensureLeadTables = async () => {
     CREATE INDEX IF NOT EXISTS idx_leads_type_created_at
     ON leads(type, created_at DESC)
   `);
+  await query(`
+    ALTER TABLE leads
+    ADD COLUMN IF NOT EXISTS delivery_days INTEGER
+  `);
   leadTablesEnsured = true;
 };
 

@@ -102,6 +102,8 @@ export default function AdminLeadsPage() {
 
   const [items, setItems] = useState<LeadListItem[]>([]);
   const [statusFilter, setStatusFilter] = useState("");
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -117,10 +119,16 @@ export default function AdminLeadsPage() {
     router.replace(query ? `/admin/leads?${query}` : "/admin/leads");
   };
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => window.clearTimeout(timer);
+  }, [search]);
+
   const reload = useCallback(async () => {
     const params = new URLSearchParams();
     params.set("type", tabConfig.type);
     if (statusFilter) params.set("status", statusFilter);
+    if (debouncedSearch) params.set("search", debouncedSearch);
     const response = await fetch(`/api/admin/leads?${params.toString()}`);
     if (!response.ok) {
       const payload = await response.json().catch(() => ({}));
@@ -128,7 +136,7 @@ export default function AdminLeadsPage() {
     }
     const payload = (await response.json()) as { items?: LeadListItem[] };
     setItems(Array.isArray(payload.items) ? payload.items : []);
-  }, [statusFilter, tabConfig.type]);
+  }, [statusFilter, debouncedSearch, tabConfig.type]);
 
   useEffect(() => {
     let cancelled = false;
@@ -203,25 +211,42 @@ export default function AdminLeadsPage() {
       </div>
 
       <AdminCard>
-        <div className="mb-4 max-w-xs">
-          <AdminSelectField
-            id="lead-status-filter"
-            label="Статус"
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value)}
-          >
-            <option value="">Все</option>
-            <option value="new">Новые</option>
-            <option value="in_progress">В работе</option>
-            <option value="done">Завершённые</option>
-            <option value="cancelled">Отменённые</option>
-          </AdminSelectField>
+        <div className="mb-4 flex flex-wrap items-end gap-4">
+          <div className="min-w-[220px] flex-1">
+            <label className="mb-1 block text-sm text-zinc-600" htmlFor="lead-search">
+              Поиск
+            </label>
+            <input
+              id="lead-search"
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="ФИО или № договора"
+              className="w-full max-w-md rounded border border-zinc-200 px-3 py-2 text-sm"
+            />
+          </div>
+          <div className="max-w-xs">
+            <AdminSelectField
+              id="lead-status-filter"
+              label="Статус"
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value)}
+            >
+              <option value="">Все</option>
+              <option value="new">Новые</option>
+              <option value="in_progress">В работе</option>
+              <option value="done">Завершённые</option>
+              <option value="cancelled">Отменённые</option>
+            </AdminSelectField>
+          </div>
         </div>
 
         {loading ? (
           <p className="py-8 text-center text-sm text-zinc-500">Загрузка…</p>
         ) : items.length === 0 ? (
-          <AdminEmptyState title="Заявок пока нет" />
+          <AdminEmptyState
+            title={debouncedSearch ? "Ничего не найдено" : "Заявок пока нет"}
+          />
         ) : (
           <AdminTable>
             <AdminTableHead>

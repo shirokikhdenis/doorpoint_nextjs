@@ -10,6 +10,7 @@ const leadSelectFields = `
   phone,
   contract_number AS "contractNumber",
   contract_date AS "contractDate",
+  delivery_days AS "deliveryDays",
   total_price AS "totalPrice",
   discount_kind AS "discountKind",
   discount_value AS "discountValue",
@@ -29,6 +30,7 @@ const mapLeadRow = (row) => ({
   phone: String(row.phone || ""),
   contractNumber: String(row.contractNumber || ""),
   contractDate: row.contractDate || null,
+  deliveryDays: row.deliveryDays != null ? Number(row.deliveryDays) : null,
   totalPrice: Number(row.totalPrice) || 0,
   discountKind: normalizeDiscountKind(row.discountKind),
   discountValue: Number(row.discountValue) || 0,
@@ -75,6 +77,7 @@ const createLeadWithItems = async (lead, items) => {
         phone,
         contract_number,
         contract_date,
+        delivery_days,
         total_price,
         status,
         manager_notes,
@@ -83,7 +86,7 @@ const createLeadWithItems = async (lead, items) => {
         discount_kind,
         discount_value
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, 'new', '', $8, $9, 'none', 0)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'new', '', $9, $10, 'none', 0)
       RETURNING ${leadSelectFields}
       `,
       [
@@ -93,6 +96,7 @@ const createLeadWithItems = async (lead, items) => {
         lead.phone,
         lead.contractNumber,
         lead.contractDate,
+        lead.deliveryDays,
         lead.totalPrice,
         lead.clientComment || "",
         lead.sourcePage || "",
@@ -145,7 +149,7 @@ const createLeadWithItems = async (lead, items) => {
   });
 };
 
-const listLeads = async ({ limit = 50, offset = 0, status, type } = {}) => {
+const listLeads = async ({ limit = 50, offset = 0, status, type, search } = {}) => {
   await ensureLeadTables();
   const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 200);
   const safeOffset = Math.max(Number(offset) || 0, 0);
@@ -161,6 +165,14 @@ const listLeads = async ({ limit = 50, offset = 0, status, type } = {}) => {
   if (status) {
     clauses.push(`status = $${paramIndex}`);
     params.push(String(status));
+    paramIndex += 1;
+  }
+  const searchTerm = String(search || "").trim();
+  if (searchTerm) {
+    clauses.push(
+      `(customer_name ILIKE $${paramIndex} OR contract_number ILIKE $${paramIndex})`,
+    );
+    params.push(`%${searchTerm}%`);
     paramIndex += 1;
   }
 
@@ -275,6 +287,8 @@ const updateLead = async (id, patch) => {
       patch.discountKind !== undefined ? patch.discountKind : current.discountKind;
     const discountValue =
       patch.discountValue !== undefined ? patch.discountValue : current.discountValue;
+    const deliveryDays =
+      patch.deliveryDays !== undefined ? patch.deliveryDays : current.deliveryDays;
     const totals = computeLeadTotals(items, discountKind, discountValue);
 
     const updateRes = await client.query(
@@ -286,6 +300,7 @@ const updateLead = async (id, patch) => {
         discount_kind = $4,
         discount_value = $5,
         total_price = $6,
+        delivery_days = $7,
         updated_at = NOW()
       WHERE id = $1
       RETURNING ${leadSelectFields}
@@ -297,6 +312,7 @@ const updateLead = async (id, patch) => {
         totals.discountKind,
         totals.discountValue,
         totals.total,
+        deliveryDays,
       ],
     );
 

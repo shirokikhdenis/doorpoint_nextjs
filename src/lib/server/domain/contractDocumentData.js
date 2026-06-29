@@ -1,6 +1,6 @@
 const { formatCartItemName } = require("../../cart-item-name");
 const { computeLeadTotals } = require("./leadPricing");
-const { formatRublesInWords } = require("./rublesInWords");
+const { formatRublesInWords, formatDaysWithGenitive } = require("./rublesInWords");
 const formatContractPrice = (price) =>
   new Intl.NumberFormat("ru-RU", {
     style: "currency",
@@ -38,6 +38,7 @@ const buildContractData = (lead) => {
   const discountFormatted =
     totals.discountAmount > 0 ? formatContractPrice(totals.discountAmount) : "—";
   const itogoWords = formatRublesInWords(totals.total);
+  const deliveryDaysWords = formatDaysWithGenitive(lead?.deliveryDays);
 
   return {
     customerName: String(lead?.customerName || "").trim(),
@@ -45,6 +46,11 @@ const buildContractData = (lead) => {
     address: String(lead?.address || "").trim() || "—",
     contractNumber: resolveContractNumber(lead),
     contractDate: formatContractDate(contractDateSource),
+    deliveryDays: deliveryDaysWords.days,
+    srokPostavki: deliveryDaysWords.formatted || "—",
+    srokPostavkiChislo:
+      deliveryDaysWords.days != null ? String(deliveryDaysWords.days) : "—",
+    srokPostavkiPropisju: deliveryDaysWords.genitive || "—",
     totalPriceFormatted,
     subtotalFormatted,
     discountFormatted,

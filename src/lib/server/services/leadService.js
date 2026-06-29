@@ -46,7 +46,8 @@ const listLeads = async (query = {}) => {
 
   const limit = query.limit;
   const offset = query.offset;
-  const items = await leadRepository.listLeads({ status, type, limit, offset });
+  const search = query.search ? String(query.search).trim() : undefined;
+  const items = await leadRepository.listLeads({ status, type, limit, offset, search });
   return { ok: true, items };
 };
 

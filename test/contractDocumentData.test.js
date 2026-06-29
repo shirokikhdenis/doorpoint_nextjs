@@ -49,6 +49,28 @@ test("buildContractData maps lead fields and item lines", () => {
   assert.match(data.itogoSlovami, /тысяч/i);
 });
 
+test("buildContractData formats delivery days with genitive", () => {
+  const data = buildContractData({
+    id: 7,
+    customerName: "Иванов",
+    phone: "+7900",
+    deliveryDays: 15,
+    items: [{ name: "Дверь", price: 1000, quantity: 1 }],
+  });
+
+  assert.equal(data.srokPostavki, "15 (пятнадцати)");
+  assert.equal(data.srokPostavkiChislo, "15");
+  assert.equal(data.srokPostavkiPropisju, "пятнадцати");
+});
+
+test("buildContractData uses dash when delivery days missing", () => {
+  const data = buildContractData({
+    id: 1,
+    items: [{ name: "Дверь", price: 1000, quantity: 1 }],
+  });
+  assert.equal(data.srokPostavki, "—");
+});
+
 test("buildContractFilename sanitizes contract number", () => {
   assert.equal(buildContractFilename({ contractNumber: "Д/007", id: 1 }), "dogovor-Д-007.docx");
 });

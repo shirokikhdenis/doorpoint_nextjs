@@ -37,6 +37,7 @@ type LeadDetail = {
   phone: string;
   contractNumber: string;
   contractDate: string | null;
+  deliveryDays: number | null;
   clientComment: string;
   sourcePage: string;
   totalPrice: number;
@@ -132,6 +133,7 @@ export default function AdminLeadDetailPage({ params }: { params: Promise<{ id: 
   const [managerNotes, setManagerNotes] = useState("");
   const [discountKind, setDiscountKind] = useState<DiscountKind>("none");
   const [discountValue, setDiscountValue] = useState("0");
+  const [deliveryDays, setDeliveryDays] = useState("15");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -157,6 +159,7 @@ export default function AdminLeadDetailPage({ params }: { params: Promise<{ id: 
     setManagerNotes(payload.managerNotes || "");
     setDiscountKind(payload.discountKind || "none");
     setDiscountValue(String(payload.discountValue || 0));
+    setDeliveryDays(payload.deliveryDays != null ? String(payload.deliveryDays) : "15");
   }, []);
 
   const reload = useCallback(async () => {
@@ -237,6 +240,10 @@ export default function AdminLeadDetailPage({ params }: { params: Promise<{ id: 
         body.discountKind = discountKind;
         body.discountValue = discountKind === "none" ? 0 : Math.floor(discountNumeric);
         body.items = items;
+      }
+
+      if (lead.type === "admin_order") {
+        body.deliveryDays = deliveryDays.trim() ? Number(deliveryDays) : null;
       }
 
       const response = await fetch(`/api/admin/leads/${leadId}`, {
@@ -356,6 +363,10 @@ export default function AdminLeadDetailPage({ params }: { params: Promise<{ id: 
                 <dt className="text-zinc-500">Дата договора</dt>
                 <dd>{formatDate(lead.contractDate)}</dd>
               </div>
+              <div>
+                <dt className="text-zinc-500">Срок поставки</dt>
+                <dd>{lead.deliveryDays != null ? `${lead.deliveryDays} дн.` : "—"}</dd>
+              </div>
             </>
           ) : null}
           {showPublicMeta && lead.clientComment ? (
@@ -454,6 +465,27 @@ export default function AdminLeadDetailPage({ params }: { params: Promise<{ id: 
                 </table>
 
                 <div className="space-y-3 border-t px-4 py-4">
+                  {showContractFields ? (
+                    <div className="flex flex-wrap items-end gap-3">
+                      <label className="block text-sm text-zinc-600">
+                        Срок поставки для договора, дней
+                        <input
+                          type="number"
+                          min={1}
+                          max={999}
+                          step={1}
+                          className="mt-1 w-32 rounded border px-2 py-1.5 text-sm"
+                          value={deliveryDays}
+                          onChange={(event) => setDeliveryDays(event.target.value)}
+                          placeholder="15"
+                          disabled={saving}
+                        />
+                      </label>
+                      <p className="pb-2 text-xs text-zinc-500">
+                        В договоре: число и пропись в скобках, например «15 (пятнадцати)».
+                      </p>
+                    </div>
+                  ) : null}
                   <div className="flex flex-wrap items-center gap-3">
                     <span className="text-sm font-medium text-zinc-700">Скидка на договор</span>
                     <select
