@@ -2048,6 +2048,9 @@ const upsertProductBySku = async (payload) =>
       );
       product = updateRes.rows[0];
     } else {
+      if (payload.allowCreateProduct === false) {
+        throw new Error("product not found");
+      }
       if (!resolvedCategoryId || !present.category) {
         throw new Error("category is required for new product");
       }
@@ -2111,7 +2114,17 @@ const upsertProductBySku = async (payload) =>
       }
     }
 
-    const applyVariantPatch = payload.applyVariantPatch === true;
+    let applyVariantPatch = payload.applyVariantPatch === true;
+
+    if (applyVariantPatch && payload.variantSku && payload.allowCreateVariant === false) {
+      const variantExistsRes = await client.query(
+        `SELECT sku FROM product_variants WHERE sku = $1 LIMIT 1`,
+        [payload.variantSku],
+      );
+      if (!variantExistsRes.rows[0]) {
+        applyVariantPatch = false;
+      }
+    }
 
     if (applyVariantPatch && payload.variantSku) {
       const productRow = await client.query(
@@ -2514,6 +2527,67 @@ const listPublicCollections = async ({
   }));
 };
 
+const listSkusBySkuList = async (skus) => {
+  const normalized = [
+    ...new Set(
+      (Array.isArray(skus) ? skus : [])
+        .map((sku) => String(sku || "").trim())
+        .filter(Boolean),
+    ),
+  ];
+  if (normalized.length === 0) return new Set();
+  const res = await query(
+    `
+    SELECT sku
+    FROM products
+    WHERE sku = ANY($1::text[])
+    `,
+    [normalized],
+  );
+  return new Set(res.rows.map((row) => String(row.sku)));
+};
+
+const listVariantSkusBySkuList = async (skus) => {
+  const normalized = [
+    ...new Set(
+      (Array.isArray(skus) ? skus : [])
+        .map((sku) => String(sku || "").trim())
+        .filter(Boolean),
+    ),
+  ];
+  if (normalized.length === 0) return new Set();
+  const res = await query(
+    `
+    SELECT sku
+    FROM product_variants
+    WHERE sku = ANY($1::text[])
+    `,
+    [normalized],
+  );
+  return new Set(res.rows.map((row) => String(row.sku)));
+};
+
+const listVariantSkusForProductSkus = async (productSkus) => {
+  const normalized = [
+    ...new Set(
+      (Array.isArray(productSkus) ? productSkus : [])
+        .map((sku) => String(sku || "").trim())
+        .filter(Boolean),
+    ),
+  ];
+  if (normalized.length === 0) return new Set();
+  const res = await query(
+    `
+    SELECT pv.sku
+    FROM product_variants pv
+    JOIN products p ON p.id = pv.product_id
+    WHERE p.sku = ANY($1::text[])
+    `,
+    [normalized],
+  );
+  return new Set(res.rows.map((row) => String(row.sku)));
+};
+
 module.exports = {
   listProducts,
   listFilterMeta,
@@ -2531,6 +2605,9 @@ module.exports = {
   createProduct,
   updateProduct,
   upsertProductBySku,
+  listSkusBySkuList,
+  listVariantSkusBySkuList,
+  listVariantSkusForProductSkus,
   patchProductBadges,
   patchProductSale,
   patchProductDisplayOrder,

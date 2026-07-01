@@ -9,6 +9,52 @@ const { optimizeRasterBuffer } = require("../imageOptimize");
 
 const requiredColumns = ["sku"];
 
+const IMPORT_MODES = {
+  upsert: "upsert",
+  updateOnly: "update_only",
+};
+
+const normalizeImportMode = (mode) =>
+  String(mode || "").trim() === IMPORT_MODES.updateOnly
+    ? IMPORT_MODES.updateOnly
+    : IMPORT_MODES.upsert;
+
+/**
+ * Решение для строки в режиме update_only (чистая функция для тестов).
+ */
+const resolveUpdateOnlyRowDecision = ({
+  sku,
+  productSkuSet,
+  applyVariantPatch,
+  resolvedVariantSku,
+  variantSkuSet,
+  rowIndex,
+}) => {
+  if (!productSkuSet.has(sku)) {
+    return {
+      action: "skip",
+      applyVariantPatch: false,
+      warning: `Row ${rowIndex + 1}: SKU «${sku}» не найден в каталоге — пропущено`,
+    };
+  }
+  if (
+    applyVariantPatch &&
+    resolvedVariantSku &&
+    !variantSkuSet.has(resolvedVariantSku)
+  ) {
+    return {
+      action: "update",
+      applyVariantPatch: false,
+      warning: `Row ${rowIndex + 1}: вариант «${resolvedVariantSku}» не найден — обновлены только поля товара`,
+    };
+  }
+  return {
+    action: "update",
+    applyVariantPatch,
+    warning: null,
+  };
+};
+
 const hasNonEmpty = (row, key) => {
   if (!Object.prototype.hasOwnProperty.call(row, key)) return false;
   const value = row[key];
@@ -277,10 +323,12 @@ const resolveImagesToLocal = async (imageUrls, rowIndex, importErrors, urlCache)
   return resolved;
 };
 
-const importRows = async (rows) => {
+const importRows = async (rows, options = {}) => {
+  const mode = normalizeImportMode(options.mode);
+  const updateOnly = mode === IMPORT_MODES.updateOnly;
   const errors = validateCsvRows(rows);
   if (errors.length > 0) {
-    return { ok: false, imported: 0, errors };
+    return { ok: false, imported: 0, skipped: 0, errors, warnings: [] };
   }
 
   const { categoryByName, subcategoryByName } = await buildLookupMaps();
@@ -294,10 +342,24 @@ const importRows = async (rows) => {
     });
   });
   const importErrors = [];
+  const warnings = [];
   let imported = 0;
+  let skipped = 0;
   const imageUrlCache = new Map();
   const imagesBySku = new Map();
   await ensureUploadsDir();
+
+  const skusInFile = [
+    ...new Set(
+      rows.map((row) => String(row.sku || "").trim()).filter(Boolean),
+    ),
+  ];
+  const productSkuSet = updateOnly
+    ? await productRepository.listSkusBySkuList(skusInFile)
+    : null;
+  const variantSkuSet = updateOnly
+    ? await productRepository.listVariantSkusForProductSkus([...productSkuSet])
+    : null;
 
   const ensureAttributeByName = async (name) => {
     const normalizedName = String(name || "").trim();
@@ -325,7 +387,7 @@ const importRows = async (rows) => {
     let subcategory = null;
     let categoryInfo = null;
 
-    if (hasNonEmpty(row, "category")) {
+    if (hasNonEmpty(row, "category") && !updateOnly) {
       categoryInfo = parseCategoryExpression(row.category);
       category = categoryByName.get(categoryInfo.categoryName);
       if (!category) {
@@ -403,7 +465,6 @@ const importRows = async (rows) => {
       ...mappedVariantAttributes,
       ...mappedVariantAttributesFromText
     ];
-    const generatedVariantSku = buildVariantSku(sku, finalVariantAttributes);
 
     const imageUrls = extractImageUrls(row.imageUrl);
     const presentImagesInRow = imageUrls.length > 0;
@@ -443,13 +504,36 @@ const importRows = async (rows) => {
       modelKey: modelKeyValue !== null
     };
 
+    const generatedVariantSku = buildVariantSku(sku, finalVariantAttributes);
+    const resolvedVariantSku = present.variantSku
+      ? String(row.variantSku || "").trim()
+      : generatedVariantSku;
+
     // Только явные данные варианта — иначе импорт характеристик товара (SKU + Characteristics)
     // не должен трогать product_variants.
-    const applyVariantPatch =
+    let applyVariantPatch =
       finalVariantAttributes.length > 0 ||
       present.variantPrice ||
       present.variantImageUrl ||
       present.variantSku;
+
+    if (updateOnly) {
+      const decision = resolveUpdateOnlyRowDecision({
+        sku,
+        productSkuSet,
+        applyVariantPatch,
+        resolvedVariantSku,
+        variantSkuSet,
+        rowIndex: i,
+      });
+      if (decision.action === "skip") {
+        skipped += 1;
+        if (decision.warning) warnings.push(decision.warning);
+        continue;
+      }
+      if (decision.warning) warnings.push(decision.warning);
+      applyVariantPatch = decision.applyVariantPatch;
+    }
 
     let rowPrice;
     if (present.price) {
@@ -482,15 +566,21 @@ const importRows = async (rows) => {
         images: mergedSkuImages.length > 0 ? mergedSkuImages : undefined,
         isActive: true,
         attributes: allMappedAttributes,
-        variantSku: generatedVariantSku,
+        variantSku: resolvedVariantSku,
         variantPrice: variantPricePayload,
         variantImageUrl: resolvedVariantImage,
         variantAttributes: finalVariantAttributes,
-        applyVariantPatch
+        applyVariantPatch,
+        allowCreateProduct: updateOnly ? false : undefined,
+        allowCreateVariant: updateOnly ? false : undefined,
       });
     } catch (error) {
       if (error && error.message === "category is required for new product") {
         importErrors.push(`Row ${i + 1}: для нового товара укажите категорию в CSV`);
+        continue;
+      }
+      if (error && error.message === "product not found") {
+        importErrors.push(`Row ${i + 1}: SKU «${sku}» не найден в каталоге`);
         continue;
       }
       throw error;
@@ -498,11 +588,19 @@ const importRows = async (rows) => {
     imported += 1;
   }
 
-  return { ok: importErrors.length === 0, imported, errors: importErrors };
+  return {
+    ok: importErrors.length === 0,
+    imported,
+    skipped,
+    errors: importErrors,
+    warnings,
+  };
 };
 
 module.exports = {
+  IMPORT_MODES,
   requiredColumns,
   validateCsvRows,
-  importRows
+  resolveUpdateOnlyRowDecision,
+  importRows,
 };

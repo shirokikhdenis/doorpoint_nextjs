@@ -20,7 +20,9 @@ import {
 type ImportResult = {
   ok: boolean;
   imported: number;
+  skipped?: number;
   errors: string[];
+  warnings?: string[];
 };
 
 const SAMPLE_CSV = `sku,name,category,price,imageUrl,model_key,attr:color,attr:glass,attr:thickness,attr:manufacturer,variant_attr:size,variant_attr:opening
@@ -45,6 +47,7 @@ export default function AdminImportPage() {
   const [parseError, setParseError] = useState("");
   const [importing, setImporting] = useState(false);
   const [exportingCatalog, setExportingCatalog] = useState(false);
+  const [updateOnly, setUpdateOnly] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -169,27 +172,36 @@ export default function AdminImportPage() {
       const response = await fetch("/api/admin/import/csv", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ rows: mappedRows }),
+        body: JSON.stringify({
+          rows: mappedRows,
+          mode: updateOnly ? "update_only" : "upsert",
+        }),
       });
       const data = (await response.json()) as Partial<ImportResult> & { message?: string };
       if (!response.ok) {
         setResult({
           ok: false,
           imported: 0,
+          skipped: 0,
           errors: [data.message || `HTTP ${response.status}`],
+          warnings: [],
         });
         return;
       }
       setResult({
         ok: data.ok !== false,
         imported: Number(data.imported || 0),
+        skipped: Number(data.skipped || 0),
         errors: Array.isArray(data.errors) ? data.errors : [],
+        warnings: Array.isArray(data.warnings) ? data.warnings : [],
       });
     } catch (error) {
       setResult({
         ok: false,
         imported: 0,
+        skipped: 0,
         errors: [error instanceof Error ? error.message : "Сетевая ошибка"],
+        warnings: [],
       });
     } finally {
       setImporting(false);
@@ -289,24 +301,47 @@ export default function AdminImportPage() {
             </AdminNotice>
           ) : null}
 
-          <div className="flex items-center gap-3">
+          <div className="space-y-3">
+            <label className="flex items-start gap-2 text-sm text-zinc-700">
+              <input
+                type="checkbox"
+                checked={updateOnly}
+                onChange={(event) => setUpdateOnly(event.target.checked)}
+                className="mt-0.5 h-4 w-4"
+              />
+              <span>
+                <span className="font-medium">Только обновление существующих SKU</span>
+                <span className="mt-0.5 block text-xs text-zinc-500">
+                  Новые товары и варианты не создаются. Неизвестные SKU пропускаются с предупреждением.
+                </span>
+              </span>
+            </label>
+
+            <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"
               onClick={runImport}
               disabled={importing || mappedRows.length === 0 || Boolean(parseError) || !skuMapped}
               className="rounded bg-black px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:bg-zinc-300"
             >
-              {importing ? "Импортируем…" : `Импортировать ${mappedRows.length || ""}`.trim()}
+              {importing
+                ? updateOnly
+                  ? "Обновляем…"
+                  : "Импортируем…"
+                : updateOnly
+                  ? `Обновить ${mappedRows.length || ""}`.trim()
+                  : `Импортировать ${mappedRows.length || ""}`.trim()}
             </button>
             {result ? (
               <span
                 className={`text-sm ${result.ok ? "text-emerald-700" : "text-rose-700"}`}
               >
                 {result.ok
-                  ? `Готово: импортировано ${result.imported} стр.`
-                  : `Импорт завершён с ошибками (успешно: ${result.imported})`}
+                  ? `Готово: обновлено ${result.imported} стр.${result.skipped ? `, пропущено ${result.skipped}` : ""}`
+                  : `Завершено с ошибками (успешно: ${result.imported}${result.skipped ? `, пропущено ${result.skipped}` : ""})`}
               </span>
             ) : null}
+            </div>
           </div>
         </div>
 
@@ -389,6 +424,21 @@ export default function AdminImportPage() {
             </table>
           </div>
         </AdminCard>
+      ) : null}
+
+      {result && (result.warnings?.length ?? 0) > 0 ? (
+        <AdminNotice variant="info">
+          <h3 className="mb-2 text-sm font-semibold">
+            Предупреждения ({result.warnings?.length ?? 0})
+          </h3>
+          <ul className="max-h-72 space-y-1 overflow-auto text-xs">
+            {result.warnings?.map((warning, idx) => (
+              <li key={idx} className="font-mono">
+                {warning}
+              </li>
+            ))}
+          </ul>
+        </AdminNotice>
       ) : null}
 
       {result && result.errors.length > 0 ? (

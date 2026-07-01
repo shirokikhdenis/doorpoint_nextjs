@@ -235,7 +235,7 @@ const handle = async (request, context) =>
     }
     if (match(path, method, "POST", "import", "csv")) {
       if (!Array.isArray(body.rows)) return json({ message: "rows must be an array" }, 400);
-      const result = await csvImportService.importRows(body.rows);
+      const result = await csvImportService.importRows(body.rows, { mode: body.mode });
       await invalidateStorefrontCache("products");
       return json(result);
     }
