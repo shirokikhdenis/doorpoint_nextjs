@@ -55,6 +55,47 @@ const resolveUpdateOnlyRowDecision = ({
   };
 };
 
+/** Логика price → variantPrice при CSV-импорте (чистая функция для тестов). */
+const resolveImportVariantPricing = ({
+  present,
+  productPrice,
+  variantPrice,
+  finalVariantAttributesLength,
+}) => {
+  const hasVariantRowData =
+    finalVariantAttributesLength > 0 ||
+    present.variantSku ||
+    present.variantImageUrl ||
+    present.variantAttributes;
+
+  const syncVariantFromProductPrice = Boolean(present.price && !present.variantPrice);
+  const syncAllVariantPrices = syncVariantFromProductPrice && !hasVariantRowData;
+
+  let variantPricePayload;
+  if (present.variantPrice) {
+    variantPricePayload = variantPrice;
+  } else if (syncVariantFromProductPrice && productPrice !== undefined) {
+    variantPricePayload = productPrice;
+  }
+
+  const applyVariantPatch =
+    Boolean(present.variantPrice) ||
+    hasVariantRowData ||
+    (syncVariantFromProductPrice && !syncAllVariantPrices);
+
+  const presentVariantPrice =
+    present.variantPrice || (syncVariantFromProductPrice && applyVariantPatch);
+
+  return {
+    hasVariantRowData,
+    syncVariantFromProductPrice,
+    syncAllVariantPrices,
+    variantPricePayload,
+    applyVariantPatch,
+    presentVariantPrice,
+  };
+};
+
 const hasNonEmpty = (row, key) => {
   if (!Object.prototype.hasOwnProperty.call(row, key)) return false;
   const value = row[key];
@@ -511,11 +552,38 @@ const importRows = async (rows, options = {}) => {
 
     // Только явные данные варианта — иначе импорт характеристик товара (SKU + Characteristics)
     // не должен трогать product_variants.
-    let applyVariantPatch =
-      finalVariantAttributes.length > 0 ||
-      present.variantPrice ||
-      present.variantImageUrl ||
-      present.variantSku;
+    let rowPrice;
+    if (present.price) {
+      rowPrice = Number(row.price);
+      if (Number.isNaN(rowPrice)) {
+        importErrors.push(`Row ${i + 1}: invalid price`);
+        continue;
+      }
+    }
+
+    let explicitVariantPrice;
+    if (present.variantPrice) {
+      explicitVariantPrice = Number(row.variantPrice);
+      if (Number.isNaN(explicitVariantPrice)) {
+        importErrors.push(`Row ${i + 1}: invalid variant price`);
+        continue;
+      }
+    }
+
+    const variantPricing = resolveImportVariantPricing({
+      present,
+      productPrice: rowPrice,
+      variantPrice: explicitVariantPrice,
+      finalVariantAttributesLength: finalVariantAttributes.length,
+    });
+
+    let applyVariantPatch = variantPricing.applyVariantPatch;
+    const variantPricePayload = variantPricing.variantPricePayload;
+    const syncAllVariantPrices = variantPricing.syncAllVariantPrices;
+    const presentForUpsert = {
+      ...present,
+      variantPrice: variantPricing.presentVariantPrice,
+    };
 
     if (updateOnly) {
       const decision = resolveUpdateOnlyRowDecision({
@@ -535,28 +603,10 @@ const importRows = async (rows, options = {}) => {
       applyVariantPatch = decision.applyVariantPatch;
     }
 
-    let rowPrice;
-    if (present.price) {
-      rowPrice = Number(row.price);
-      if (Number.isNaN(rowPrice)) {
-        importErrors.push(`Row ${i + 1}: invalid price`);
-        continue;
-      }
-    }
-
-    let variantPricePayload;
-    if (present.variantPrice) {
-      variantPricePayload = Number(row.variantPrice);
-      if (Number.isNaN(variantPricePayload)) {
-        importErrors.push(`Row ${i + 1}: invalid variant price`);
-        continue;
-      }
-    }
-
     try {
       await productRepository.upsertProductBySku({
         sku,
-        present,
+        present: presentForUpsert,
         name: row.name,
         categoryId: category ? category.id : undefined,
         subcategoryId: subcategory ? subcategory.id : null,
@@ -571,6 +621,7 @@ const importRows = async (rows, options = {}) => {
         variantImageUrl: resolvedVariantImage,
         variantAttributes: finalVariantAttributes,
         applyVariantPatch,
+        syncAllVariantPrices,
         allowCreateProduct: updateOnly ? false : undefined,
         allowCreateVariant: updateOnly ? false : undefined,
       });
@@ -602,5 +653,6 @@ module.exports = {
   requiredColumns,
   validateCsvRows,
   resolveUpdateOnlyRowDecision,
+  resolveImportVariantPricing,
   importRows,
 };

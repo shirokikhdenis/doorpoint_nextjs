@@ -2116,6 +2116,22 @@ const upsertProductBySku = async (payload) =>
 
     let applyVariantPatch = payload.applyVariantPatch === true;
 
+    if (payload.syncAllVariantPrices && present.price) {
+      const priceRes = await client.query(
+        `SELECT price FROM products WHERE id = $1 LIMIT 1`,
+        [product.id],
+      );
+      const syncPrice = Number(priceRes.rows[0]?.price ?? 0);
+      await client.query(
+        `
+        UPDATE product_variants
+        SET price = $2, updated_at = NOW()
+        WHERE product_id = $1
+        `,
+        [product.id, syncPrice],
+      );
+    }
+
     if (applyVariantPatch && payload.variantSku && payload.allowCreateVariant === false) {
       const variantExistsRes = await client.query(
         `SELECT sku FROM product_variants WHERE sku = $1 LIMIT 1`,

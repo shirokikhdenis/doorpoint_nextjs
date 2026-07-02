@@ -5,6 +5,7 @@ const {
   requiredColumns,
   IMPORT_MODES,
   resolveUpdateOnlyRowDecision,
+  resolveImportVariantPricing,
 } = require("../src/lib/server/services/csvImportService");
 
 test("required columns contain csv contract fields", () => {
@@ -62,6 +63,63 @@ test("resolveUpdateOnlyRowDecision keeps variant patch when variant exists", () 
   assert.equal(decision.action, "update");
   assert.equal(decision.applyVariantPatch, true);
   assert.equal(decision.warning, null);
+});
+
+test("resolveImportVariantPricing mirrors product price to variant when variantPrice omitted", () => {
+  const result = resolveImportVariantPricing({
+    present: {
+      price: true,
+      variantPrice: false,
+      variantSku: false,
+      variantImageUrl: false,
+      variantAttributes: false,
+    },
+    productPrice: 12500,
+    variantPrice: undefined,
+    finalVariantAttributesLength: 1,
+  });
+
+  assert.equal(result.variantPricePayload, 12500);
+  assert.equal(result.applyVariantPatch, true);
+  assert.equal(result.presentVariantPrice, true);
+  assert.equal(result.syncAllVariantPrices, false);
+});
+
+test("resolveImportVariantPricing syncs all variants for price-only row", () => {
+  const result = resolveImportVariantPricing({
+    present: {
+      price: true,
+      variantPrice: false,
+      variantSku: false,
+      variantImageUrl: false,
+      variantAttributes: false,
+    },
+    productPrice: 9900,
+    variantPrice: undefined,
+    finalVariantAttributesLength: 0,
+  });
+
+  assert.equal(result.variantPricePayload, 9900);
+  assert.equal(result.applyVariantPatch, false);
+  assert.equal(result.syncAllVariantPrices, true);
+});
+
+test("resolveImportVariantPricing keeps explicit variantPrice", () => {
+  const result = resolveImportVariantPricing({
+    present: {
+      price: true,
+      variantPrice: true,
+      variantSku: false,
+      variantImageUrl: false,
+      variantAttributes: false,
+    },
+    productPrice: 10000,
+    variantPrice: 9500,
+    finalVariantAttributesLength: 0,
+  });
+
+  assert.equal(result.variantPricePayload, 9500);
+  assert.equal(result.syncAllVariantPrices, false);
 });
 
 test("IMPORT_MODES exposes update_only slug", () => {
