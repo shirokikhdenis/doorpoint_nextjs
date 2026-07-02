@@ -34,6 +34,7 @@ const toCatalogAttributeFilters = (
     code: attribute.code,
     name: attribute.name,
     type: (attribute.type || "text") as CatalogAttributeFilter["type"],
+    unit: null,
   }));
 
 const initCollapsedFilterSections = (page: AdminCatalogPage, bootstrap: AdminBootstrap): string[] => {
