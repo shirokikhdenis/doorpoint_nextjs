@@ -229,7 +229,8 @@ export function useCatalogFilters(meta: CatalogMeta, options?: UseCatalogFilters
       return;
     }
     setAttrSelections((prev) => {
-      const next = { ...prev, manufacturer: [manufacturer] };
+      const next = { ...prev };
+      next.manufacturer = [manufacturer];
       delete next[collectionCode];
       return next;
     });

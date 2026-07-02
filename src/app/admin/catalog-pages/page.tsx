@@ -27,15 +27,20 @@ type EditorState = {
   seoDescription: string;
 };
 
+const toCatalogAttributeFilter = (attribute: {
+  code: string;
+  name: string;
+  type?: string;
+}): CatalogAttributeFilter => ({
+  code: attribute.code,
+  name: attribute.name,
+  type: (attribute.type || "text") as CatalogAttributeFilter["type"],
+  unit: null,
+});
+
 const toCatalogAttributeFilters = (
   attributes: AdminCatalogPage["filterAttributes"],
-): CatalogAttributeFilter[] =>
-  attributes.map((attribute) => ({
-    code: attribute.code,
-    name: attribute.name,
-    type: (attribute.type || "text") as CatalogAttributeFilter["type"],
-    unit: null,
-  }));
+): CatalogAttributeFilter[] => attributes.map(toCatalogAttributeFilter);
 
 const initCollapsedFilterSections = (page: AdminCatalogPage, bootstrap: AdminBootstrap): string[] => {
   if (page.collapsedFilterSections !== null) {
@@ -306,11 +311,7 @@ function CatalogPageEditor({ page, bootstrap, onSaved, onDeleted, onError }: Edi
       if (removing) {
         collapsedFilterSections = collapsedFilterSections.filter((item) => item !== sectionId);
       } else if (
-        isAttrFilterCollapsedByDefault({
-          code: attribute.code,
-          name: attribute.name,
-          type: "text",
-        }) &&
+        isAttrFilterCollapsedByDefault(toCatalogAttributeFilter(attribute)) &&
         !collapsedFilterSections.includes(sectionId)
       ) {
         collapsedFilterSections = [...collapsedFilterSections, sectionId];
