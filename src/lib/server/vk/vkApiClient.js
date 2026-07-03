@@ -1,12 +1,17 @@
 const { assertVkConfigured } = require("./vkConfig");
+const { ensureFreshVkAccessToken, getActiveVkAccessToken } = require("./vkTokenService");
 
-const VK_API_BASE = "https://api.vk.com/method";
 const RETRYABLE_ERROR_CODES = new Set([6, 9, 10]);
 const GROUP_AUTH_ERROR_CODE = 27;
+const AUTH_FAILED_ERROR_CODE = 5;
+const UNKNOWN_METHOD_ERROR_CODE = 3;
 const MAX_RETRIES = 4;
 
 const GROUP_AUTH_HINT =
   "Нужен пользовательский access token администратора группы с правами market и photos (Standalone-приложение VK), а не ключ доступа сообщества.";
+
+const UNKNOWN_METHOD_HINT =
+  "Токен не имеет доступа к VK API Market. Получите новый токен с scope: market photos groups offline (обмен code→token на VPS). Право market может потребовать согласования в devsupport@corp.vk.com.";
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -17,6 +22,9 @@ const buildVkError = (payload, method) => {
   if (code === GROUP_AUTH_ERROR_CODE && /group auth/i.test(message)) {
     message = `${message}. ${GROUP_AUTH_HINT}`;
   }
+  if (code === UNKNOWN_METHOD_ERROR_CODE) {
+    message = `${message}. ${UNKNOWN_METHOD_HINT}`;
+  }
   const err = new Error(method ? `${method}: ${message}` : message);
   err.vkErrorCode = code;
   err.vkError = error;
@@ -24,17 +32,28 @@ const buildVkError = (payload, method) => {
   return err;
 };
 
-const callVkMethod = async (method, params = {}, attempt = 0) => {
+const isAuthTokenError = (err) => {
+  if (!err || err.vkErrorCode !== AUTH_FAILED_ERROR_CODE) return false;
+  const message = String(err.message || "").toLowerCase();
+  return (
+    message.includes("access_token") ||
+    message.includes("ip address") ||
+    message.includes("invalid access_token")
+  );
+};
+
+const callVkMethod = async (method, params = {}, attempt = 0, authRetried = false) => {
   const config = assertVkConfigured();
+  const accessToken = getActiveVkAccessToken() || config.accessToken;
   const body = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
     if (value === undefined || value === null) return;
     body.set(key, typeof value === "object" ? JSON.stringify(value) : String(value));
   });
-  body.set("access_token", config.accessToken);
+  body.set("access_token", accessToken);
   body.set("v", config.apiVersion);
 
-  const response = await fetch(`${VK_API_BASE}/${method}`, {
+  const response = await fetch(`${config.apiBase}/${method}`, {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
     body,
@@ -47,10 +66,14 @@ const callVkMethod = async (method, params = {}, attempt = 0) => {
   const payload = await response.json();
   if (payload.error) {
     const err = buildVkError(payload, method);
+    if (!authRetried && isAuthTokenError(err)) {
+      await ensureFreshVkAccessToken({ force: true });
+      return callVkMethod(method, params, attempt, true);
+    }
     if (RETRYABLE_ERROR_CODES.has(err.vkErrorCode) && attempt < MAX_RETRIES) {
       const backoff = 400 * 2 ** attempt;
       await sleep(backoff);
-      return callVkMethod(method, params, attempt + 1);
+      return callVkMethod(method, params, attempt + 1, authRetried);
     }
     throw err;
   }
@@ -68,6 +91,7 @@ const uploadMarketPhoto = async (imageUrl) => {
   const config = assertVkConfigured();
   const uploadServer = await callVkMethod("photos.getMarketUploadServer", {
     group_id: config.groupId,
+    main_photo: 1,
   });
 
   const imageResponse = await fetch(imageUrl);
@@ -95,11 +119,16 @@ const uploadMarketPhoto = async (imageUrl) => {
     throw new Error("VK не вернул photo/hash после загрузки");
   }
 
-  const saved = await callVkMethod("photos.saveMarketPhoto", {
+  const saveParams = {
     group_id: config.groupId,
     photo: uploadPayload.photo,
     hash: uploadPayload.hash,
-  });
+  };
+  if (uploadPayload.server != null) saveParams.server = uploadPayload.server;
+  if (uploadPayload.crop_data) saveParams.crop_data = uploadPayload.crop_data;
+  if (uploadPayload.crop_hash) saveParams.crop_hash = uploadPayload.crop_hash;
+
+  const saved = await callVkMethod("photos.saveMarketPhoto", saveParams);
 
   const photo = Array.isArray(saved) ? saved[0] : saved;
   if (!photo?.id) {

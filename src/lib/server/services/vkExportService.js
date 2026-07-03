@@ -3,6 +3,8 @@ const productRepository = require("../repositories/productRepository");
 const vkSyncRepository = require("../repositories/vkSyncRepository");
 const { parseExportQuery } = require("../services/csvExportService");
 const { isVkConfigured, assertVkConfigured } = require("../vk/vkConfig");
+const { ensureFreshVkAccessToken } = require("../vk/vkTokenService");
+const { getVkTokenDiagnostics } = require("../vk/vkTokenDiagnostics");
 const vkApiClient = require("../vk/vkApiClient");
 const {
   buildMarketPayload,
@@ -24,7 +26,24 @@ const pickExportableProducts = (products, siteUrl) =>
 
 const exportProductsToVk = async (body = {}) => {
   if (!isVkConfigured()) {
-    return { ok: false, status: 503, message: "VK не настроен: задайте VK_ACCESS_TOKEN и VK_GROUP_ID" };
+    return {
+      ok: false,
+      status: 503,
+      message:
+        "VK не настроен: задайте VK_GROUP_ID и VK_ACCESS_TOKEN или VK_REFRESH_TOKEN + VK_CLIENT_ID + VK_CLIENT_SECRET",
+    };
+  }
+
+  await ensureFreshVkAccessToken({ force: true });
+  const tokenCheck = await getVkTokenDiagnostics();
+  if (!tokenCheck.ok) {
+    return {
+      ok: false,
+      status: 503,
+      message: tokenCheck.message,
+      hint: tokenCheck.hint,
+      tokenCheck,
+    };
   }
 
   const config = assertVkConfigured();

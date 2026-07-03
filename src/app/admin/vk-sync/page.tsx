@@ -53,6 +53,16 @@ type FailedProductSync = {
   updatedAt: string;
 };
 
+type VkTokenCheck = {
+  ok?: boolean;
+  tokenKind?: string | null;
+  permissions?: string[];
+  missingScopes?: string[];
+  message?: string;
+  hint?: string;
+  marketUploadOk?: boolean;
+};
+
 type VkSyncStatusResponse = {
   configured: boolean;
   groupId: number | null;
@@ -62,6 +72,9 @@ type VkSyncStatusResponse = {
   failedProducts: FailedProductSync[];
   stats: { synced: number; failed: number; total: number };
   tokenHint?: string;
+  refreshConfigured?: boolean;
+  clientId?: string | null;
+  tokenCheck?: VkTokenCheck | null;
 };
 
 const formatDateTime = (value: string | null) => {
@@ -156,10 +169,32 @@ export default function AdminVkSyncPage() {
               <dd>{data?.groupId ? `ID ${data.groupId}` : "—"}</dd>
             </div>
             <div className="flex justify-between gap-3">
+              <dt className="text-admin-text-muted">Автообновление</dt>
+              <dd className={data?.refreshConfigured ? "text-emerald-700" : "text-amber-700"}>
+                {data?.refreshConfigured ? "Включено" : "Нет refresh"}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-admin-text-muted">App ID</dt>
+              <dd>{data?.clientId || "—"}</dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-admin-text-muted">Токен Market</dt>
+              <dd className={cn("font-medium", data?.tokenCheck?.ok ? "text-emerald-700" : "text-amber-700")}>
+                {data?.tokenCheck?.ok ? "Готов" : data?.tokenCheck?.message || "Не проверен"}
+              </dd>
+            </div>
+            {data?.tokenCheck?.missingScopes && data.tokenCheck.missingScopes.length > 0 ? (
+              <div className="flex justify-between gap-3">
+                <dt className="text-admin-text-muted">Нет прав</dt>
+                <dd className="text-amber-700">{data.tokenCheck.missingScopes.join(", ")}</dd>
+              </div>
+            ) : null}
+            <div className="flex justify-between gap-3">
               <dt className="text-admin-text-muted">Категория VK</dt>
               <dd>{data?.marketCategoryId ?? "—"}</dd>
             </div>
-            <dd className="pt-2 text-xs text-admin-text-muted">{data?.tokenHint}</dd>
+            <dd className="pt-2 text-xs text-admin-text-muted">{data?.tokenCheck?.hint || data?.tokenHint}</dd>
           </dl>
         </AdminCard>
 
