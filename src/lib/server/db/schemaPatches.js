@@ -15,6 +15,8 @@ let catalogPageSlugRenamesEnsured = false;
 let factoryStorefrontTablesEnsured = false;
 let doorFinishTablesEnsured = false;
 let homeProductSectionTablesEnsured = false;
+let vkSyncTablesEnsured = false;
+let vkSyncTablesEnsurePromise = null;
 
 const CATALOG_PAGE_SLUG_RENAMES = [
   ["entry-doors", "vhodnye-dveri"],
@@ -363,6 +365,72 @@ const ensureHomeProductSectionTables = async () => {
   homeProductSectionTablesEnsured = true;
 };
 
+const ensureVkSyncTables = async () => {
+  if (vkSyncTablesEnsured) return;
+  if (!vkSyncTablesEnsurePromise) {
+    vkSyncTablesEnsurePromise = (async () => {
+      await query(`
+        CREATE TABLE IF NOT EXISTS vk_album_mappings (
+          id BIGSERIAL PRIMARY KEY,
+          scope_key TEXT NOT NULL UNIQUE,
+          title TEXT NOT NULL,
+          vk_album_id BIGINT NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `);
+      await query(`
+        CREATE TABLE IF NOT EXISTS vk_product_sync (
+          product_id BIGINT PRIMARY KEY REFERENCES products(id) ON DELETE CASCADE,
+          vk_item_id BIGINT,
+          vk_album_id BIGINT,
+          vk_photo_id BIGINT,
+          payload_hash TEXT,
+          status TEXT NOT NULL DEFAULT 'pending',
+          last_error TEXT,
+          synced_at TIMESTAMPTZ,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `);
+      await query(`
+        CREATE INDEX IF NOT EXISTS idx_vk_product_sync_status
+        ON vk_product_sync(status, updated_at DESC)
+      `);
+      await query(`
+        CREATE TABLE IF NOT EXISTS vk_sync_runs (
+          id BIGSERIAL PRIMARY KEY,
+          operation_id UUID NOT NULL UNIQUE,
+          scope TEXT NOT NULL DEFAULT 'filtered',
+          dry_run BOOLEAN NOT NULL DEFAULT FALSE,
+          filters JSONB NOT NULL DEFAULT '{}'::jsonb,
+          total INTEGER NOT NULL DEFAULT 0,
+          exportable INTEGER NOT NULL DEFAULT 0,
+          created_count INTEGER NOT NULL DEFAULT 0,
+          updated_count INTEGER NOT NULL DEFAULT 0,
+          skipped_unchanged INTEGER NOT NULL DEFAULT 0,
+          skipped_inactive INTEGER NOT NULL DEFAULT 0,
+          skipped_no_image INTEGER NOT NULL DEFAULT 0,
+          failed_count INTEGER NOT NULL DEFAULT 0,
+          status TEXT NOT NULL DEFAULT 'running',
+          errors JSONB NOT NULL DEFAULT '[]'::jsonb,
+          started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          finished_at TIMESTAMPTZ
+        )
+      `);
+      await query(`
+        CREATE INDEX IF NOT EXISTS idx_vk_sync_runs_started_at
+        ON vk_sync_runs(started_at DESC)
+      `);
+      vkSyncTablesEnsured = true;
+    })().catch((error) => {
+      vkSyncTablesEnsurePromise = null;
+      throw error;
+    });
+  }
+  await vkSyncTablesEnsurePromise;
+};
+
 module.exports = {
   CATALOG_PAGE_SLUG_RENAMES,
   ensureProductBadgesColumn,
@@ -380,4 +448,5 @@ module.exports = {
   ensureFactoryStorefrontTables,
   ensureDoorFinishTables,
   ensureHomeProductSectionTables,
+  ensureVkSyncTables,
 };

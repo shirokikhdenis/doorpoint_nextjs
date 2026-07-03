@@ -20,6 +20,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
     items: [
       { href: "/admin/products", label: "Товары" },
       { href: "/admin/import", label: "Импорт CSV" },
+      { href: "/admin/vk-sync", label: "Синхронизация VK" },
     ],
   },
   {
@@ -63,6 +64,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin/leads": "Заявки",
   "/admin/products": "Товары",
   "/admin/import": "Импорт CSV",
+  "/admin/vk-sync": "Синхронизация VK",
   "/admin/catalog-pages": "Витрины каталога",
   "/admin/catalog-labels": "Ярлыки витрин",
   "/admin/factories": "Фабрики",

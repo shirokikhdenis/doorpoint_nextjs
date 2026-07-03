@@ -171,6 +171,92 @@ const normalizeSizeValue = (rawValue) => {
   return normalized;
 };
 
+/** Несколько размеров в `variant_attr:size` через запятую → отдельные варианты. */
+const parseVariantSizeList = (rawValue) => {
+  const text = String(rawValue || "").trim();
+  if (!text) return [];
+  return [
+    ...new Set(
+      text
+        .split(",")
+        .map((part) => normalizeSizeValue(part))
+        .filter(Boolean),
+    ),
+  ];
+};
+
+const buildVariantAttributeSetsFromRow = (
+  row,
+  attributeByCode,
+  attributeByName,
+  attributeOptionLookup,
+) => {
+  let sizeAttr = null;
+  let sizeRaw = "";
+  const otherEntries = [];
+
+  for (const [key, value] of Object.entries(row)) {
+    if (!key.startsWith("variant_attr:") || !String(value || "").trim()) continue;
+    const code = key.replace("variant_attr:", "");
+    const attr = attributeByCode.get(code);
+    if (!attr) continue;
+    if (isSizeAttribute(attr)) {
+      sizeAttr = attr;
+      sizeRaw = String(value).trim();
+      continue;
+    }
+    otherEntries.push({ attr, value });
+  }
+
+  const otherVariantAttrs = otherEntries
+    .map(({ attr, value }) => mapAttributeInput(attr, value, attributeOptionLookup))
+    .filter(Boolean);
+
+  const textAttrs = hasNonEmpty(row, "variantAttributes")
+    ? parseVariantAttributesText(
+        row.variantAttributes,
+        attributeByCode,
+        attributeByName,
+        attributeOptionLookup,
+      )
+    : [];
+
+  const withTextAttrs = (base) => [...base, ...textAttrs];
+
+  if (sizeAttr) {
+    const sizeValues = parseVariantSizeList(sizeRaw);
+    if (sizeValues.length > 1) {
+      return {
+        expanded: true,
+        sets: sizeValues.map((sizeValue) => {
+          const sizeMapped = mapAttributeInput(sizeAttr, sizeValue, attributeOptionLookup);
+          return withTextAttrs(sizeMapped ? [...otherVariantAttrs, sizeMapped] : [...otherVariantAttrs]);
+        }),
+      };
+    }
+    if (sizeValues.length === 1) {
+      const sizeMapped = mapAttributeInput(sizeAttr, sizeValues[0], attributeOptionLookup);
+      return {
+        expanded: false,
+        sets: [withTextAttrs(sizeMapped ? [...otherVariantAttrs, sizeMapped] : [...otherVariantAttrs])],
+      };
+    }
+    return { expanded: false, sets: [withTextAttrs([...otherVariantAttrs])] };
+  }
+
+  const allMapped = Object.entries(row)
+    .filter(([key, value]) => key.startsWith("variant_attr:") && String(value || "").trim())
+    .map(([key, value]) => {
+      const code = key.replace("variant_attr:", "");
+      const attr = attributeByCode.get(code);
+      if (!attr) return null;
+      return mapAttributeInput(attr, value, attributeOptionLookup);
+    })
+    .filter(Boolean);
+
+  return { expanded: false, sets: [withTextAttrs(allMapped)] };
+};
+
 const parseNumericValue = (rawValue) => {
   const text = String(rawValue || "").trim();
   if (!text) return Number.NaN;
@@ -320,10 +406,24 @@ const ensureUploadsDir = async () => {
 
 const isHttpUrl = (value) => /^https?:\/\//i.test(String(value || "").trim());
 
+const resolveLocalPublicPath = async (rawUrl) => {
+  const trimmed = String(rawUrl || "").trim();
+  if (!trimmed.startsWith("/uploads/")) return trimmed;
+  const fullPath = path.join(process.cwd(), "public", trimmed.replace(/^\//, ""));
+  try {
+    await fs.access(fullPath);
+    return trimmed;
+  } catch {
+    throw new Error("image file not found");
+  }
+};
+
 const downloadImageToLocal = async (urlValue, urlCache) => {
   const rawUrl = String(urlValue || "").trim();
   if (!rawUrl) return "";
-  if (!isHttpUrl(rawUrl)) return rawUrl;
+  if (!isHttpUrl(rawUrl)) {
+    return resolveLocalPublicPath(rawUrl);
+  }
   if (!storeImagesLocally) return rawUrl;
   if (urlCache.has(rawUrl)) return urlCache.get(rawUrl);
 
@@ -358,7 +458,11 @@ const resolveImagesToLocal = async (imageUrls, rowIndex, importErrors, urlCache)
       if (localOrOriginal) resolved.push(localOrOriginal);
     } catch (error) {
       importErrors.push(`Row ${rowIndex + 1}: ${error.message} for ${sourceUrl}`);
-      resolved.push(sourceUrl);
+      // Одно фото в ячейке — сохраняем прежнее поведение (пустой слот в галерее).
+      // Несколько URL — в карточку попадают только успешно загруженные.
+      if (imageUrls.length === 1) {
+        resolved.push(sourceUrl);
+      }
     }
   }
   return resolved;
@@ -485,27 +589,13 @@ const importRows = async (rows, options = {}) => {
       if (existingIndex >= 0) allMappedAttributes[existingIndex] = attribute;
       else allMappedAttributes.push(attribute);
     });
-    const mappedVariantAttributes = Object.entries(row)
-      .filter(([key, value]) => key.startsWith("variant_attr:") && String(value || "").trim())
-      .map(([key, value]) => {
-        const code = key.replace("variant_attr:", "");
-        const attr = attributeByCode.get(code);
-        if (!attr) return null;
-        return mapAttributeInput(attr, value, attributeOptionLookup);
-      })
-      .filter(Boolean);
-    const mappedVariantAttributesFromText = hasNonEmpty(row, "variantAttributes")
-      ? parseVariantAttributesText(
-          row.variantAttributes,
-          attributeByCode,
-          attributeByName,
-          attributeOptionLookup
-        )
-      : [];
-    const finalVariantAttributes = [
-      ...mappedVariantAttributes,
-      ...mappedVariantAttributesFromText
-    ];
+    const { expanded: expandedSizes, sets: variantAttributeSets } = buildVariantAttributeSetsFromRow(
+      row,
+      attributeByCode,
+      attributeByName,
+      attributeOptionLookup,
+    );
+    const finalVariantAttributesForPricing = variantAttributeSets[0] || [];
 
     const imageUrls = extractImageUrls(row.imageUrl);
     const presentImagesInRow = imageUrls.length > 0;
@@ -545,11 +635,6 @@ const importRows = async (rows, options = {}) => {
       modelKey: modelKeyValue !== null
     };
 
-    const generatedVariantSku = buildVariantSku(sku, finalVariantAttributes);
-    const resolvedVariantSku = present.variantSku
-      ? String(row.variantSku || "").trim()
-      : generatedVariantSku;
-
     // Только явные данные варианта — иначе импорт характеристик товара (SKU + Characteristics)
     // не должен трогать product_variants.
     let rowPrice;
@@ -570,11 +655,18 @@ const importRows = async (rows, options = {}) => {
       }
     }
 
+    if (expandedSizes && present.variantSku) {
+      importErrors.push(
+        `Row ${i + 1}: variantSku несовместим с несколькими размерами в variant_attr:size`,
+      );
+      continue;
+    }
+
     const variantPricing = resolveImportVariantPricing({
       present,
       productPrice: rowPrice,
       variantPrice: explicitVariantPrice,
-      finalVariantAttributesLength: finalVariantAttributes.length,
+      finalVariantAttributesLength: finalVariantAttributesForPricing.length,
     });
 
     let applyVariantPatch = variantPricing.applyVariantPatch;
@@ -586,11 +678,15 @@ const importRows = async (rows, options = {}) => {
     };
 
     if (updateOnly) {
+      const firstSet = variantAttributeSets[0] || [];
+      const firstVariantSku = present.variantSku
+        ? String(row.variantSku || "").trim()
+        : buildVariantSku(sku, firstSet);
       const decision = resolveUpdateOnlyRowDecision({
         sku,
         productSkuSet,
         applyVariantPatch,
-        resolvedVariantSku,
+        resolvedVariantSku: firstVariantSku,
         variantSkuSet,
         rowIndex: i,
       });
@@ -604,27 +700,65 @@ const importRows = async (rows, options = {}) => {
     }
 
     try {
-      await productRepository.upsertProductBySku({
-        sku,
-        present: presentForUpsert,
-        name: row.name,
-        categoryId: category ? category.id : undefined,
-        subcategoryId: subcategory ? subcategory.id : null,
-        modelKey: modelKeyValue,
-        price: rowPrice,
-        imageUrl: primaryImageUrl,
-        images: mergedSkuImages.length > 0 ? mergedSkuImages : undefined,
-        isActive: true,
-        attributes: allMappedAttributes,
-        variantSku: resolvedVariantSku,
-        variantPrice: variantPricePayload,
-        variantImageUrl: resolvedVariantImage,
-        variantAttributes: finalVariantAttributes,
-        applyVariantPatch,
-        syncAllVariantPrices,
-        allowCreateProduct: updateOnly ? false : undefined,
-        allowCreateVariant: updateOnly ? false : undefined,
-      });
+      for (let variantIndex = 0; variantIndex < variantAttributeSets.length; variantIndex += 1) {
+        const finalVariantAttributes = variantAttributeSets[variantIndex];
+        const isFirstVariant = variantIndex === 0;
+        const generatedVariantSku = buildVariantSku(sku, finalVariantAttributes);
+        const resolvedVariantSku = present.variantSku
+          ? String(row.variantSku || "").trim()
+          : generatedVariantSku;
+
+        let variantApplyPatch = applyVariantPatch;
+        if (updateOnly && applyVariantPatch) {
+          const variantDecision = resolveUpdateOnlyRowDecision({
+            sku,
+            productSkuSet,
+            applyVariantPatch: true,
+            resolvedVariantSku,
+            variantSkuSet,
+            rowIndex: i,
+          });
+          if (variantDecision.warning && !isFirstVariant) {
+            warnings.push(variantDecision.warning);
+          }
+          variantApplyPatch = variantDecision.applyVariantPatch;
+        }
+
+        const presentForThisUpsert = isFirstVariant
+          ? presentForUpsert
+          : {
+              ...presentForUpsert,
+              name: false,
+              category: false,
+              subcategory: false,
+              price: false,
+              imageUrl: false,
+              images: false,
+              modelKey: false,
+            };
+
+        await productRepository.upsertProductBySku({
+          sku,
+          present: presentForThisUpsert,
+          name: row.name,
+          categoryId: category ? category.id : undefined,
+          subcategoryId: subcategory ? subcategory.id : null,
+          modelKey: modelKeyValue,
+          price: rowPrice,
+          imageUrl: primaryImageUrl,
+          images: mergedSkuImages.length > 0 ? mergedSkuImages : undefined,
+          isActive: true,
+          attributes: allMappedAttributes,
+          variantSku: resolvedVariantSku,
+          variantPrice: variantPricePayload,
+          variantImageUrl: resolvedVariantImage,
+          variantAttributes: finalVariantAttributes,
+          applyVariantPatch: variantApplyPatch,
+          syncAllVariantPrices: isFirstVariant ? syncAllVariantPrices : false,
+          allowCreateProduct: updateOnly ? false : isFirstVariant ? undefined : false,
+          allowCreateVariant: updateOnly ? false : undefined,
+        });
+      }
     } catch (error) {
       if (error && error.message === "category is required for new product") {
         importErrors.push(`Row ${i + 1}: для нового товара укажите категорию в CSV`);
@@ -654,5 +788,7 @@ module.exports = {
   validateCsvRows,
   resolveUpdateOnlyRowDecision,
   resolveImportVariantPricing,
+  parseVariantSizeList,
+  buildVariantAttributeSetsFromRow,
   importRows,
 };

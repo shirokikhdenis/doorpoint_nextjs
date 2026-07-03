@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import {
   downloadProductsCsv,
@@ -7,6 +8,7 @@ import {
   type ProductsExportMode,
 } from "@/lib/client/admin-products-export";
 import { downloadProductKp } from "@/lib/client/admin-product-kp";
+import { exportProductsToVk, formatVkExportSummary } from "@/lib/client/admin-vk-export";
 
 type AdminProductsExportBarProps = {
   filters: ProductsExportFilters;
@@ -23,6 +25,7 @@ export function AdminProductsExportBar({
 }: AdminProductsExportBarProps) {
   const [mode, setMode] = useState<ProductsExportMode>("import");
   const [exporting, setExporting] = useState<"filtered" | "selected" | null>(null);
+  const [vkExporting, setVkExporting] = useState<"filtered" | "selected" | null>(null);
   const [generatingKp, setGeneratingKp] = useState(false);
 
   const runExport = async (scope: "filtered" | "selected") => {
@@ -51,8 +54,47 @@ export function AdminProductsExportBar({
     }
   };
 
-  const busy = exporting !== null || generatingKp;
+  const busy = exporting !== null || vkExporting !== null || generatingKp;
   const canGenerateKp = selectedCount === 1;
+
+  const runVkExport = async (scope: "filtered" | "selected") => {
+    if (scope === "selected" && selectedIds.length === 0) {
+      onNotice("Сначала отметьте товары в таблице", "error");
+      return;
+    }
+
+    if (scope === "filtered") {
+      const confirmed = window.confirm(
+        "Выгрузить в VK товары по текущим фильтрам?\n\nПовторный запуск обновит уже синхронизированные карточки без дублей.",
+      );
+      if (!confirmed) return;
+    }
+
+    setVkExporting(scope);
+    try {
+      const result = await exportProductsToVk({
+        filters: scope === "filtered" ? filters : {},
+        scope,
+        selectedIds: scope === "selected" ? selectedIds : undefined,
+      });
+      const summary = formatVkExportSummary(result);
+      const firstError = result.errors[0];
+      if (result.failed > 0) {
+        onNotice(
+          firstError
+            ? `VK: ${summary}. Пример ошибки (${firstError.sku}): ${firstError.reason}`
+            : `VK: ${summary}`,
+          "error",
+        );
+      } else {
+        onNotice(`VK: ${summary}`, "success");
+      }
+    } catch (caught) {
+      onNotice(caught instanceof Error ? caught.message : "Ошибка выгрузки в VK", "error");
+    } finally {
+      setVkExporting(null);
+    }
+  };
 
   const runKp = async () => {
     if (!canGenerateKp) {
@@ -115,6 +157,36 @@ export function AdminProductsExportBar({
         </button>
       </div>
     </div>
+
+      <div className="flex flex-wrap items-end justify-between gap-3 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
+        <div className="space-y-1">
+          <p className="text-sm font-medium text-zinc-900">Выгрузка в VK</p>
+          <p className="text-xs text-zinc-500">
+            Товары попадут в раздел «Товары» группы VK. Категории сайта — в подборки VK.{" "}
+            <Link href="/admin/vk-sync" className="text-zinc-700 underline hover:text-zinc-900">
+              Журнал синхронизации
+            </Link>
+          </p>
+        </div>
+        <div className="flex flex-wrap items-end gap-2">
+          <button
+            type="button"
+            onClick={() => void runVkExport("filtered")}
+            disabled={busy}
+            className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50 disabled:cursor-wait disabled:opacity-60"
+          >
+            {vkExporting === "filtered" ? "Выгрузка…" : "В VK по фильтрам"}
+          </button>
+          <button
+            type="button"
+            onClick={() => void runVkExport("selected")}
+            disabled={busy || selectedCount === 0}
+            className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {vkExporting === "selected" ? "Выгрузка…" : `В VK выбранные (${selectedCount})`}
+          </button>
+        </div>
+      </div>
 
       <div className="flex flex-wrap items-end justify-between gap-3 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
         <div className="space-y-1">

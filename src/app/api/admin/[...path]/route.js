@@ -9,6 +9,8 @@ const homeProductSectionService = require("@/lib/server/services/homeProductSect
 const leadService = require("@/lib/server/services/leadService");
 const factoryStorefrontService = require("@/lib/server/services/factoryStorefrontService");
 const doorFinishAdminService = require("@/lib/server/services/doorFinishAdminService");
+const vkExportService = require("@/lib/server/services/vkExportService");
+const vkSyncAdminService = require("@/lib/server/services/vkSyncAdminService");
 const { withErrorHandling, json, empty, getQuery, readBody } = require("@/lib/server/http/handlers");
 const { requestHasAdminSession } = require("@/lib/server/auth/adminAuth");
 
@@ -238,6 +240,16 @@ const handle = async (request, context) =>
       const result = await csvImportService.importRows(body.rows, { mode: body.mode });
       await invalidateStorefrontCache("products");
       return json(result);
+    }
+
+    if (match(path, method, "POST", "vk", "export")) {
+      const result = await vkExportService.exportProductsToVk(body);
+      if (!result.ok) return json({ message: result.message }, result.status || 400);
+      return json(result);
+    }
+
+    if (match(path, method, "GET", "vk", "status")) {
+      return json(await vkSyncAdminService.getVkSyncStatus(query));
     }
 
     if (match(path, method, "GET", "promotions")) {

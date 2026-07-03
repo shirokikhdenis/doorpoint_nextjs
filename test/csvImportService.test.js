@@ -6,7 +6,18 @@ const {
   IMPORT_MODES,
   resolveUpdateOnlyRowDecision,
   resolveImportVariantPricing,
+  parseVariantSizeList,
+  buildVariantAttributeSetsFromRow,
 } = require("../src/lib/server/services/csvImportService");
+
+const sizeAttr = { id: 10, code: "size", name: "Размер", type: "option", options: [] };
+const openingAttr = { id: 11, code: "opening", name: "Открывание", type: "option", options: [] };
+const attributeByCode = new Map([
+  ["size", sizeAttr],
+  ["opening", openingAttr],
+]);
+const attributeByName = new Map([["размер", sizeAttr], ["открывание", openingAttr]]);
+const attributeOptionLookup = new Map();
 
 test("required columns contain csv contract fields", () => {
   assert.deepEqual(requiredColumns, ["sku"]);
@@ -125,4 +136,52 @@ test("resolveImportVariantPricing keeps explicit variantPrice", () => {
 test("IMPORT_MODES exposes update_only slug", () => {
   assert.equal(IMPORT_MODES.updateOnly, "update_only");
   assert.equal(IMPORT_MODES.upsert, "upsert");
+});
+
+test("parseVariantSizeList splits comma-separated sizes and normalizes", () => {
+  assert.deepEqual(parseVariantSizeList("200х60, 200х70, 200х80, 200х90"), [
+    "200x60",
+    "200x70",
+    "200x80",
+    "200x90",
+  ]);
+  assert.deepEqual(parseVariantSizeList("200x60"), ["200x60"]);
+  assert.deepEqual(parseVariantSizeList(""), []);
+});
+
+test("buildVariantAttributeSetsFromRow expands multiple sizes into variant sets", () => {
+  const result = buildVariantAttributeSetsFromRow(
+    {
+      sku: "DOOR-01",
+      "variant_attr:size": "200x60, 200x70, 200x80",
+      "variant_attr:opening": "Левое",
+    },
+    attributeByCode,
+    attributeByName,
+    attributeOptionLookup,
+  );
+
+  assert.equal(result.expanded, true);
+  assert.equal(result.sets.length, 3);
+  assert.equal(result.sets[0].find((item) => item.attributeId === 10)?.valueText, "200x60");
+  assert.equal(result.sets[1].find((item) => item.attributeId === 10)?.valueText, "200x70");
+  assert.equal(result.sets[2].find((item) => item.attributeId === 10)?.valueText, "200x80");
+  assert.equal(
+    result.sets.every((set) => set.find((item) => item.attributeId === 11)?.valueText === "Левое"),
+    true,
+  );
+});
+
+test("buildVariantAttributeSetsFromRow keeps single size as one set", () => {
+  const result = buildVariantAttributeSetsFromRow(
+    { sku: "DOOR-01", "variant_attr:size": "200x60" },
+    attributeByCode,
+    attributeByName,
+    attributeOptionLookup,
+  );
+
+  assert.equal(result.expanded, false);
+  assert.equal(result.sets.length, 1);
+  assert.equal(result.sets[0].length, 1);
+  assert.equal(result.sets[0][0].valueText, "200x60");
 });
