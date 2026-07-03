@@ -241,9 +241,14 @@ export default function AdminVkSyncPage() {
             </AdminTableBody>
           </AdminTable>
         ) : (
-          <AdminEmptyState>
-            {latest?.failed ? "Ошибки не сохранены в запуске." : "В последнем запуске ошибок не было."}
-          </AdminEmptyState>
+          <AdminEmptyState
+            title={latest?.failed ? "Ошибки не сохранены" : "Ошибок нет"}
+            description={
+              latest?.failed
+                ? "В последнем запуске были ошибки, но детали не записались."
+                : "В последнем запуске ошибок не было."
+            }
+          />
         )}
       </AdminCard>
 
@@ -276,7 +281,7 @@ export default function AdminVkSyncPage() {
             </AdminTableBody>
           </AdminTable>
         ) : (
-          <AdminEmptyState>Нет товаров с ошибками синхронизации.</AdminEmptyState>
+          <AdminEmptyState title="Нет ошибок" description="Нет товаров с ошибками синхронизации." />
         )}
       </AdminCard>
 
@@ -315,7 +320,10 @@ export default function AdminVkSyncPage() {
             </AdminTableBody>
           </AdminTable>
         ) : (
-          <AdminEmptyState>История пуста. Запустите выгрузку на странице товаров.</AdminEmptyState>
+          <AdminEmptyState
+            title="История пуста"
+            description="Запустите выгрузку на странице товаров."
+          />
         )}
       </AdminCard>
     </AdminPage>

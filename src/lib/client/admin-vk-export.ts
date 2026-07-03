@@ -2,11 +2,37 @@ import type { ProductsExportFilters } from "@/lib/client/admin-products-export";
 
 export type VkExportScope = "filtered" | "selected";
 
-export type VkExportRequest = ProductsExportFilters & {
+export type VkExportRequest = {
   scope: VkExportScope;
   selectedIds?: number[];
   dryRun?: boolean;
+  search?: string;
+  categoryId?: number;
+  subcategoryId?: number;
+  manufacturer?: string;
+  hit?: boolean;
+  onSale?: boolean;
+  attributeFilters?: Record<string, string>;
 };
+
+const buildVkExportBody = (
+  filters: ProductsExportFilters,
+  scope: VkExportScope,
+  selectedIds?: number[],
+): VkExportRequest => ({
+  scope,
+  selectedIds: scope === "selected" ? selectedIds : undefined,
+  search: filters.search,
+  categoryId: filters.categoryId,
+  subcategoryId: filters.subcategoryId,
+  manufacturer: filters.manufacturer,
+  hit: filters.hit === "yes" ? true : filters.hit === "no" ? false : undefined,
+  onSale: filters.sale === "yes" ? true : filters.sale === "no" ? false : undefined,
+  attributeFilters:
+    filters.attrCode?.trim() && filters.attrValue?.trim()
+      ? { [filters.attrCode.trim()]: filters.attrValue.trim() }
+      : undefined,
+});
 
 export type VkExportError = {
   productId: number;
@@ -29,25 +55,6 @@ export type VkExportResult = {
   errors: VkExportError[];
   message?: string;
 };
-
-const buildVkExportBody = (
-  filters: ProductsExportFilters,
-  scope: VkExportScope,
-  selectedIds?: number[],
-): VkExportRequest => ({
-  scope,
-  selectedIds: scope === "selected" ? selectedIds : undefined,
-  search: filters.search,
-  categoryId: filters.categoryId,
-  subcategoryId: filters.subcategoryId,
-  manufacturer: filters.manufacturer,
-  hit: filters.hit === "yes" ? true : filters.hit === "no" ? false : undefined,
-  onSale: filters.sale === "yes" ? true : filters.sale === "no" ? false : undefined,
-  attributeFilters:
-    filters.attrCode?.trim() && filters.attrValue?.trim()
-      ? { [filters.attrCode.trim()]: filters.attrValue.trim() }
-      : undefined,
-});
 
 export const exportProductsToVk = async ({
   filters,
