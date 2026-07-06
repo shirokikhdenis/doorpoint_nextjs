@@ -85,6 +85,7 @@ export type Variant = {
   sku: string;
   price: number;
   image?: string;
+  manufacturerId?: string | null;
   attributes: VariantAttribute[];
 };
 export type ColorVariant = {
@@ -189,6 +190,7 @@ export type ProductData = {
   finishOptions?: DoorFinishOptions;
   manufacturerName?: string;
   manufacturerLogo?: string;
+  manufacturerId?: string | null;
   badges?: ProductBadge[];
   kitPricing?: KitPricing | null;
   kitPrice?: number | null;
@@ -476,6 +478,7 @@ export const normalizeProductData = (value: unknown): ProductData => {
       sku: String(variant.sku || ""),
       price: Number(variant.price) || 0,
       image: variant.image ? toPublicImageSrc(String(variant.image)) : undefined,
+      manufacturerId: variant.manufacturerId ? String(variant.manufacturerId).trim() || null : null,
       attributes: asArray<VariantAttribute>(variant.attributes),
     })),
     colorVariants: asArray<Record<string, unknown>>(source.colorVariants).map((entry) => ({
@@ -514,6 +517,7 @@ export const normalizeProductData = (value: unknown): ProductData => {
     manufacturerLogo: source.manufacturerLogo
       ? toPublicImageSrc(String(source.manufacturerLogo))
       : undefined,
+    manufacturerId: source.manufacturerId ? String(source.manufacturerId).trim() || null : null,
     badges: parseProductBadges(source.badges),
     kitPricing: normalizeKitPricing(source.kitPricing),
     kitPrice:

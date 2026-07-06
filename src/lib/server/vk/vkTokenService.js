@@ -7,6 +7,7 @@ const EXPIRY_BUFFER_MS = 5 * 60 * 1000;
 const session = {
   accessToken: null,
   refreshToken: null,
+  deviceId: null,
   expiresAtMs: 0,
 };
 
@@ -15,13 +16,19 @@ const getVkOAuthCredentials = () => {
   return {
     accessToken: String(process.env.VK_ACCESS_TOKEN || "").trim(),
     refreshToken: String(process.env.VK_REFRESH_TOKEN || "").trim(),
+    deviceId: String(process.env.VK_DEVICE_ID || "").trim(),
     clientId: String(process.env.VK_CLIENT_ID || process.env.VK_APP_ID || "").trim(),
     clientSecret: String(process.env.VK_CLIENT_SECRET || "").trim(),
   };
 };
 
 const canAutoRefresh = (credentials = getVkOAuthCredentials()) =>
-  Boolean(credentials.refreshToken && credentials.clientId && credentials.clientSecret);
+  Boolean(
+    credentials.refreshToken &&
+      credentials.clientId &&
+      credentials.clientSecret &&
+      credentials.deviceId,
+  );
 
 const isVkAuthConfigured = (credentials = getVkOAuthCredentials()) => {
   const groupId = Number(process.env.VK_GROUP_ID);
@@ -53,6 +60,7 @@ const requestTokenRefresh = async (refreshToken, credentials) => {
     client_id: credentials.clientId,
     client_secret: credentials.clientSecret,
     refresh_token: refreshToken,
+    device_id: credentials.deviceId,
   });
 
   let lastError = null;
@@ -71,9 +79,10 @@ const requestTokenRefresh = async (refreshToken, credentials) => {
   throw lastError || new Error("Не удалось обновить VK access_token");
 };
 
-const applyRefreshedToken = ({ accessToken, refreshToken, expiresInSec }) => {
+const applyRefreshedToken = ({ accessToken, refreshToken, deviceId, expiresInSec }) => {
   session.accessToken = accessToken;
   if (refreshToken) session.refreshToken = refreshToken;
+  if (deviceId) session.deviceId = deviceId;
   session.expiresAtMs = Date.now() + Math.max(60, expiresInSec) * 1000;
   return accessToken;
 };
@@ -119,6 +128,7 @@ const getActiveVkAccessToken = () => {
 const resetVkTokenSession = () => {
   session.accessToken = null;
   session.refreshToken = null;
+  session.deviceId = null;
   session.expiresAtMs = 0;
 };
 

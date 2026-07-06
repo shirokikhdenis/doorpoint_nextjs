@@ -61,12 +61,14 @@ const resolveImportVariantPricing = ({
   productPrice,
   variantPrice,
   finalVariantAttributesLength,
+  hasVariantScopeAttrs = false,
 }) => {
   const hasVariantRowData =
     finalVariantAttributesLength > 0 ||
     present.variantSku ||
     present.variantImageUrl ||
-    present.variantAttributes;
+    present.variantAttributes ||
+    hasVariantScopeAttrs;
 
   const syncVariantFromProductPrice = Boolean(present.price && !present.variantPrice);
   const syncAllVariantPrices = syncVariantFromProductPrice && !hasVariantRowData;
@@ -479,6 +481,7 @@ const importRows = async (rows, options = {}) => {
   const { categoryByName, subcategoryByName } = await buildLookupMaps();
   const attributes = await productRepository.listProductsTable({ page: 1, limit: 1 }).then((data) => data.attributes || []);
   const attributeByCode = new Map(attributes.map((item) => [item.code, item]));
+  const attributeById = new Map(attributes.map((item) => [Number(item.id), item]));
   const attributeByName = new Map(attributes.map((item) => [normalizeText(item.name), item]));
   const attributeOptionLookup = new Map();
   attributes.forEach((attr) => {
@@ -517,6 +520,7 @@ const importRows = async (rows, options = {}) => {
     if (!ensured) return null;
     attributeByName.set(normalizedLookup, ensured);
     attributeByCode.set(ensured.code, ensured);
+    attributeById.set(Number(ensured.id), ensured);
     return ensured;
   };
 
@@ -662,11 +666,17 @@ const importRows = async (rows, options = {}) => {
       continue;
     }
 
+    const hasVariantScopeAttrs = allMappedAttributes.some((mapped) => {
+      const def = attributeById.get(Number(mapped.attributeId));
+      return def?.scope === "variant";
+    });
+
     const variantPricing = resolveImportVariantPricing({
       present,
       productPrice: rowPrice,
       variantPrice: explicitVariantPrice,
       finalVariantAttributesLength: finalVariantAttributesForPricing.length,
+      hasVariantScopeAttrs,
     });
 
     let applyVariantPatch = variantPricing.applyVariantPatch;

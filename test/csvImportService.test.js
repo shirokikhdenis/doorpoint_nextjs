@@ -133,6 +133,25 @@ test("resolveImportVariantPricing keeps explicit variantPrice", () => {
   assert.equal(result.syncAllVariantPrices, false);
 });
 
+test("resolveImportVariantPricing treats variant-scope attr columns as variant row data", () => {
+  const result = resolveImportVariantPricing({
+    present: {
+      price: false,
+      variantPrice: false,
+      variantSku: false,
+      variantImageUrl: false,
+      variantAttributes: false,
+    },
+    productPrice: undefined,
+    variantPrice: undefined,
+    finalVariantAttributesLength: 0,
+    hasVariantScopeAttrs: true,
+  });
+
+  assert.equal(result.applyVariantPatch, true);
+  assert.equal(result.hasVariantRowData, true);
+});
+
 test("IMPORT_MODES exposes update_only slug", () => {
   assert.equal(IMPORT_MODES.updateOnly, "update_only");
   assert.equal(IMPORT_MODES.upsert, "upsert");

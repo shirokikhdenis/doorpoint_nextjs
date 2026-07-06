@@ -38,7 +38,7 @@ const getVkSyncStatus = async (query = {}) => {
     clientId: credentials.clientId || null,
     tokenCheck,
     tokenHint:
-      "Перед синхронизацией access_token обновляется по VK_REFRESH_TOKEN. При OAuth укажите scope: market photos groups offline (обмен code→token на VPS).",
+      "Перед синхронизацией access_token обновляется по VK_REFRESH_TOKEN + VK_DEVICE_ID. При OAuth укажите scope: market photos groups offline (обмен code→token на VPS).",
     latestRun,
     runs,
     failedProducts,

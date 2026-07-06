@@ -11,6 +11,7 @@ const factoryStorefrontService = require("@/lib/server/services/factoryStorefron
 const doorFinishAdminService = require("@/lib/server/services/doorFinishAdminService");
 const vkExportService = require("@/lib/server/services/vkExportService");
 const vkSyncAdminService = require("@/lib/server/services/vkSyncAdminService");
+const prometStockService = require("@/lib/server/services/prometStockService");
 const { withErrorHandling, json, empty, getQuery, readBody } = require("@/lib/server/http/handlers");
 const { requestHasAdminSession } = require("@/lib/server/auth/adminAuth");
 
@@ -250,6 +251,14 @@ const handle = async (request, context) =>
 
     if (match(path, method, "GET", "vk", "status")) {
       return json(await vkSyncAdminService.getVkSyncStatus(query));
+    }
+
+    if (match(path, method, "GET", "promet", "stock")) {
+      const result = await prometStockService.getStock();
+      if (!result.ok) {
+        return json({ message: result.message, error: result.error }, result.status);
+      }
+      return json(result.data);
     }
 
     if (match(path, method, "GET", "promotions")) {

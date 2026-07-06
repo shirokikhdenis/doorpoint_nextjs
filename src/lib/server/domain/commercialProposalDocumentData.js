@@ -12,6 +12,7 @@ const KP_ATTRIBUTE_CODES = ["collection", "manufacturer", "glass", "thickness", 
 const KP_EXCLUDED_ATTR_CODES = new Set([
   "pogonazh_id",
   "pogonazh_komplekt",
+  "manufacturer_id",
   "sort_order",
 ]);
 

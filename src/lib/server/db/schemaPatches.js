@@ -17,6 +17,37 @@ let doorFinishTablesEnsured = false;
 let homeProductSectionTablesEnsured = false;
 let vkSyncTablesEnsured = false;
 let vkSyncTablesEnsurePromise = null;
+let manufacturerIdAttributeEnsured = false;
+
+const ensureManufacturerIdAttribute = async () => {
+  if (manufacturerIdAttributeEnsured) return;
+  const maxOrderRes = await query(
+    `SELECT COALESCE(MAX(sort_order), 0) AS max_order FROM attribute_definitions`,
+  );
+  const sortOrder = Number(maxOrderRes.rows[0]?.max_order || 0) + 10;
+  await query(
+    `
+    INSERT INTO attribute_definitions(
+      code, name, type, unit, options, scope, is_filterable, is_visible_on_product, sort_order
+    )
+    VALUES ($1, $2, $3, $4, '[]'::jsonb, $5, FALSE, FALSE, $6)
+    ON CONFLICT (code) DO NOTHING
+    `,
+    ["manufacturer_id", "ID у производителя", "text", null, "variant", sortOrder],
+  );
+  await query(
+    `
+    UPDATE attribute_definitions
+    SET
+      scope = 'variant',
+      is_filterable = FALSE,
+      is_visible_on_product = FALSE,
+      name = 'ID у производителя'
+    WHERE code = 'manufacturer_id'
+    `,
+  );
+  manufacturerIdAttributeEnsured = true;
+};
 
 const CATALOG_PAGE_SLUG_RENAMES = [
   ["entry-doors", "vhodnye-dveri"],
@@ -449,4 +480,5 @@ module.exports = {
   ensureDoorFinishTables,
   ensureHomeProductSectionTables,
   ensureVkSyncTables,
+  ensureManufacturerIdAttribute,
 };

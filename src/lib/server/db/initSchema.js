@@ -329,6 +329,15 @@ const seedAttributes = async (client) => {
       isFilterable: false,
     },
     {
+      code: "manufacturer_id",
+      name: "ID у производителя",
+      type: "text",
+      unit: null,
+      scope: "variant",
+      isFilterable: false,
+      isVisibleOnProduct: false,
+    },
+    {
       code: "size",
       name: "Размер",
       type: "option",
@@ -353,8 +362,8 @@ const seedAttributes = async (client) => {
   for (const attr of attrs) {
     order += 10;
     const res = await client.query(
-      `INSERT INTO attribute_definitions(code, name, type, unit, options, scope, is_filterable, sort_order)
-       VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8)
+      `INSERT INTO attribute_definitions(code, name, type, unit, options, scope, is_filterable, is_visible_on_product, sort_order)
+       VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9)
        RETURNING id`,
       [
         attr.code,
@@ -364,6 +373,7 @@ const seedAttributes = async (client) => {
         JSON.stringify(attr.options || []),
         attr.scope,
         attr.isFilterable,
+        attr.isVisibleOnProduct !== false,
         order,
       ],
     );

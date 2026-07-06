@@ -87,7 +87,7 @@ ENTRY-BRAVO-01,,79900,
 | `model_key` | Ключ модели: **одинаковый** `name` + **одинаковый** `model_key` связывают карточки для переключателей **цвета** и **стекла** на сайте (см. §4.2–4.3, §5). |
 | `attr:<code>` | Характеристика **товара** (product-scope): `attr:color`, `attr:glass`, `attr:thickness`, `attr:manufacturer`. |
 | `attr_name:<Название>` | То же самое, но по имени. Если атрибута нет — создастся **текстовым**. |
-| `variant_attr:<code>` | **Ось варианта** (variant-scope): `variant_attr:size`, `variant_attr:opening`. Сохраняется в `product_variants.attrs`. |
+| `variant_attr:<code>` | **Ось варианта** (variant-scope): `variant_attr:size`, `variant_attr:opening`, `variant_attr:manufacturer_id`. Сохраняется в `product_variants.attrs`. |
 | `variantSku` | Переопределяет вычисленный SKU варианта. |
 | `variantPrice` | Переопределяет цену варианта. |
 | `variantImageUrl` | Переопределяет картинку варианта. |
@@ -320,6 +320,28 @@ INT-BRAVO-0-STORMY,Браво-0,Межкомнатные двери>>>Экошп
   в сиде (`initSchema.js`); если его в БД нет, создайте через `/admin`
   или включите колонку как `attr_name:Идентификатор погонажа` — тогда импорт
   создаст текстовый атрибут на лету.
+
+## 5б. Остатки Promet (`manufacturer_id`)
+
+Для товаров производителя **Промет** остатки на витрине (пока только в режиме
+администратора) сопоставляются с API Promet по полю **`Артикул`**.
+
+У каждого **variant_sku** может быть свой артикул Promet. Заполняйте служебный
+атрибут **`variant_attr:manufacturer_id`** (или `attr:manufacturer_id` на строке
+варианта — значение уйдёт в `product_variants.attrs`, т.к. атрибут variant-scope).
+
+Пример — одно полотно, два размера с разными артикулами Promet:
+
+```csv
+sku,name,category,price,attr:manufacturer,variantSku,variant_attr:size,variant_attr:manufacturer_id
+DOOR-001,Дверь Промет,Межкомнатные,12000,Промет,DOOR-001--800x2000,800x2000,S31299201258
+DOOR-001,,,,,DOOR-001--900x2000,900x2000,S31299209999
+```
+
+- `attr:manufacturer` — на первой строке, «Промет»
+- `variant_attr:manufacturer_id` — **на каждой строке варианта**, артикул для lookup
+- `variantSku` — если используете явные SKU вариантов
+- Атрибут **не показывается** посетителям на карточке (служебный)
 
 ## 6. Чек-лист перед запуском
 

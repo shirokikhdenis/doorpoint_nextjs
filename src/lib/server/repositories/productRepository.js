@@ -23,7 +23,11 @@ const {
   ensureProductSlugColumn,
   ensureLatinProductSlugs,
   ensureSeoColumns,
+  ensureManufacturerIdAttribute,
 } = require("../db/schemaPatches");
+
+const HIDDEN_PRODUCT_ATTR_CODES = new Set(["pogonazh_id"]);
+const VARIANT_NON_AXIS_CODES = new Set(["manufacturer_id"]);
 
 /**
  * Репозиторий товаров на новой схеме (JSONB attrs + единое дерево categories).
@@ -885,6 +889,7 @@ const getProductBySlug = async (slug) => {
 
 const getProductById = async (id) => {
   await ensureProductBadgesColumn();
+  await ensureManufacturerIdAttribute();
   await ensureProductSaleColumns();
   await ensureLatinProductSlugs();
   const numericId = Number(id);
@@ -955,7 +960,12 @@ const getProductById = async (id) => {
 
   // attributes — характеристики «модели», только product-scope и с флагом «на карточке».
   const attributes = attrDefs
-    .filter((def) => def.scope === "product" && def.isVisibleOnProduct !== false)
+    .filter(
+      (def) =>
+        def.scope === "product" &&
+        def.isVisibleOnProduct !== false &&
+        !HIDDEN_PRODUCT_ATTR_CODES.has(def.code),
+    )
     .map((def) => {
       const raw = productAttrs[def.code];
       if (raw === undefined || raw === null || raw === "") return null;
@@ -1064,7 +1074,8 @@ const getProductById = async (id) => {
         const def = attrDefByCode.get(code);
         const name = def ? def.name : code;
         const unit = def?.unit ? ` ${def.unit}` : "";
-        const isVariantAxis = def?.scope === "variant";
+        const isVariantAxis =
+          def?.scope === "variant" && !VARIANT_NON_AXIS_CODES.has(def.code);
         if (isVariantAxis) {
           if (!variantSelectorMap.has(code)) {
             variantSelectorMap.set(code, { code, name, values: new Set() });
@@ -1086,6 +1097,7 @@ const getProductById = async (id) => {
       price: variantRow.price === null ? Number(row.price) : Number(variantRow.price),
       image: variantRow.imageUrl || primaryImage,
       sortOrder: Number(variantRow.sortOrder) || 0,
+      manufacturerId: String(variantAttrs.manufacturer_id ?? "").trim() || null,
       attributes: variantAttributes,
     };
   });
@@ -1146,7 +1158,11 @@ const getProductById = async (id) => {
       const accAttrs = ensureAttrs(accRow.attrs);
       // Краткий список атрибутов: только product-scope, непустые, без служебного pogonazh_id.
       const accAttributes = attrDefs
-        .filter((def) => def.scope === "product" && def.code !== "pogonazh_id")
+        .filter(
+          (def) =>
+            def.scope === "product" &&
+            !HIDDEN_PRODUCT_ATTR_CODES.has(def.code),
+        )
         .map((def) => {
           const raw = accAttrs[def.code];
           if (raw === undefined || raw === null || String(raw).trim() === "") return null;
@@ -1211,6 +1227,7 @@ const getProductById = async (id) => {
     kitPricing,
     kitPrice,
     badges: resolveProductBadges(row.badges),
+    manufacturerId: String(productAttrs.manufacturer_id ?? "").trim() || null,
     seoTitle: row.seoTitle || null,
     seoDescription: row.seoDescription || null,
   };

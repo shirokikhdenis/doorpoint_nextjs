@@ -7,10 +7,14 @@ const {
   resetVkTokenSession,
 } = require("../src/lib/server/vk/vkTokenService");
 
-test("canAutoRefresh requires refresh token, client id and secret", () => {
+test("canAutoRefresh requires refresh token, client id, secret and device id", () => {
   assert.equal(
-    canAutoRefresh({ refreshToken: "r", clientId: "1", clientSecret: "s" }),
+    canAutoRefresh({ refreshToken: "r", clientId: "1", clientSecret: "s", deviceId: "d" }),
     true,
+  );
+  assert.equal(
+    canAutoRefresh({ refreshToken: "r", clientId: "1", clientSecret: "s", deviceId: "" }),
+    false,
   );
   assert.equal(canAutoRefresh({ refreshToken: "", clientId: "1", clientSecret: "s" }), false);
   assert.equal(canAutoRefresh({ refreshToken: "r", clientId: "", clientSecret: "s" }), false);
