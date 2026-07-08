@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { productHref } from "@/lib/client/product-url";
+import { suppressNextProductScrollReset } from "@/lib/client/page-scroll";
 import { serializeVariantAxes } from "@/features/product/product-utils";
 import { ProductData, Variant, normalizeProductData } from "@/lib/client/normalizers";
 import type { DoorFinishItem, DoorGlassUpgradeItem } from "@/lib/client/normalizers";
@@ -156,7 +157,7 @@ export function useProductPage(
     if (!next) return;
     setSelectedRef((prev) => {
       if (prev === next) return prev;
-      if (!cacheRef.current.has(next)) setLoading(true);
+      suppressNextProductScrollReset();
       return next;
     });
   }, []);

@@ -2,7 +2,10 @@
 
 import { useLayoutEffect } from "react";
 import { usePathname } from "next/navigation";
-import { scrollToTopInstant } from "@/lib/client/page-scroll";
+import {
+  isProductScrollResetSuppressed,
+  scrollToTopInstant,
+} from "@/lib/client/page-scroll";
 
 /** Сбрасывает прокрутку после входа на /product/* (не до клика по ссылке). */
 export function ProductRouteScrollReset() {
@@ -10,6 +13,7 @@ export function ProductRouteScrollReset() {
 
   useLayoutEffect(() => {
     if (!pathname?.startsWith("/product/")) return;
+    if (isProductScrollResetSuppressed()) return;
     scrollToTopInstant();
     requestAnimationFrame(scrollToTopInstant);
   }, [pathname]);

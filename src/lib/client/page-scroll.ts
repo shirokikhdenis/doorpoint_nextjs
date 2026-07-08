@@ -15,3 +15,14 @@ export function scrollToInstant(y: number): void {
 export function scrollToTopInstant(): void {
   scrollToInstant(0);
 }
+
+let productScrollResetSuppressedUntil = 0;
+
+/** Не сбрасывать прокрутку при ближайшей смене /product/* (чипы цвета/стекла). */
+export function suppressNextProductScrollReset(durationMs = 300): void {
+  productScrollResetSuppressedUntil = Date.now() + durationMs;
+}
+
+export function isProductScrollResetSuppressed(): boolean {
+  return Date.now() < productScrollResetSuppressedUntil;
+}
