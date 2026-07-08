@@ -2,6 +2,7 @@ const categoryRepository = require("../repositories/categoryRepository");
 const subcategoryRepository = require("../repositories/subcategoryRepository");
 const attributeRepository = require("../repositories/attributeRepository");
 const productRepository = require("../repositories/productRepository");
+const csvExportService = require("./csvExportService");
 const catalogPageRepository = require("../repositories/catalogPageRepository");
 const catalogPageLabelRepository = require("../repositories/catalogPageLabelRepository");
 const saleSettingsRepository = require("../repositories/saleSettingsRepository");
@@ -294,6 +295,45 @@ const deleteProductsByCategoryScope = async (query) =>
     subcategoryId: query.subcategoryId ? Number(query.subcategoryId) : null,
   });
 
+const deleteProductsByIds = async (ids) => {
+  const normalized = (Array.isArray(ids) ? ids : [])
+    .map((id) => Number(id))
+    .filter((id) => Number.isInteger(id) && id > 0);
+  if (normalized.length === 0) {
+    const error = new Error("Список id пуст");
+    error.statusCode = 400;
+    throw error;
+  }
+  return productRepository.deleteProductsMatchingFilters({ ids: normalized });
+};
+
+const deleteProductsByFilters = async (query) => {
+  const filters = csvExportService.parseExportQuery(query);
+  const hasScope = Boolean(
+    String(filters.search || "").trim() ||
+      filters.categoryId ||
+      filters.subcategoryId ||
+      filters.manufacturer ||
+      filters.hit !== null ||
+      filters.onSale !== null ||
+      Object.keys(filters.attributeFilters || {}).length > 0,
+  );
+  if (!hasScope) {
+    const error = new Error("Укажите хотя бы один фильтр для удаления");
+    error.statusCode = 400;
+    throw error;
+  }
+  return productRepository.deleteProductsMatchingFilters({
+    search: filters.search,
+    categoryId: filters.categoryId,
+    subcategoryId: filters.subcategoryId,
+    manufacturer: filters.manufacturer,
+    hit: filters.hit,
+    onSale: filters.onSale,
+    attributeFilters: filters.attributeFilters,
+  });
+};
+
 const getProductsTable = async (query) => {
   const [table, saleSettings] = await Promise.all([
     productRepository.listProductsTable({
@@ -384,6 +424,8 @@ module.exports = {
   getProductForEdit,
   deleteAllProducts,
   deleteProductsByCategoryScope,
+  deleteProductsByIds,
+  deleteProductsByFilters,
   getProductsTable,
   getSaleSettings,
   updateSaleSettings,

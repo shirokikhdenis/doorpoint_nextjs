@@ -160,6 +160,24 @@ const handle = async (request, context) =>
       return json(created, 201);
     }
     if (match(path, method, "DELETE", "products")) {
+      const idsRaw = String(query.ids || "").trim();
+      if (idsRaw) {
+        const ids = idsRaw
+          .split(",")
+          .map((value) => Number(String(value).trim()))
+          .filter((id) => Number.isInteger(id) && id > 0);
+        if (ids.length === 0) {
+          return json({ message: "Некорректный список ids" }, 400);
+        }
+        const deleted = await adminService.deleteProductsByIds(ids);
+        await invalidateStorefrontCache("products");
+        return json({ deleted });
+      }
+      if (String(query.scope || "").trim() === "filter") {
+        const deleted = await adminService.deleteProductsByFilters(query);
+        await invalidateStorefrontCache("products");
+        return json({ deleted });
+      }
       const rawSub = query.subcategoryId;
       const rawCat = query.categoryId;
       const subStr = rawSub !== undefined && rawSub !== null ? String(rawSub).trim() : "";

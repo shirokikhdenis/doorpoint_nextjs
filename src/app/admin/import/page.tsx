@@ -5,7 +5,7 @@ import { AdminCard } from "@/features/admin/ui/admin-card";
 import { AdminNotice } from "@/features/admin/ui/admin-notice";
 import { AdminPage } from "@/features/admin/ui/admin-page";
 import { downloadProductsCsv } from "@/lib/client/admin-products-export";
-import { CsvRow, parseCsv } from "@/lib/client/csv-parse";
+import { CsvRow, parseCsv, sliceCsvDataRowsByRange } from "@/lib/client/csv-parse";
 import {
   AttributeDef,
   ColumnMapping,
@@ -48,6 +48,9 @@ export default function AdminImportPage() {
   const [importing, setImporting] = useState(false);
   const [exportingCatalog, setExportingCatalog] = useState(false);
   const [updateOnly, setUpdateOnly] = useState(false);
+  const [rowRangeFrom, setRowRangeFrom] = useState("");
+  const [rowRangeTo, setRowRangeTo] = useState("");
+  const [showAllPreviewRows, setShowAllPreviewRows] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -91,6 +94,7 @@ export default function AdminImportPage() {
     (text: string, openMapping = false) => {
       setParseError("");
       setResult(null);
+      setShowAllPreviewRows(false);
       if (!text.trim()) {
         setRawRows([]);
         setCsvHeaders([]);
@@ -150,9 +154,17 @@ export default function AdminImportPage() {
     setMapping({});
     setParseError("");
     setResult(null);
+    setRowRangeFrom("");
+    setRowRangeTo("");
+    setShowAllPreviewRows(false);
   };
 
   const mappedRows = useMemo(() => applyMapping(rawRows, mapping), [rawRows, mapping]);
+  const importSlice = useMemo(
+    () => sliceCsvDataRowsByRange(mappedRows, rowRangeFrom, rowRangeTo),
+    [mappedRows, rowRangeFrom, rowRangeTo],
+  );
+  const importRows = importSlice.rows;
   const mappedHeaders = useMemo(() => {
     const set = new Set<string>();
     mappedRows.forEach((row) => Object.keys(row).forEach((key) => set.add(key)));
@@ -165,7 +177,7 @@ export default function AdminImportPage() {
   );
 
   const runImport = async () => {
-    if (mappedRows.length === 0 || importing) return;
+    if (importRows.length === 0 || importing || importSlice.error) return;
     setImporting(true);
     setResult(null);
     try {
@@ -173,7 +185,7 @@ export default function AdminImportPage() {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          rows: mappedRows,
+          rows: importRows,
           mode: updateOnly ? "update_only" : "upsert",
         }),
       });
@@ -208,7 +220,9 @@ export default function AdminImportPage() {
     }
   };
 
-  const previewRows = mappedRows.slice(0, 10);
+  const previewRows = showAllPreviewRows ? importRows : importRows.slice(0, 10);
+  const hasHiddenPreviewRows = importRows.length > 10;
+  const hasRowRange = rowRangeFrom.trim() !== "" || rowRangeTo.trim() !== "";
 
   const downloadCatalog = async () => {
     setExportingCatalog(true);
@@ -317,11 +331,70 @@ export default function AdminImportPage() {
               </span>
             </label>
 
+            <div className="space-y-1.5">
+              <p className="text-sm font-medium text-zinc-700">Диапазон строк</p>
+              <div className="flex flex-wrap items-center gap-2 text-sm text-zinc-700">
+                <label className="flex items-center gap-1.5">
+                  <span className="text-xs text-zinc-500">с</span>
+                  <input
+                    type="number"
+                    min={1}
+                    inputMode="numeric"
+                    value={rowRangeFrom}
+                    onChange={(event) => setRowRangeFrom(event.target.value)}
+                    placeholder="1"
+                    className="w-24 rounded border border-zinc-200 bg-white px-2 py-1.5 text-sm"
+                  />
+                </label>
+                <label className="flex items-center gap-1.5">
+                  <span className="text-xs text-zinc-500">по</span>
+                  <input
+                    type="number"
+                    min={1}
+                    inputMode="numeric"
+                    value={rowRangeTo}
+                    onChange={(event) => setRowRangeTo(event.target.value)}
+                    placeholder="все"
+                    className="w-24 rounded border border-zinc-200 bg-white px-2 py-1.5 text-sm"
+                  />
+                </label>
+                {hasRowRange ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRowRangeFrom("");
+                      setRowRangeTo("");
+                    }}
+                    className="rounded border border-zinc-200 bg-white px-2 py-1 text-xs hover:bg-zinc-100"
+                  >
+                    Сбросить диапазон
+                  </button>
+                ) : null}
+              </div>
+              <p className="text-xs text-zinc-500">
+                Нумерация с 1, без строки заголовка. Пустые поля — все строки файла.
+                {mappedRows.length > 0
+                  ? hasRowRange
+                    ? ` К импорту: ${importRows.length} из ${mappedRows.length} (строки ${importSlice.startRow}–${importSlice.endRow}).`
+                    : ` Всего строк: ${mappedRows.length}.`
+                  : ""}
+              </p>
+              {importSlice.error ? (
+                <AdminNotice variant="error">{importSlice.error}</AdminNotice>
+              ) : null}
+            </div>
+
             <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"
               onClick={runImport}
-              disabled={importing || mappedRows.length === 0 || Boolean(parseError) || !skuMapped}
+              disabled={
+                importing ||
+                importRows.length === 0 ||
+                Boolean(parseError) ||
+                Boolean(importSlice.error) ||
+                !skuMapped
+              }
               className="rounded bg-black px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:bg-zinc-300"
             >
               {importing
@@ -329,8 +402,8 @@ export default function AdminImportPage() {
                   ? "Обновляем…"
                   : "Импортируем…"
                 : updateOnly
-                  ? `Обновить ${mappedRows.length || ""}`.trim()
-                  : `Импортировать ${mappedRows.length || ""}`.trim()}
+                  ? `Обновить ${importRows.length || ""}`.trim()
+                  : `Импортировать ${importRows.length || ""}`.trim()}
             </button>
             {result ? (
               <span
@@ -386,15 +459,24 @@ export default function AdminImportPage() {
         </AdminCard>
       </section>
 
-      {mappedRows.length > 0 ? (
+      {importRows.length > 0 ? (
         <AdminCard className="overflow-hidden p-0">
-          <div className="flex items-center justify-between border-b px-3 py-2 text-xs text-zinc-500">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b px-3 py-2 text-xs text-zinc-500">
             <span>
-              Предпросмотр после сопоставления: {previewRows.length} из {mappedRows.length} строк,{" "}
+              Предпросмотр после сопоставления: {previewRows.length} из {importRows.length} строк к импорту
+              {hasRowRange ? ` (диапазон ${importSlice.startRow}–${importSlice.endRow})` : ""},{" "}
               {mappedHeaders.length} колонок
             </span>
-            {mappedRows.length > previewRows.length ? (
-              <span>…ещё {mappedRows.length - previewRows.length} строк не показаны</span>
+            {hasHiddenPreviewRows ? (
+              <button
+                type="button"
+                onClick={() => setShowAllPreviewRows((current) => !current)}
+                className="shrink-0 rounded border border-zinc-200 bg-white px-2 py-1 text-xs text-zinc-700 hover:bg-zinc-100"
+              >
+                {showAllPreviewRows
+                  ? "Свернуть"
+                  : `Показать все строки (${importRows.length})`}
+              </button>
             ) : null}
           </div>
           <div className="overflow-auto">
@@ -412,7 +494,7 @@ export default function AdminImportPage() {
               <tbody>
                 {previewRows.map((row, idx) => (
                   <tr key={idx} className="border-t">
-                    <td className="px-2 py-1 text-zinc-400">{idx + 1}</td>
+                    <td className="px-2 py-1 text-zinc-400">{importSlice.startRow + idx}</td>
                     {mappedHeaders.map((header) => (
                       <td key={header} className="max-w-[16rem] truncate px-2 py-1 align-top text-zinc-700">
                         {row[header] ?? ""}

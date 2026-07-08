@@ -2411,6 +2411,48 @@ const deleteProductsByCategoryScope = async ({ categoryId = null, subcategoryId 
   return 0;
 };
 
+const deleteProductsMatchingFilters = async ({
+  search = "",
+  categoryId = null,
+  subcategoryId = null,
+  attributeFilters = {},
+  manufacturer = null,
+  hit = null,
+  onSale = null,
+  ids = null,
+} = {}) => {
+  const { whereSql, params } = buildProductsTableWhere({
+    search,
+    categoryId,
+    subcategoryId,
+    attributeFilters,
+    manufacturer,
+    hit,
+    onSale,
+    ids,
+    includeManufacturer: true,
+  });
+  if (!whereSql) {
+    const error = new Error("Для удаления нужен фильтр или список id");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const result = await query(
+    `
+    DELETE FROM products
+    WHERE id IN (
+      SELECT p.id
+      FROM products p
+      ${taxonomyJoin}
+      ${whereSql}
+    )
+    `,
+    params,
+  );
+  return Number(result.rowCount ?? 0);
+};
+
 const listActiveProductSlugs = async () => {
   const result = await query(
     `
@@ -2647,5 +2689,6 @@ module.exports = {
   patchProductSeo,
   deleteAllProducts,
   deleteProductsByCategoryScope,
+  deleteProductsMatchingFilters,
   splitCategoryId,
 };

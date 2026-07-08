@@ -14,6 +14,7 @@ import { AdminProductsToolbar } from "@/features/admin/products/admin-products-t
 import { runBulkProductAction } from "@/features/admin/products/bulk-actions";
 import { loadColumnVisibility, saveColumnVisibility } from "@/features/admin/products/column-visibility";
 import { useAdminProductsData } from "@/features/admin/products/use-admin-products-data";
+import { buildProductsFilterSearchParams } from "@/lib/client/admin-products-export";
 import type { BulkAction, ColumnVisibility, HitFilter, SaleFilter, SaleSettings } from "@/features/admin/products/types";
 
 export default function AdminProductsPage() {
@@ -297,10 +298,123 @@ export default function AdminProductsPage() {
     }
   };
 
+  const confirmDeletePhrase = () => {
+    const phrase = window.prompt(
+      "Чтобы подтвердить, введите слово DELETE заглавными буквами:",
+      "",
+    );
+    if (phrase !== "DELETE") {
+      setNotice("Удаление отменено — подтверждение не совпало.");
+      setNoticeVariant("info");
+      return false;
+    }
+    return true;
+  };
+
+  const exportFilters = useMemo(
+    () => ({
+      search: appliedSearch,
+      categoryId: categoryId || undefined,
+      subcategoryId: subcategoryId || undefined,
+      manufacturer: appliedManufacturer,
+      hit: hitFilter,
+      sale: saleFilter,
+      attrCode: appliedAttrCode,
+      attrValue: appliedAttrValue,
+    }),
+    [
+      appliedSearch,
+      categoryId,
+      subcategoryId,
+      appliedManufacturer,
+      hitFilter,
+      saleFilter,
+      appliedAttrCode,
+      appliedAttrValue,
+    ],
+  );
+
+  const canDeleteByFilter = activeChips.length > 0 && (data?.total ?? 0) > 0;
+
+  const handleDeleteSelected = async () => {
+    if (deleting) return;
+    if (selectedIds.size === 0) {
+      setNotice("Сначала отметьте товары в таблице.");
+      setNoticeVariant("error");
+      return;
+    }
+    const count = selectedIds.size;
+    const first = window.confirm(
+      `Удалить ${count} выбранных товаров?\n\nВместе с ними пропадут варианты и привязки картинок. Действие необратимо.`,
+    );
+    if (!first || !confirmDeletePhrase()) return;
+
+    setDeleting(true);
+    setNotice("");
+    try {
+      const params = new URLSearchParams();
+      params.set("ids", [...selectedIds].join(","));
+      const response = await fetch(`/api/admin/products?${params.toString()}`, { method: "DELETE" });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as { message?: string };
+        throw new Error(body.message || `HTTP ${response.status}`);
+      }
+      const body = (await response.json()) as { deleted?: number };
+      setNotice(`Удалено товаров: ${Number(body.deleted || 0)}.`);
+      setNoticeVariant("success");
+      setSelectedIds(new Set());
+      setPage(1);
+      triggerReload();
+    } catch (caught) {
+      setNotice(caught instanceof Error ? caught.message : "Ошибка удаления");
+      setNoticeVariant("error");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleDeleteByFilter = async () => {
+    if (deleting) return;
+    const total = data?.total ?? 0;
+    if (!canDeleteByFilter) {
+      setNotice("Задайте фильтры и найдите товары — удалять по фильтру нечего.");
+      setNoticeVariant("error");
+      return;
+    }
+    const first = window.confirm(
+      `Удалить ${total} товаров по текущим фильтрам?\n\nУдаляются только строки, попавшие под фильтр таблицы. Действие необратимо.`,
+    );
+    if (!first || !confirmDeletePhrase()) return;
+
+    setDeleting(true);
+    setNotice("");
+    try {
+      const params = buildProductsFilterSearchParams(exportFilters);
+      params.set("scope", "filter");
+      const response = await fetch(`/api/admin/products?${params.toString()}`, { method: "DELETE" });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as { message?: string };
+        throw new Error(body.message || `HTTP ${response.status}`);
+      }
+      const body = (await response.json()) as { deleted?: number };
+      setNotice(`Удалено товаров: ${Number(body.deleted || 0)}.`);
+      setNoticeVariant("success");
+      setSelectedIds(new Set());
+      setPage(1);
+      triggerReload();
+    } catch (caught) {
+      setNotice(caught instanceof Error ? caught.message : "Ошибка удаления");
+      setNoticeVariant("error");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const handleDeleteByCategory = async () => {
     if (deleting) return;
     if (!subcategoryId && !categoryId) {
       setNotice("Выберите категорию или подкатегорию в фильтре.");
+      setNoticeVariant("error");
       return;
     }
     const subName = subcategoryId ? subcategoryNameById.get(subcategoryId) : "";
@@ -316,14 +430,7 @@ export default function AdminProductsPage() {
       `Удалить все товары из ${scopeText}?\n\nВместе с ними пропадут варианты и привязки картинок. Действие необратимо.${searchNote}`,
     );
     if (!first) return;
-    const phrase = window.prompt(
-      "Чтобы подтвердить, введите слово DELETE заглавными буквами:",
-      "",
-    );
-    if (phrase !== "DELETE") {
-      setNotice("Удаление отменено — подтверждение не совпало.");
-      return;
-    }
+    if (!confirmDeletePhrase()) return;
     setDeleting(true);
     setNotice("");
     try {
@@ -334,10 +441,12 @@ export default function AdminProductsPage() {
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const body = (await response.json()) as { deleted?: number };
       setNotice(`Удалено товаров: ${Number(body.deleted || 0)}.`);
+      setNoticeVariant("success");
       setPage(1);
       triggerReload();
     } catch (caught) {
       setNotice(caught instanceof Error ? caught.message : "Ошибка удаления");
+      setNoticeVariant("error");
     } finally {
       setDeleting(false);
     }
@@ -353,14 +462,7 @@ export default function AdminProductsPage() {
       `Удалить ВСЕ ${data.total} товаров?\n\nВместе с ними пропадут все варианты и привязки картинок. Действие необратимо.`,
     );
     if (!first) return;
-    const phrase = window.prompt(
-      "Чтобы подтвердить, введите слово DELETE заглавными буквами:",
-      "",
-    );
-    if (phrase !== "DELETE") {
-      setNotice("Удаление отменено — подтверждение не совпало.");
-      return;
-    }
+    if (!confirmDeletePhrase()) return;
     setDeleting(true);
     setNotice("");
     try {
@@ -368,10 +470,12 @@ export default function AdminProductsPage() {
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const body = (await response.json()) as { deleted?: number };
       setNotice(`Удалено товаров: ${Number(body.deleted || 0)}.`);
+      setNoticeVariant("success");
       setPage(1);
       triggerReload();
     } catch (caught) {
       setNotice(caught instanceof Error ? caught.message : "Ошибка удаления");
+      setNoticeVariant("error");
     } finally {
       setDeleting(false);
     }
@@ -461,22 +565,17 @@ export default function AdminProductsPage() {
         onReset={resetFilters}
         activeChips={activeChips}
         deleting={deleting}
-        onDeleteByCategory={handleDeleteByCategory}
-        onDeleteAll={handleDeleteAll}
+        onDeleteByCategory={() => void handleDeleteByCategory()}
+        onDeleteAll={() => void handleDeleteAll()}
+        onDeleteSelected={() => void handleDeleteSelected()}
+        onDeleteByFilter={() => void handleDeleteByFilter()}
         canDeleteByCategory={Boolean(categoryId || subcategoryId)}
+        selectedCount={selectedIds.size}
+        canDeleteByFilter={canDeleteByFilter}
       />
 
       <AdminProductsExportBar
-        filters={{
-          search: appliedSearch,
-          categoryId: categoryId || undefined,
-          subcategoryId: subcategoryId || undefined,
-          manufacturer: appliedManufacturer,
-          hit: hitFilter,
-          sale: saleFilter,
-          attrCode: appliedAttrCode,
-          attrValue: appliedAttrValue,
-        }}
+        filters={exportFilters}
         selectedCount={selectedIds.size}
         selectedIds={[...selectedIds]}
         onNotice={(message, variant = "info") => {

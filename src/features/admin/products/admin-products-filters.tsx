@@ -43,7 +43,11 @@ type AdminProductsFiltersProps = {
   deleting: boolean;
   onDeleteByCategory: () => void;
   onDeleteAll: () => void;
+  onDeleteSelected: () => void;
+  onDeleteByFilter: () => void;
   canDeleteByCategory: boolean;
+  selectedCount: number;
+  canDeleteByFilter: boolean;
 };
 
 const fieldClass =
@@ -83,7 +87,11 @@ export function AdminProductsFilters({
   deleting,
   onDeleteByCategory,
   onDeleteAll,
+  onDeleteSelected,
+  onDeleteByFilter,
   canDeleteByCategory,
+  selectedCount,
+  canDeleteByFilter,
 }: AdminProductsFiltersProps) {
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [dangerOpen, setDangerOpen] = useState(false);
@@ -316,6 +324,22 @@ export function AdminProductsFilters({
         </button>
         {dangerOpen ? (
           <div className="mt-2 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={onDeleteSelected}
+              disabled={deleting || selectedCount === 0}
+              className="rounded-md border border-rose-300 bg-rose-50 px-3 py-1.5 text-sm text-rose-700 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {deleting ? "Удаляем…" : `Удалить выбранные (${selectedCount})`}
+            </button>
+            <button
+              type="button"
+              onClick={onDeleteByFilter}
+              disabled={deleting || !canDeleteByFilter}
+              className="rounded-md border border-rose-300 bg-rose-50 px-3 py-1.5 text-sm text-rose-700 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {deleting ? "Удаляем…" : "Удалить по фильтру"}
+            </button>
             <button
               type="button"
               onClick={onDeleteByCategory}

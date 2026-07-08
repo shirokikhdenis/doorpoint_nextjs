@@ -39,6 +39,9 @@ const buildExportSearchParams = (
   return params;
 };
 
+export const buildProductsFilterSearchParams = (filters: ProductsExportFilters) =>
+  buildExportSearchParams(filters, "import");
+
 const parseFilename = (contentDisposition: string | null, fallback: string) => {
   if (!contentDisposition) return fallback;
   const match = /filename="([^"]+)"/i.exec(contentDisposition);

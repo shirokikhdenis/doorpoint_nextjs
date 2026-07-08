@@ -83,3 +83,73 @@ const detectDelimiter = (sample: string): "," | ";" => {
   const semiCount = (firstLine.match(/;/g) || []).length;
   return semiCount > commaCount ? ";" : ",";
 };
+
+export type CsvRowRangeSlice<T> = {
+  rows: T[];
+  /** Первая строка диапазона (1-based, без заголовка CSV). */
+  startRow: number;
+  /** Последняя строка диапазона (1-based, включительно). */
+  endRow: number;
+  error?: string;
+};
+
+/** Выбирает подмножество строк данных CSV по диапазону (1-based, заголовок не считается). */
+export function sliceCsvDataRowsByRange<T>(
+  rows: T[],
+  fromInput: string,
+  toInput: string,
+): CsvRowRangeSlice<T> {
+  const total = rows.length;
+  const fromRaw = String(fromInput || "").trim();
+  const toRaw = String(toInput || "").trim();
+
+  if (!fromRaw && !toRaw) {
+    return { rows, startRow: total > 0 ? 1 : 0, endRow: total };
+  }
+
+  const from = fromRaw ? Number.parseInt(fromRaw, 10) : 1;
+  const to = toRaw ? Number.parseInt(toRaw, 10) : total;
+
+  if (!Number.isFinite(from) || !Number.isFinite(to)) {
+    return {
+      rows: [],
+      startRow: 0,
+      endRow: 0,
+      error: "Диапазон строк должен содержать целые числа",
+    };
+  }
+  if (from < 1 || to < 1) {
+    return {
+      rows: [],
+      startRow: 0,
+      endRow: 0,
+      error: "Номера строк должны быть не меньше 1",
+    };
+  }
+  if (from > to) {
+    return {
+      rows: [],
+      startRow: 0,
+      endRow: 0,
+      error: "Начало диапазона не может быть больше конца",
+    };
+  }
+  if (total === 0) {
+    return { rows: [], startRow: 0, endRow: 0, error: "Нет строк для импорта" };
+  }
+  if (from > total) {
+    return {
+      rows: [],
+      startRow: 0,
+      endRow: 0,
+      error: `Начало диапазона (${from}) больше числа строк в файле (${total})`,
+    };
+  }
+
+  const endRow = Math.min(to, total);
+  return {
+    rows: rows.slice(from - 1, endRow),
+    startRow: from,
+    endRow,
+  };
+}
