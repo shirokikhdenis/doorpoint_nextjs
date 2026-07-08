@@ -20,7 +20,7 @@ import {
   normalizeCatalogPages,
   normalizeProductsResponse,
 } from "@/lib/client/normalizers";
-import { scrollToInstant, scrollToTopInstant } from "@/lib/client/page-scroll";
+import { isDesktopCatalogViewport, scrollToInstant, scrollToTopInstant } from "@/lib/client/page-scroll";
 import type { CatalogShellInitial } from "@/lib/server/catalog-shell";
 
 type UseCatalogSessionOptions = {
@@ -148,7 +148,9 @@ export function useCatalogSession({
       restoreTargetRef.current = null;
       restorePagesDoneRef.current = false;
       lastFetchedRef.current = { query: "", page: 0 };
-      if (typeof window !== "undefined") scrollToTopInstant();
+      if (typeof window !== "undefined" && isDesktopCatalogViewport()) {
+        scrollToTopInstant();
+      }
       dispatch({ type: "USER_FILTER_CHANGE", searchKey: query });
     }
   }, [query, catalogPage]);

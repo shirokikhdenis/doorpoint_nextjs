@@ -16,6 +16,12 @@ export function scrollToTopInstant(): void {
   scrollToInstant(0);
 }
 
+/** Витрина каталога: десктопная колонка (lg+). */
+export function isDesktopCatalogViewport(): boolean {
+  if (typeof window === "undefined") return true;
+  return window.matchMedia("(min-width: 1024px)").matches;
+}
+
 let productScrollResetSuppressedUntil = 0;
 
 /** Не сбрасывать прокрутку при ближайшей смене /product/* (чипы цвета/стекла). */
