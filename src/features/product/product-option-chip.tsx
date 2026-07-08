@@ -1,7 +1,8 @@
 "use client";
 
-import { chipToneClass } from "@/features/store/storefront-ui";
+import { chipToneClass, productChipButtonClass } from "@/features/store/storefront-ui";
 import { formatPrice } from "@/lib/client/format";
+import { cn } from "@/lib/utils";
 
 export const formatOptionChipLabel = (name: string, price?: number) => {
   const trimmed = String(name || "").trim();
@@ -27,7 +28,7 @@ export function ProductOptionChip({
       type="button"
       onClick={onSelect}
       aria-pressed={isSelected}
-      className={`rounded-full px-3 py-1.5 text-xs ${chipToneClass(isSelected)}`}
+      className={cn(productChipButtonClass, chipToneClass(isSelected))}
     >
       {formatOptionChipLabel(label, price)}
     </button>

@@ -1,4 +1,5 @@
-import { chipToneClass } from "@/features/store/storefront-ui";
+import { chipToneClass, productChipButtonClass } from "@/features/store/storefront-ui";
+import { cn } from "@/lib/utils";
 
 type VariantChipProps = {
   label: string;
@@ -15,8 +16,6 @@ export function VariantChip({
   onSelect,
   onHoverPrefetch,
 }: VariantChipProps) {
-  const baseClass = "flex items-center gap-2 rounded-full px-3 py-1.5 text-xs";
-  const stateClass = chipToneClass(isCurrent);
   const thumbBorder = isCurrent ? "border-white/30" : "border-zinc-200";
   return (
     <button
@@ -26,14 +25,14 @@ export function VariantChip({
       onFocus={onHoverPrefetch}
       aria-pressed={isCurrent}
       disabled={isCurrent}
-      className={`${baseClass} ${stateClass} disabled:cursor-default`}
+      className={cn(productChipButtonClass, chipToneClass(isCurrent), "disabled:cursor-default")}
     >
       {image ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={image}
           alt=""
-          className={`h-5 w-5 rounded-full border object-cover ${thumbBorder}`}
+          className={cn("h-5 w-5 rounded-md border object-cover", thumbBorder)}
         />
       ) : null}
       {label}

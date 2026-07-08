@@ -84,8 +84,14 @@ export function ProductAddToCart({
   const addDisabled = requiresFinish && !finishId;
 
   return (
-    <div className={cn("!mt-6 flex flex-wrap items-center gap-3", className)}>
-      <Button type="button" variant="brand" onClick={handleAdd} disabled={addDisabled}>
+    <div className={cn("flex flex-wrap items-center gap-3", className)}>
+      <Button
+        type="button"
+        variant="brand"
+        onClick={handleAdd}
+        disabled={addDisabled}
+        className="w-full sm:w-auto"
+      >
         Добавить в корзину
       </Button>
       {showQuantity ? (

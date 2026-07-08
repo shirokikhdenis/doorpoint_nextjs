@@ -28,7 +28,9 @@ import { ProductPageSkeleton } from "@/features/product/product-page-skeleton";
 import { useProductPage } from "@/features/product/use-product-page";
 import { ImageLightbox } from "@/features/store/image-lightbox";
 import { MeasureLeadForm } from "@/features/store/measure-lead-form";
+import { TrackedPhoneLink } from "@/features/store/tracked-phone-link";
 import type { ProductData } from "@/lib/client/normalizers";
+import { SITE_PHONE_DISPLAY } from "@/lib/site-contact";
 
 type ProductPageClientProps = {
   params: Promise<{ slug: string }>;
@@ -91,30 +93,7 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
   return (
     <>
       <main className="mx-auto w-full max-w-[1400px] px-4 py-6 sm:px-6 lg:px-8">
-        <Button
-          variant="outline"
-          size="sm"
-          asChild
-          className="border-zinc-300 text-zinc-800 hover:border-brand/35 hover:bg-brand/5 hover:text-brand"
-        >
-          <Link href={catalogBackHref} scroll={false} data-testid="product-back-to-catalog">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M19 12H5" />
-              <path d="m12 19-7-7 7-7" />
-            </svg>
-            Назад в каталог
-          </Link>
-        </Button>
-        <div className="relative mt-4">
+        <div className="relative">
           {product.manufacturerLogo ? (
             <ProductManufacturerLogo
               logoUrl={product.manufacturerLogo}
@@ -122,16 +101,41 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
             />
           ) : null}
           <div className="grid gap-6 md:grid-cols-2">
-          <ProductGallery
-            productName={product.name}
-            image={image}
-            galleryImages={galleryImages}
-            onOpenLightbox={() => page.setImageLightboxOpen(true)}
-            onSelectThumbnail={(url) => {
-              page.setIsManualImageSelection(true);
-              page.setDisplayedImage(url);
-            }}
-          />
+          <div className="space-y-4">
+            <Button
+              variant="outline"
+              size="sm"
+              asChild
+              className="border-zinc-300 text-zinc-800 hover:border-brand/35 hover:bg-brand/5 hover:text-brand"
+            >
+              <Link href={catalogBackHref} scroll={false} data-testid="product-back-to-catalog">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M19 12H5" />
+                  <path d="m12 19-7-7 7-7" />
+                </svg>
+                Назад в каталог
+              </Link>
+            </Button>
+            <ProductGallery
+              productName={product.name}
+              image={image}
+              galleryImages={galleryImages}
+              onOpenLightbox={() => page.setImageLightboxOpen(true)}
+              onSelectThumbnail={(url) => {
+                page.setIsManualImageSelection(true);
+                page.setDisplayedImage(url);
+              }}
+            />
+          </div>
           <div className="space-y-4">
             <p className="text-sm text-zinc-600">
               {product.category ? (
@@ -157,13 +161,6 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
               ) : null}
             </p>
             <h1 className="text-2xl font-semibold">{product.name}</h1>
-            <ProductPricingBlock
-              price={price}
-              compareAtPrice={product.compareAtPrice}
-              isOnSale={product.isOnSale}
-              kitPrice={kitPrice}
-              kitPricing={product.kitPricing}
-            />
             <ProductPrometStock
               slug={product.slug}
               manufacturerName={product.manufacturerName}
@@ -198,25 +195,59 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
                 onToggleService={page.toggleHardwareService}
               />
             ) : null}
-            <ProductAddToCart
-              productId={product.id}
-              cartName={cartName}
-              cartColorLabel={page.cartColorLabel}
-              cartImage={image}
-              price={price}
-              sku={cartSku}
-              finishId={page.selectedFinish?.id}
-              finishName={page.selectedFinish?.name}
-              glassOptionId={page.selectedGlassOption?.id}
-              glassOptionName={page.selectedGlassOption?.name}
-              hardwareServices={page.selectedHardwareServices.map((item) => ({
-                id: item.id,
-                name: item.name,
-                price: item.price,
-              }))}
-              requiresFinish={page.requiresFinish}
-            />
-            <div className="space-y-2">
+            <div className="flex flex-col gap-3 border-t border-zinc-100 pt-4">
+              <ProductPricingBlock
+                price={price}
+                compareAtPrice={product.compareAtPrice}
+                isOnSale={product.isOnSale}
+                kitPrice={kitPrice}
+                kitPricing={product.kitPricing}
+              />
+              <ProductAddToCart
+                productId={product.id}
+                cartName={cartName}
+                cartColorLabel={page.cartColorLabel}
+                cartImage={image}
+                price={price}
+                sku={cartSku}
+                finishId={page.selectedFinish?.id}
+                finishName={page.selectedFinish?.name}
+                glassOptionId={page.selectedGlassOption?.id}
+                glassOptionName={page.selectedGlassOption?.name}
+                hardwareServices={page.selectedHardwareServices.map((item) => ({
+                  id: item.id,
+                  name: item.name,
+                  price: item.price,
+                }))}
+                requiresFinish={page.requiresFinish}
+                className="w-full"
+              />
+            </div>
+            <div className="flex items-start gap-2.5 rounded-lg bg-zinc-50 px-3 py-2">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="mt-0.5 h-4 w-4 shrink-0 text-brand"
+                aria-hidden="true"
+              >
+                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+              </svg>
+              <p className="text-sm text-zinc-600">
+                Есть вопросы? Позвоните нам{" "}
+                <TrackedPhoneLink className="text-base font-semibold text-brand hover:underline sm:text-sm">
+                  {SITE_PHONE_DISPLAY}
+                </TrackedPhoneLink>
+              </p>
+            </div>
+            {product.attributes.length > 0 ? (
+            <div className="mt-8 border-t border-zinc-200 pt-6">
+              <h2 className="text-lg font-semibold text-zinc-900">Характеристики</h2>
+            <div className="mt-3 space-y-2">
               {product.attributes.map((attr) => (
                 <div
                   key={attr.code}
@@ -227,6 +258,8 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
                 </div>
               ))}
             </div>
+            </div>
+            ) : null}
           </div>
         </div>
         </div>

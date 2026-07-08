@@ -64,6 +64,10 @@ const chipToneActive = "border-brand bg-brand text-white";
 const chipToneIdle =
   "border-zinc-200 bg-zinc-50 text-zinc-700 hover:border-zinc-300 hover:bg-white";
 
+/** Чипы на карточке товара — скругление как у Button (`rounded-md`) */
+export const productChipButtonClass =
+  "inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium";
+
 export function chipToneClass(isActive: boolean): string {
   return cn(chipToneBase, isActive ? chipToneActive : chipToneIdle);
 }

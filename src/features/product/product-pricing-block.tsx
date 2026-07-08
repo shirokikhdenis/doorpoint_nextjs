@@ -50,17 +50,18 @@ export function ProductPricingBlock({
 
   if (kitPrice == null) {
     return (
-      <ProductPrice
-        price={price}
-        compareAtPrice={compareAtPrice}
-        isOnSale={isOnSale}
-        layout={isCompact ? "stacked" : "inline"}
-        className={cn(
-          isCompact ? "text-base font-medium text-zinc-800" : "text-2xl font-semibold tabular-nums text-zinc-900",
-          className,
-        )}
-        compareClassName={isCompact ? "text-xs" : "text-sm"}
-      />
+      <div className={className}>
+        <ProductPrice
+          price={price}
+          compareAtPrice={compareAtPrice}
+          isOnSale={isOnSale}
+          layout={isCompact ? "stacked" : "inline"}
+          className={cn(
+            isCompact ? "text-base font-medium text-zinc-800" : "text-2xl font-semibold tabular-nums text-zinc-900",
+          )}
+          compareClassName={isCompact ? "text-xs" : "text-sm"}
+        />
+      </div>
     );
   }
 
