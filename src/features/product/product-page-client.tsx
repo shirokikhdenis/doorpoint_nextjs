@@ -223,7 +223,7 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
                 className="w-full"
               />
             </div>
-            <div className="flex items-start gap-2.5 rounded-lg bg-zinc-50 px-3 py-2">
+            <div className="flex items-start gap-2.5 rounded-lg bg-zinc-50 px-3 py-2 sm:items-center">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 viewBox="0 0 24 24"
@@ -232,14 +232,14 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
                 strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className="mt-0.5 h-4 w-4 shrink-0 text-brand"
+                className="mt-0.5 h-4 w-4 shrink-0 text-brand sm:mt-0"
                 aria-hidden="true"
               >
                 <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
               </svg>
-              <p className="text-sm text-zinc-600">
-                Есть вопросы? Позвоните нам{" "}
-                <TrackedPhoneLink className="text-base font-semibold text-brand hover:underline sm:text-sm">
+              <p className="min-w-0 text-sm text-zinc-600">
+                <span className="block sm:inline">Есть вопросы? Позвоните нам</span>{" "}
+                <TrackedPhoneLink className="inline-block whitespace-nowrap font-semibold text-brand hover:underline sm:inline">
                   {SITE_PHONE_DISPLAY}
                 </TrackedPhoneLink>
               </p>
