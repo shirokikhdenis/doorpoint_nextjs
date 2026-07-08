@@ -17,7 +17,19 @@ import {
 import { Button } from "@/components/ui/button";
 import { uploadAdminStorefrontImage } from "@/features/admin/admin-image-upload";
 import { parseCsv, type CsvRow } from "@/lib/client/csv-parse";
+import { DoorFinishesHardwareTab } from "@/app/admin/door-finishes/door-finishes-hardware-tab";
+import { DoorFinishesGlassTab } from "@/app/admin/door-finishes/door-finishes-glass-tab";
+import { DoorFinishesModulesTab } from "@/app/admin/door-finishes/door-finishes-modules-tab";
 import { formatPrice } from "@/lib/client/format";
+
+type DoorOptionsTab = "finishes" | "hardware" | "glass" | "modules";
+
+const DOOR_OPTIONS_TABS: Array<{ id: DoorOptionsTab; label: string }> = [
+  { id: "finishes", label: "Покрытия" },
+  { id: "hardware", label: "Врезка" },
+  { id: "glass", label: "Стекло" },
+  { id: "modules", label: "Модули" },
+];
 
 type DoorFinishRow = {
   id: number;
@@ -115,15 +127,44 @@ export default function AdminDoorFinishesPage() {
   return (
     <Suspense
       fallback={
-        <AdminPage title="Покрытия дверей">
+        <AdminPage title="Опции дверей">
           <AdminCard className="p-6">
             <p className="text-sm text-zinc-500">Загрузка…</p>
           </AdminCard>
         </AdminPage>
       }
     >
-      <AdminDoorFinishesContent />
+      <AdminDoorOptionsShell />
     </Suspense>
+  );
+}
+
+function AdminDoorOptionsShell() {
+  const [tab, setTab] = useState<DoorOptionsTab>("finishes");
+
+  return (
+    <AdminPage
+      title="Опции дверей"
+      description="Покрытия, врезка фурнитуры, стекло и модули для карточек межкомнатных дверей."
+    >
+      <div className="mb-4 flex flex-wrap gap-2">
+        {DOOR_OPTIONS_TABS.map((entry) => (
+          <Button
+            key={entry.id}
+            type="button"
+            size="sm"
+            variant={tab === entry.id ? "default" : "outline"}
+            onClick={() => setTab(entry.id)}
+          >
+            {entry.label}
+          </Button>
+        ))}
+      </div>
+      {tab === "finishes" ? <AdminDoorFinishesContent /> : null}
+      {tab === "hardware" ? <DoorFinishesHardwareTab /> : null}
+      {tab === "glass" ? <DoorFinishesGlassTab /> : null}
+      {tab === "modules" ? <DoorFinishesModulesTab /> : null}
+    </AdminPage>
   );
 }
 
@@ -527,10 +568,7 @@ function AdminDoorFinishesContent() {
   );
 
   return (
-    <AdminPage
-      title="Покрытия дверей"
-      description="Каталог покрытий для карточек межкомнатных дверей (сейчас — производители с конфигуратором на витрине)."
-    >
+    <>
       {notice ? <AdminNotice variant="success">{notice}</AdminNotice> : null}
       {error ? <AdminNotice variant="error">{error}</AdminNotice> : null}
 
@@ -1000,6 +1038,6 @@ function AdminDoorFinishesContent() {
           </code>
         </p>
       </AdminCard>
-    </AdminPage>
+    </>
   );
 }

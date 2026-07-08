@@ -1,15 +1,25 @@
 import type { Metadata } from "next";
 import { HomeCategoryTiles } from "@/features/home/home-category-tiles";
+import { HomeFactoryLogos } from "@/features/home/home-factory-logos";
+import { HomeHero } from "@/features/home/home-hero";
+import { HomePortfolioTeaser } from "@/features/home/home-portfolio-teaser";
 import { HomeProductHits } from "@/features/home/home-product-hits";
 import { HomePromotions } from "@/features/home/home-promotions";
+import { HomeTestimonials } from "@/features/home/home-testimonials";
 import { LocalBusinessJsonLd } from "@/features/store/local-business-json-ld";
 import { MeasureLeadForm } from "@/features/store/measure-lead-form";
-import { normalizeProductsResponse, normalizePromotionBanners, normalizeHomeProductSections } from "@/lib/client/normalizers";
+import { storefrontPageContainerClass } from "@/features/store/storefront-ui";
+import {
+  normalizeHomeProductSections,
+  normalizePromotionBanners,
+  normalizeProductsResponse,
+} from "@/lib/client/normalizers";
 import { CATALOG_PAGE_SLUG } from "@/lib/catalog-page-slugs";
 import { catalogPagePath } from "@/lib/catalog-url";
 import { getCachedActivePromotions, getCachedHomePageData } from "@/lib/server/cache/storefront-cache";
 import { SEO_COPY } from "@/lib/seo-copy";
 import { absoluteUrl, defaultOpenGraph } from "@/lib/site-seo";
+import { cn } from "@/lib/utils";
 
 export const revalidate = 120;
 
@@ -27,32 +37,52 @@ export const metadata: Metadata = {
   },
 };
 
+type HomePageData = {
+  interiorHits: unknown[];
+  entryHits: unknown[];
+  interiorCoverImage: string;
+  entryCoverImage: string;
+  customSections?: unknown[];
+  portfolioPreview?: Array<{ id: number; title: string; coverImage: string }>;
+  factoryLogos?: Array<{ name: string; logoImage: string | null; href: string }>;
+  testimonials?: Array<{
+    id: number;
+    authorName: string;
+    body: string;
+    rating: number | null;
+  }>;
+};
+
 export default async function HomePage() {
   const [data, promotionRows] = await Promise.all([
     getCachedHomePageData(),
     getCachedActivePromotions(),
   ]);
-  const homeData = data as {
-    interiorHits: unknown[];
-    entryHits: unknown[];
-    interiorCoverImage: string;
-    entryCoverImage: string;
-    customSections?: unknown[];
-  };
+  const homeData = data as HomePageData;
   const interiorHits = normalizeProductsResponse({ items: homeData.interiorHits });
   const entryHits = normalizeProductsResponse({ items: homeData.entryHits });
   const customSections = normalizeHomeProductSections(homeData.customSections);
   const promotionBanners = normalizePromotionBanners(promotionRows);
+  const portfolioPreview = homeData.portfolioPreview ?? [];
+  const factoryLogos = homeData.factoryLogos ?? [];
+  const testimonials = (homeData.testimonials ?? []).map((item) => ({
+    id: item.id,
+    authorName: item.authorName,
+    body: item.body,
+    rating: item.rating,
+  }));
 
   return (
     <>
       <LocalBusinessJsonLd />
-      <main className="mx-auto w-full max-w-[1536px] space-y-12 px-4 py-6 sm:px-6 lg:space-y-16 lg:px-8 lg:py-8">
+      <main className={cn(storefrontPageContainerClass, "space-y-12 py-6 lg:space-y-16 lg:py-8")}>
+        <HomeHero />
         <HomePromotions banners={promotionBanners} />
         <HomeCategoryTiles
           interiorCoverImage={homeData.interiorCoverImage}
           entryCoverImage={homeData.entryCoverImage}
         />
+        <HomeFactoryLogos items={factoryLogos} />
         <HomeProductHits
           title="Межкомнатные хиты продаж"
           catalogPage={CATALOG_PAGE_SLUG.interiorDoors}
@@ -64,8 +94,9 @@ export default async function HomePage() {
           catalogPage={CATALOG_PAGE_SLUG.entryDoors}
           catalogHref={catalogPagePath(CATALOG_PAGE_SLUG.entryDoors)}
           products={entryHits}
+          variant="muted"
         />
-        {customSections.map((section) => (
+        {customSections.map((section, index) => (
           <HomeProductHits
             key={section.id}
             title={section.title}
@@ -74,10 +105,13 @@ export default async function HomePage() {
             products={section.products}
             sectionId={section.id}
             loadMoreCount={section.productLimit}
+            variant={index % 2 === 0 ? "default" : "muted"}
           />
         ))}
+        <HomePortfolioTeaser items={portfolioPreview} />
+        <HomeTestimonials items={testimonials} />
+        <MeasureLeadForm embedded />
       </main>
-      <MeasureLeadForm />
     </>
   );
 }

@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { ProductAccessoriesTable } from "@/features/product/product-accessories-table";
 import { ProductAddToCart } from "@/features/product/product-add-to-cart";
 import { ProductFinishSelector } from "@/features/product/product-finish-selector";
+import { ProductGlassUpgradeSelector } from "@/features/product/product-glass-upgrade-selector";
+import { ProductHardwareServicesSelector } from "@/features/product/product-hardware-services-selector";
 import { getFinishPickerPlacement } from "@/lib/door-finish-picker-templates.js";
 import { ProductGallery } from "@/features/product/product-gallery";
 import { ProductRelatedCollectionDoors } from "@/features/product/product-related-collection-doors";
@@ -59,7 +61,9 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
     product.variants,
   );
   const finishDelta = page.selectedFinish?.priceDelta ?? 0;
-  const price = basePrice + finishDelta;
+  const glassDelta = page.selectedGlassOption?.priceDelta ?? 0;
+  const hardwareDelta = page.selectedHardwareServices.reduce((sum, item) => sum + item.price, 0);
+  const price = basePrice + finishDelta + glassDelta + hardwareDelta;
   const kitPrice = computeInteriorKitPrice(price, product.kitPricing);
   const relatedFittings = product.relatedFittings ?? { items: [] };
   const cartName = page.selectedVariant
@@ -177,8 +181,22 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
               onSelectAxisValue={page.selectAxisValue}
               onVariantSkuChange={page.setVariantSku}
             />
+            {page.glassItems.length > 0 ? (
+              <ProductGlassUpgradeSelector
+                items={page.glassItems}
+                selectedGlassOption={page.selectedGlassOption}
+                onSelectGlassOption={page.setSelectedGlassOption}
+              />
+            ) : null}
             {finishPickerProps && finishPickerPlacement === "sidebar" ? (
               <ProductFinishSelector placement="sidebar" {...finishPickerProps} />
+            ) : null}
+            {product.hardwareServiceOptions?.items.length ? (
+              <ProductHardwareServicesSelector
+                items={product.hardwareServiceOptions.items}
+                selectedServiceIds={page.selectedHardwareServiceIds}
+                onToggleService={page.toggleHardwareService}
+              />
             ) : null}
             <ProductAddToCart
               productId={product.id}
@@ -189,6 +207,13 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
               sku={cartSku}
               finishId={page.selectedFinish?.id}
               finishName={page.selectedFinish?.name}
+              glassOptionId={page.selectedGlassOption?.id}
+              glassOptionName={page.selectedGlassOption?.name}
+              hardwareServices={page.selectedHardwareServices.map((item) => ({
+                id: item.id,
+                name: item.name,
+                price: item.price,
+              }))}
               requiresFinish={page.requiresFinish}
             />
             <div className="space-y-2">

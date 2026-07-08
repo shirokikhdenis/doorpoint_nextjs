@@ -16,6 +16,9 @@ type ProductAddToCartProps = {
   sku?: string;
   finishId?: number;
   finishName?: string;
+  glassOptionId?: number;
+  glassOptionName?: string;
+  hardwareServices?: Array<{ id: number; name: string; price: number }>;
   requiresFinish?: boolean;
   className?: string;
 };
@@ -29,6 +32,9 @@ export function ProductAddToCart({
   sku,
   finishId,
   finishName,
+  glassOptionId,
+  glassOptionName,
+  hardwareServices = [],
   requiresFinish = false,
   className,
 }: ProductAddToCartProps) {
@@ -39,9 +45,14 @@ export function ProductAddToCart({
       name: cartName,
       color: cartColorLabel.trim(),
       finishId,
+      glassOptionId,
+      hardwareServiceKey: hardwareServices
+        .map((service) => service.id)
+        .sort((a, b) => a - b)
+        .join(","),
       hideCartImage: false,
     }),
-    [productId, cartName, cartColorLabel, finishId],
+    [productId, cartName, cartColorLabel, finishId, glassOptionId, hardwareServices],
   );
   const existing = findCartLine(items, lineRef);
   const quantity = existing?.quantity ?? 1;
@@ -58,6 +69,10 @@ export function ProductAddToCart({
       ...(sku ? { sku } : {}),
       ...(cartColorLabel.trim() ? { color: cartColorLabel.trim() } : {}),
       ...(finishId ? { finishId, finishName: finishName?.trim() || "" } : {}),
+      ...(glassOptionId
+        ? { glassOptionId, glassOptionName: glassOptionName?.trim() || "" }
+        : {}),
+      ...(hardwareServices.length > 0 ? { hardwareServices } : {}),
     });
   };
 

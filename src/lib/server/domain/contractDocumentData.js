@@ -68,7 +68,13 @@ const buildContractData = (lead) => {
 
       return {
         index: index + 1,
-        name: formatCartItemName(item?.name, item?.color, item?.finishName),
+        name: formatCartItemName(
+          item?.name,
+          item?.color,
+          item?.finishName,
+          item?.glassOptionName,
+          item?.hardwareServices,
+        ),
         sku: String(item?.sku || "").trim() || "—",
         color: String(item?.color || "").trim() || "—",
         quantity,

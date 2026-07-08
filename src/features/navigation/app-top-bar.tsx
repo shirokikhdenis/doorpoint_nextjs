@@ -2,7 +2,10 @@ import Link from "next/link";
 import { StorefrontImage } from "@/features/store/storefront-image";
 import { SiteSocialLinks } from "@/features/store/site-social-links";
 import { TrackedPhoneLink } from "@/features/store/tracked-phone-link";
-import { storefrontHeaderTripleGridClass } from "@/features/store/storefront-ui";
+import {
+  storefrontHeaderContainerClass,
+  storefrontHeaderTripleGridClass,
+} from "@/features/store/storefront-ui";
 import {
   SITE_ADDRESS_SHORT,
   SITE_EMAIL,
@@ -15,7 +18,7 @@ const contactLinkClass =
 export function AppTopBar() {
   return (
     <div className="bg-white print:hidden">
-      <div className="mx-auto w-full max-w-[1920px] px-4 py-3 sm:px-6 lg:px-8 lg:py-4">
+      <div className={`${storefrontHeaderContainerClass} py-3 lg:py-4`}>
         <div
           className={`grid items-center gap-4 lg:gap-8 lg:grid ${storefrontHeaderTripleGridClass}`}
         >

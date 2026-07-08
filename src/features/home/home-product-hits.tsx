@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { CATALOG_CARD_IMAGE_HEIGHT } from "@/features/catalog/catalog-constants";
+import { cn } from "@/lib/utils";
 import {
   buildCatalogCartItem,
   CatalogProductCard,
@@ -17,6 +19,7 @@ type HomeProductHitsProps = {
   products: ProductCard[];
   sectionId?: number;
   loadMoreCount?: number;
+  variant?: "default" | "muted";
 };
 
 function HomeProductSkeleton() {
@@ -36,6 +39,7 @@ export function HomeProductHits({
   products,
   sectionId,
   loadMoreCount = 8,
+  variant = "default",
 }: HomeProductHitsProps) {
   const { addItem } = useCart();
   const [hoveredProductId, setHoveredProductId] = useState<number | null>(null);
@@ -80,18 +84,22 @@ export function HomeProductHits({
   };
 
   return (
-    <section aria-labelledby={`hits-${title}`} className="space-y-5">
+    <section
+      aria-labelledby={`hits-${title}`}
+      className={cn(
+        "space-y-5",
+        variant === "muted" && "rounded-xl bg-zinc-50/80 p-4 sm:p-6",
+      )}
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 id={`hits-${title}`} className="text-2xl font-bold text-zinc-900 sm:text-3xl">
           {title}
         </h2>
-        <Link
-          href={catalogHref}
-          prefetch={false}
-          className="inline-flex shrink-0 items-center gap-2 rounded-md border border-brand/35 bg-white px-5 py-2.5 text-base font-semibold text-brand shadow-sm transition hover:border-brand hover:bg-brand/5 hover:shadow"
-        >
-          Весь каталог →
-        </Link>
+        <Button variant="outline" size="lg" className="shrink-0 border-brand/35 text-brand hover:bg-brand/5" asChild>
+          <Link href={catalogHref} prefetch={false}>
+            Весь каталог →
+          </Link>
+        </Button>
       </div>
 
       {displayedProducts.length === 0 ? (
@@ -122,14 +130,15 @@ export function HomeProductHits({
           </div>
           {canLoadMore ? (
             <div className="flex justify-center pt-2">
-              <button
+              <Button
                 type="button"
+                variant="ghost"
                 onClick={() => void handleShowOthers()}
                 disabled={loadingMore}
-                className="rounded-full border border-zinc-300 bg-white px-5 py-2 text-sm font-medium text-zinc-800 transition hover:border-zinc-500 hover:bg-zinc-50 disabled:cursor-wait disabled:opacity-60"
+                className="rounded-full"
               >
                 {loadingMore ? "Загрузка…" : "Показать ещё"}
-              </button>
+              </Button>
             </div>
           ) : null}
         </>

@@ -13,6 +13,21 @@ test("isSameCartLine distinguishes color and hideCartImage", () => {
   assert.equal(isSameCartLine(base, { ...base, hideCartImage: true }), false);
 });
 
+test("isSameCartLine distinguishes glass and hardware options", () => {
+  const base = {
+    id: 1,
+    name: "Дверь",
+    color: "Белый",
+    finishId: 10,
+    glassOptionId: 5,
+    hardwareServiceKey: "1,2",
+    hideCartImage: false,
+  };
+  assert.equal(isSameCartLine(base, { ...base }), true);
+  assert.equal(isSameCartLine(base, { ...base, glassOptionId: 6 }), false);
+  assert.equal(isSameCartLine(base, { ...base, hardwareServiceKey: "1" }), false);
+});
+
 test("findCartLine locates matching entry", () => {
   const items = [
     { id: 1, name: "A", image: "", price: 1, quantity: 1, color: "Белый" },

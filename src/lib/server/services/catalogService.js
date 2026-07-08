@@ -4,9 +4,12 @@ const catalogPageRepository = require("../repositories/catalogPageRepository");
 const storefrontSettingsRepository = require("../repositories/storefrontSettingsRepository");
 const catalogPageLabelRepository = require("../repositories/catalogPageLabelRepository");
 const subcategoryRepository = require("../repositories/subcategoryRepository");
-const { loadRelatedCollectionDoors } = require("../domain/collectionRelatedDoors");
+const { loadRelatedCollectionDoors, readProductAttrValue } = require("../domain/collectionRelatedDoors");
 const { loadRelatedSubcategoryDoors } = require("../domain/subcategoryRelatedDoors");
 const { loadFinishOptionsForProduct } = require("../domain/doorFinishes");
+const { loadHardwareServicesForProduct } = require("../domain/doorHardwareServices");
+const { loadGlassOptionsForProduct } = require("../domain/doorGlassOptions");
+const { loadManufacturerModules } = require("../domain/doorManufacturerModules");
 const { attachManufacturerBrand } = require("../domain/productManufacturerBrand");
 const { resolveFinishPickerTemplateId } = require("../domain/doorFinishPickerSettings");
 const doorFinishPickerSettingsRepository = require("../repositories/doorFinishPickerSettingsRepository");
@@ -249,23 +252,37 @@ const attachInteriorDoorExtras = async (product) => {
   if (!product || product.categorySlug !== INTERIOR_DOORS_CATEGORY_SLUG) {
     return product;
   }
-  const [suggestedHandles, relatedCollectionDoors, finishOptionsRaw, pickerSettings] = await Promise.all([
-    pickRandomHandles({ count: 4 }),
-    loadRelatedCollectionDoors({ product, getProducts }),
-    loadFinishOptionsForProduct(product),
-    doorFinishPickerSettingsRepository.getDoorFinishPickerSettings(),
-  ]);
-  const finishOptions = finishOptionsRaw
+  const manufacturer = readProductAttrValue(product, "manufacturer");
+
+  const [suggestedHandles, relatedCollectionDoors, finishOptionsRaw, pickerSettings, moduleSettings, hardwareServiceOptions, glassUpgradeOptions] =
+    await Promise.all([
+      pickRandomHandles({ count: 4 }),
+      loadRelatedCollectionDoors({ product, getProducts }),
+      loadFinishOptionsForProduct(product),
+      doorFinishPickerSettingsRepository.getDoorFinishPickerSettings(),
+      manufacturer ? loadManufacturerModules(manufacturer) : Promise.resolve(null),
+      loadHardwareServicesForProduct(product),
+      loadGlassOptionsForProduct(product),
+    ]);
+
+  const finishPickerEnabled = moduleSettings?.finishPickerEnabled !== false;
+  const finishOptions = finishOptionsRaw && finishPickerEnabled
     ? {
         ...finishOptionsRaw,
         pickerTemplateId: resolveFinishPickerTemplateId(pickerSettings),
       }
     : null;
+
+  const hideGlassVariants = Boolean(glassUpgradeOptions);
+
   return {
     ...product,
     suggestedHandles,
     ...(relatedCollectionDoors ? { relatedCollectionDoors } : {}),
     ...(finishOptions ? { finishOptions } : {}),
+    ...(hardwareServiceOptions ? { hardwareServiceOptions } : {}),
+    ...(glassUpgradeOptions ? { glassUpgradeOptions } : {}),
+    ...(hideGlassVariants ? { glassVariants: [] } : {}),
   };
 };
 

@@ -7,6 +7,8 @@ export const isSameCartLine = (a: CartLineRef, b: CartLineRef) =>
   trimLine(a.name) === trimLine(b.name) &&
   trimLine(a.color) === trimLine(b.color) &&
   Number(a.finishId || 0) === Number(b.finishId || 0) &&
+  Number(a.glassOptionId || 0) === Number(b.glassOptionId || 0) &&
+  trimLine(a.hardwareServiceKey) === trimLine(b.hardwareServiceKey) &&
   Boolean(a.hideCartImage) === Boolean(b.hideCartImage);
 
 export const findCartLine = (items: CartItem[], ref: CartLineRef) =>

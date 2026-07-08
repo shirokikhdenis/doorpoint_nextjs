@@ -6,6 +6,8 @@ export type StorefrontCacheScope =
   | "promotions"
   | "home-sections"
   | "factories"
+  | "testimonials"
+  | "portfolio"
   | "all";
 
 const expireTag = (tag: string) => {
@@ -34,10 +36,22 @@ export async function invalidateStorefrontCache(scope: StorefrontCacheScope = "a
   }
 
   if (scope === "all" || scope === "factories") {
+    expireTag("factories");
+    expireTag("home-hits");
     revalidatePath("/fabriki", "layout");
   }
 
-  if (scope === "all" || scope === "products" || scope === "promotions" || scope === "home-sections") {
+  if (scope === "all" || scope === "testimonials") {
+    expireTag("testimonials");
+    expireTag("home-hits");
+  }
+
+  if (scope === "all" || scope === "portfolio") {
+    expireTag("portfolio");
+    expireTag("home-hits");
+  }
+
+  if (scope === "all" || scope === "products" || scope === "promotions" || scope === "home-sections" || scope === "testimonials" || scope === "portfolio") {
     revalidatePath("/");
   }
 

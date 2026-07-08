@@ -2,6 +2,7 @@ import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
 const portfolioService = require("@/lib/server/services/portfolioService");
+const { invalidateStorefrontCache } = require("@/lib/server/cache/invalidate-storefront");
 const { withErrorHandling, json, empty } = require("@/lib/server/http/handlers");
 const { requestHasAdminSession } = require("@/lib/server/auth/adminAuth");
 
@@ -15,5 +16,6 @@ export const DELETE = (request, context) =>
 
     const params = await context.params;
     const result = await portfolioService.deleteImage(Number(params.imageId));
+    if (result) await invalidateStorefrontCache("portfolio");
     return result ? empty(204) : json({ message: "Фото не найдено" }, 404);
   });

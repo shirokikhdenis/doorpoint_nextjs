@@ -4,9 +4,14 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { CatalogHeaderSearch } from "@/features/catalog/catalog-header-search";
+import { HomeCatalogSearch } from "@/features/navigation/home-catalog-search";
 import { CartNavLink } from "@/features/navigation/cart-nav-link";
 import { isCatalogPathname } from "@/lib/catalog-page-paths";
-import { siteNavLinkClass, storefrontHeaderTripleGridClass } from "@/features/store/storefront-ui";
+import {
+  siteNavLinkClass,
+  storefrontHeaderContainerClass,
+  storefrontHeaderTripleGridClass,
+} from "@/features/store/storefront-ui";
 
 const links = [
   { href: "/", label: "Главная" },
@@ -52,6 +57,7 @@ export function AppNav() {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const showCatalogSearch = isCatalogPathname(pathname);
+  const showHomeSearch = pathname === "/";
 
   useEffect(() => {
     setIsMobileMenuOpen(false);
@@ -64,6 +70,9 @@ export function AppNav() {
 
   const headerActions = (
     <div className="flex min-w-0 items-center justify-end gap-2 sm:gap-3">
+      {showHomeSearch ? (
+        <HomeCatalogSearch className="min-w-0 flex-1 sm:flex-none sm:w-44 md:w-56" />
+      ) : null}
       {showCatalogSearch ? (
         <CatalogHeaderSearch className="min-w-0 flex-1 sm:flex-none sm:w-44 md:w-56" />
       ) : null}
@@ -74,7 +83,7 @@ export function AppNav() {
   return (
     <header className="sticky top-0 z-40 border-b border-zinc-200 bg-white/95 backdrop-blur print:hidden">
       <nav
-        className="mx-auto w-full max-w-[1920px] px-4 py-2 sm:px-6 lg:px-8"
+        className={`${storefrontHeaderContainerClass} py-2`}
         aria-label="Основная навигация"
       >
         <div className="flex items-center justify-between gap-2 md:hidden">
@@ -126,7 +135,7 @@ export function AppNav() {
 
       {isMobileMenuOpen ? (
         <div id="mobile-primary-nav" className="border-t border-zinc-200 bg-white md:hidden">
-          <div className="mx-auto flex w-full max-w-[1920px] flex-col px-4 py-2 sm:px-6 lg:px-8">
+          <div className={`${storefrontHeaderContainerClass} flex flex-col py-2`}>
             {links.map((link) => (
               <NavItem
                 key={link.href}

@@ -50,6 +50,8 @@ export function CartLeadForm({ items, totalPrice, onSubmitted }: CartLeadFormPro
             sku: item.sku,
             color: item.color,
             finishName: item.finishName,
+            glassOptionName: item.glassOptionName,
+            hardwareServices: item.hardwareServices,
             price: item.price,
             quantity: item.quantity,
           })),

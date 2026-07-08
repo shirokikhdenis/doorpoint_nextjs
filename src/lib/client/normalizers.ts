@@ -151,6 +151,25 @@ export type DoorFinishOptions = {
   groups: DoorFinishGroup[];
   pickerTemplateId?: string | null;
 };
+export type DoorHardwareServiceItem = {
+  id: number;
+  code: string;
+  name: string;
+  price: number;
+};
+export type DoorHardwareServiceOptions = {
+  manufacturerName: string;
+  items: DoorHardwareServiceItem[];
+};
+export type DoorGlassUpgradeItem = {
+  id: number;
+  name: string;
+  priceDelta: number;
+};
+export type DoorGlassUpgradeOptions = {
+  parentSku: string;
+  bySku: Record<string, DoorGlassUpgradeItem[]>;
+};
 export type KitPart = {
   id: number;
   sku: string;
@@ -188,6 +207,8 @@ export type ProductData = {
   relatedCollectionDoors?: RelatedCollectionDoors;
   relatedSubcategoryDoors?: RelatedCollectionDoors;
   finishOptions?: DoorFinishOptions;
+  hardwareServiceOptions?: DoorHardwareServiceOptions;
+  glassUpgradeOptions?: DoorGlassUpgradeOptions;
   manufacturerName?: string;
   manufacturerLogo?: string;
   manufacturerId?: string | null;
@@ -427,6 +448,50 @@ const normalizeFinishOptions = (value: unknown): DoorFinishOptions | undefined =
   return { manufacturerName, groups, pickerTemplateId };
 };
 
+const normalizeHardwareServiceOptions = (
+  value: unknown,
+): DoorHardwareServiceOptions | undefined => {
+  if (!value || typeof value !== "object") return undefined;
+  const source = value as Record<string, unknown>;
+  const manufacturerName = String(source.manufacturerName || "").trim();
+  if (!manufacturerName) return undefined;
+  const items = asArray<Record<string, unknown>>(source.items)
+    .map((item) => ({
+      id: Number(item.id) || 0,
+      code: String(item.code || "").trim(),
+      name: String(item.name || "").trim(),
+      price: Number(item.price) || 0,
+    }))
+    .filter((item) => item.id > 0 && item.name);
+  if (items.length === 0) return undefined;
+  return { manufacturerName, items };
+};
+
+const normalizeGlassUpgradeOptions = (value: unknown): DoorGlassUpgradeOptions | undefined => {
+  if (!value || typeof value !== "object") return undefined;
+  const source = value as Record<string, unknown>;
+  const parentSku = String(source.parentSku || "").trim();
+  const bySkuRaw =
+    source.bySku && typeof source.bySku === "object"
+      ? (source.bySku as Record<string, unknown>)
+      : {};
+  const bySku: Record<string, DoorGlassUpgradeItem[]> = {};
+  for (const [sku, entries] of Object.entries(bySkuRaw)) {
+    const key = String(sku || "").trim();
+    if (!key) continue;
+    const items = asArray<Record<string, unknown>>(entries)
+      .map((item) => ({
+        id: Number(item.id) || 0,
+        name: String(item.name || "").trim(),
+        priceDelta: Number(item.priceDelta) || 0,
+      }))
+      .filter((item) => item.id > 0 && item.name);
+    if (items.length > 0) bySku[key] = items;
+  }
+  if (!parentSku || Object.keys(bySku).length === 0) return undefined;
+  return { parentSku, bySku };
+};
+
 const normalizeKitPart = (value: unknown): KitPart | null => {
   if (!value || typeof value !== "object") return null;
   const source = value as Record<string, unknown>;
@@ -513,6 +578,8 @@ export const normalizeProductData = (value: unknown): ProductData => {
     relatedCollectionDoors: normalizeRelatedCollectionDoors(source.relatedCollectionDoors),
     relatedSubcategoryDoors: normalizeRelatedCollectionDoors(source.relatedSubcategoryDoors),
     finishOptions: normalizeFinishOptions(source.finishOptions),
+    hardwareServiceOptions: normalizeHardwareServiceOptions(source.hardwareServiceOptions),
+    glassUpgradeOptions: normalizeGlassUpgradeOptions(source.glassUpgradeOptions),
     manufacturerName: source.manufacturerName ? String(source.manufacturerName) : undefined,
     manufacturerLogo: source.manufacturerLogo
       ? toPublicImageSrc(String(source.manufacturerLogo))

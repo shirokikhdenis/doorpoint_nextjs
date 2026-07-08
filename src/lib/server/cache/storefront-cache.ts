@@ -76,7 +76,10 @@ const getCachedFilterMetaInner = unstable_cache(
 const getCachedHomePageDataInner = unstable_cache(
   fetchHomePageData,
   ["storefront", "home-hits"],
-  { tags: ["home-hits", "home-sections", "catalog-products"], revalidate: 120 },
+  {
+    tags: ["home-hits", "home-sections", "catalog-products", "portfolio", "factories", "testimonials"],
+    revalidate: 120,
+  },
 );
 
 const getCachedActivePromotionsInner = unstable_cache(

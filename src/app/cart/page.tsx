@@ -44,13 +44,19 @@ function CartLineQuantity({
     id: item.id,
     name: item.name,
     color: item.color ?? "",
+    finishId: item.finishId,
+    glassOptionId: item.glassOptionId,
+    hardwareServiceKey: (item.hardwareServices || [])
+      .map((service) => service.id)
+      .sort((a, b) => a - b)
+      .join(","),
     hideCartImage: item.hideCartImage === true,
   };
   const [text, setText] = useState(() => String(item.quantity));
 
   useEffect(() => {
     setText(String(item.quantity));
-  }, [item.quantity, item.id, item.name, item.color, item.hideCartImage]);
+  }, [item.quantity, item.id, item.name, item.color, item.finishId, item.glassOptionId, item.hardwareServices, item.hideCartImage]);
 
   const applyQuantity = (next: number) => {
     const clamped = Math.min(CART_QTY_MAX, Math.max(0, Math.floor(next)));
@@ -262,11 +268,23 @@ export default function CartPage() {
                       href={productHref(item)}
                       className="font-medium leading-snug text-zinc-900 underline-offset-2 hover:text-brand hover:underline"
                     >
-                      {formatCartItemName(item.name, item.color, item.finishName)}
+                      {formatCartItemName(
+                        item.name,
+                        item.color,
+                        item.finishName,
+                        item.glassOptionName,
+                        item.hardwareServices,
+                      )}
                     </Link>
                   ) : (
                     <p className="font-medium leading-snug text-zinc-900">
-                      {formatCartItemName(item.name, item.color, item.finishName)}
+                      {formatCartItemName(
+                        item.name,
+                        item.color,
+                        item.finishName,
+                        item.glassOptionName,
+                        item.hardwareServices,
+                      )}
                     </p>
                   )}
                 </td>

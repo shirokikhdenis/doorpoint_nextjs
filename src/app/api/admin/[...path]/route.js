@@ -9,6 +9,9 @@ const homeProductSectionService = require("@/lib/server/services/homeProductSect
 const leadService = require("@/lib/server/services/leadService");
 const factoryStorefrontService = require("@/lib/server/services/factoryStorefrontService");
 const doorFinishAdminService = require("@/lib/server/services/doorFinishAdminService");
+const doorHardwareAdminService = require("@/lib/server/services/doorHardwareAdminService");
+const doorGlassAdminService = require("@/lib/server/services/doorGlassAdminService");
+const doorManufacturerModulesAdminService = require("@/lib/server/services/doorManufacturerModulesAdminService");
 const vkExportService = require("@/lib/server/services/vkExportService");
 const vkSyncAdminService = require("@/lib/server/services/vkSyncAdminService");
 const prometStockService = require("@/lib/server/services/prometStockService");
@@ -406,6 +409,73 @@ const handle = async (request, context) =>
       const result = await doorFinishAdminService.deleteAdminDoorFinish(Number(path[1]));
       if (!result.ok) return json({ message: result.message }, result.status || 404);
       return empty(204);
+    }
+
+    if (match(path, method, "GET", "door-hardware-services")) {
+      const result = await doorHardwareAdminService.listAdminDoorHardwareServices(query);
+      return json(result);
+    }
+    if (match(path, method, "POST", "door-hardware-services")) {
+      const result = await doorHardwareAdminService.createAdminDoorHardwareService(body);
+      if (!result.ok) return json({ message: result.message }, result.status || 400);
+      await invalidateStorefrontCache("products");
+      return json(result.service, 201);
+    }
+    if (path[0] === "door-hardware-services" && path.length === 2 && method === "PUT") {
+      const result = await doorHardwareAdminService.updateAdminDoorHardwareService(Number(path[1]), body);
+      if (!result.ok) return json({ message: result.message }, result.status || 400);
+      await invalidateStorefrontCache("products");
+      return json(result.service);
+    }
+    if (path[0] === "door-hardware-services" && path.length === 2 && method === "DELETE") {
+      const result = await doorHardwareAdminService.deleteAdminDoorHardwareService(Number(path[1]));
+      if (!result.ok) return json({ message: result.message }, result.status || 404);
+      await invalidateStorefrontCache("products");
+      return empty(204);
+    }
+
+    if (match(path, method, "GET", "door-glass-options")) {
+      const result = await doorGlassAdminService.listAdminDoorGlassOptions(query);
+      return json(result);
+    }
+    if (match(path, method, "POST", "door-glass-options", "import")) {
+      const result = await doorGlassAdminService.importDoorGlassOptionsFromRows(body?.rows, {
+        defaultManufacturer: body?.defaultManufacturer || query.manufacturer || "",
+      });
+      if (!result.ok && result.status) {
+        return json({ message: result.message }, result.status);
+      }
+      await invalidateStorefrontCache("products");
+      return json(result);
+    }
+    if (match(path, method, "POST", "door-glass-options")) {
+      const result = await doorGlassAdminService.createAdminDoorGlassOption(body);
+      if (!result.ok) return json({ message: result.message }, result.status || 400);
+      await invalidateStorefrontCache("products");
+      return json(result.option, 201);
+    }
+    if (path[0] === "door-glass-options" && path.length === 2 && method === "PUT") {
+      const result = await doorGlassAdminService.updateAdminDoorGlassOption(Number(path[1]), body);
+      if (!result.ok) return json({ message: result.message }, result.status || 400);
+      await invalidateStorefrontCache("products");
+      return json(result.option);
+    }
+    if (path[0] === "door-glass-options" && path.length === 2 && method === "DELETE") {
+      const result = await doorGlassAdminService.deleteAdminDoorGlassOption(Number(path[1]));
+      if (!result.ok) return json({ message: result.message }, result.status || 404);
+      await invalidateStorefrontCache("products");
+      return empty(204);
+    }
+
+    if (match(path, method, "GET", "door-manufacturer-modules")) {
+      const result = await doorManufacturerModulesAdminService.listAdminDoorManufacturerModules(query);
+      return json(result);
+    }
+    if (match(path, method, "PATCH", "door-manufacturer-modules")) {
+      const result = await doorManufacturerModulesAdminService.updateAdminDoorManufacturerModules(body);
+      if (!result.ok) return json({ message: result.message }, result.status || 400);
+      await invalidateStorefrontCache("products");
+      return json(result);
     }
 
     return json({ message: "Not found" }, 404);

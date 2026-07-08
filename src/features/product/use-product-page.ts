@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { productHref } from "@/lib/client/product-url";
 import { serializeVariantAxes } from "@/features/product/product-utils";
 import { ProductData, Variant, normalizeProductData } from "@/lib/client/normalizers";
-import type { DoorFinishItem } from "@/lib/client/normalizers";
+import type { DoorFinishItem, DoorGlassUpgradeItem } from "@/lib/client/normalizers";
 
 const seedProductCache = (
   cache: Map<string, ProductData>,
@@ -34,6 +34,8 @@ export function useProductPage(
   const [isManualImageSelection, setIsManualImageSelection] = useState(false);
   const [imageLightboxOpen, setImageLightboxOpen] = useState(false);
   const [selectedFinish, setSelectedFinish] = useState<DoorFinishItem | null>(null);
+  const [selectedGlassOption, setSelectedGlassOption] = useState<DoorGlassUpgradeItem | null>(null);
+  const [selectedHardwareServiceIds, setSelectedHardwareServiceIds] = useState<number[]>([]);
 
   const cacheRef = useRef<Map<string, ProductData>>(new Map());
   const cacheSeededRef = useRef(false);
@@ -79,6 +81,8 @@ export function useProductPage(
     setProduct(data);
     setVariantSku(nextSku);
     setSelectedFinish(null);
+    setSelectedGlassOption(null);
+    setSelectedHardwareServiceIds([]);
     setLoading(false);
     setError("");
   }, []);
@@ -192,6 +196,29 @@ export function useProductPage(
 
   const selectedNumericId = product?.id ?? 0;
 
+  const activeSku = useMemo(
+    () => selectedVariant?.sku?.trim() || product?.sku?.trim() || "",
+    [selectedVariant?.sku, product?.sku],
+  );
+
+  const glassItems = useMemo(
+    () => (activeSku ? product?.glassUpgradeOptions?.bySku[activeSku] ?? [] : []),
+    [activeSku, product?.glassUpgradeOptions],
+  );
+
+  const toggleHardwareService = useCallback((serviceId: number) => {
+    setSelectedHardwareServiceIds((current) =>
+      current.includes(serviceId)
+        ? current.filter((id) => id !== serviceId)
+        : [...current, serviceId],
+    );
+  }, []);
+
+  const selectedHardwareServices = useMemo(() => {
+    const items = product?.hardwareServiceOptions?.items ?? [];
+    return items.filter((item) => selectedHardwareServiceIds.includes(item.id));
+  }, [product?.hardwareServiceOptions?.items, selectedHardwareServiceIds]);
+
   const cartColorLabel = useMemo(() => {
     if (!product) return "";
     const fromChip = product.colorVariants.find((e) => e.id === product.id);
@@ -266,6 +293,12 @@ export function useProductPage(
     selectAxisValue,
     selectedFinish,
     setSelectedFinish,
+    selectedGlassOption,
+    setSelectedGlassOption,
+    glassItems,
+    selectedHardwareServiceIds,
+    toggleHardwareService,
+    selectedHardwareServices,
     requiresFinish:
       Boolean(product?.finishOptions?.groups?.length) &&
       product?.finishOptions?.pickerTemplateId != null,

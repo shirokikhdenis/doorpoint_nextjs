@@ -23,3 +23,13 @@ test("formatCartItemName appends finish suffix", () => {
     "Прима-2 Cream Silk · покрытие: Дуб натуральный",
   );
 });
+
+test("formatCartItemName appends glass and hardware suffixes", () => {
+  assert.equal(
+    formatCartItemName("Прима-2", "", "", "Матовое", [
+      { name: "Скрытые петли" },
+      { name: "Магнитный замок" },
+    ]),
+    "Прима-2 · стекло: Матовое · врезка: Скрытые петли, Магнитный замок",
+  );
+});

@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Button } from "@/components/ui/button";
 import { FinishPickerFinishCard } from "@/features/product/finish-picker-finish-card";
-import { formatFinishPriceDelta } from "@/features/product/finish-picker-utils";
-import { StorefrontImage } from "@/features/store/storefront-image";
+import { ProductDoorOptionSection } from "@/features/product/product-door-option-section";
+import { ProductOptionChip } from "@/features/product/product-option-chip";
 import type { DoorFinishItem, DoorFinishOptions } from "@/lib/client/normalizers";
 import { cn } from "@/lib/utils";
 
@@ -43,35 +42,25 @@ export function FinishPickerModalGridTabs({
 
   return (
     <>
-      <div className="space-y-2">
-        <span className="text-sm text-zinc-600">Покрытие</span>
-        <div className="flex flex-wrap items-center gap-3">
-          <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
-            {selectedFinish ? "Изменить покрытие" : "Выбрать покрытие"}
-          </Button>
-          {selectedFinish ? (
-            <div className="flex min-w-0 items-center gap-2 text-sm text-zinc-800">
-              {selectedFinish.image ? (
-                <span className="relative h-8 w-8 shrink-0 overflow-hidden rounded-md border border-zinc-200">
-                  <StorefrontImage
-                    src={selectedFinish.image}
-                    alt=""
-                    fill
-                    sizes="32px"
-                    className="object-cover"
-                  />
-                </span>
-              ) : null}
-              <span className="min-w-0">
-                <span className="font-medium">{selectedFinish.name}</span>
-                <span className="text-zinc-500"> · {formatFinishPriceDelta(selectedFinish.priceDelta)}</span>
-              </span>
-            </div>
-          ) : (
-            <span className="text-sm text-zinc-500">Выберите покрытие перед добавлением в корзину</span>
-          )}
-        </div>
-      </div>
+      <ProductDoorOptionSection
+        label="Покрытие"
+        hint={selectedFinish ? undefined : "Выберите покрытие перед добавлением в корзину"}
+      >
+        {selectedFinish ? (
+          <ProductOptionChip
+            label={selectedFinish.name}
+            price={selectedFinish.priceDelta > 0 ? selectedFinish.priceDelta : undefined}
+            isSelected
+            onSelect={() => setOpen(true)}
+          />
+        ) : (
+          <ProductOptionChip
+            label="Выбрать покрытие"
+            isSelected={false}
+            onSelect={() => setOpen(true)}
+          />
+        )}
+      </ProductDoorOptionSection>
 
       {open ? (
         <div

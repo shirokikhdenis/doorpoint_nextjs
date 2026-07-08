@@ -34,6 +34,19 @@ const sanitizeItem = (item: Partial<CartItem>): CartItem => {
   if (Number.isInteger(finishId) && finishId > 0) base.finishId = finishId;
   const finishName = String(item.finishName ?? "").trim();
   if (finishName) base.finishName = finishName;
+  const glassOptionId = Number(item.glassOptionId);
+  if (Number.isInteger(glassOptionId) && glassOptionId > 0) base.glassOptionId = glassOptionId;
+  const glassOptionName = String(item.glassOptionName ?? "").trim();
+  if (glassOptionName) base.glassOptionName = glassOptionName;
+  if (Array.isArray(item.hardwareServices) && item.hardwareServices.length > 0) {
+    base.hardwareServices = item.hardwareServices
+      .map((service) => ({
+        id: Number(service.id) || 0,
+        name: String(service.name || "").trim(),
+        price: Number(service.price) || 0,
+      }))
+      .filter((service) => service.id > 0 && service.name);
+  }
   if (item.hideCartImage === true) base.hideCartImage = true;
   if (item.noProductLink === true) base.noProductLink = true;
   return base;
@@ -114,6 +127,13 @@ export const cartStore = {
       if (next.sku && !existing.sku) existing.sku = next.sku;
       if (next.finishId && !existing.finishId) existing.finishId = next.finishId;
       if (next.finishName && !existing.finishName) existing.finishName = next.finishName;
+      if (next.glassOptionId && !existing.glassOptionId) existing.glassOptionId = next.glassOptionId;
+      if (next.glassOptionName && !existing.glassOptionName) {
+        existing.glassOptionName = next.glassOptionName;
+      }
+      if (next.hardwareServices?.length && !existing.hardwareServices?.length) {
+        existing.hardwareServices = next.hardwareServices;
+      }
       if (next.noProductLink && !existing.noProductLink) existing.noProductLink = true;
     } else {
       items.push(next);

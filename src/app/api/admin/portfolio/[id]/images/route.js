@@ -2,6 +2,7 @@ import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
 const portfolioService = require("@/lib/server/services/portfolioService");
+const { invalidateStorefrontCache } = require("@/lib/server/cache/invalidate-storefront");
 const { withErrorHandling, json, readBody } = require("@/lib/server/http/handlers");
 const { requestHasAdminSession } = require("@/lib/server/auth/adminAuth");
 
@@ -19,6 +20,7 @@ export const PATCH = (request, context) =>
       Number(params.id),
       body.imageIds,
     );
+    if (project) await invalidateStorefrontCache("portfolio");
     return project ? json(project) : json({ message: "Проект не найден" }, 404);
   });
 
@@ -50,6 +52,7 @@ export const POST = (request, context) =>
 
     try {
       const project = await portfolioService.saveUploadedFiles(Number(params.id), files);
+      await invalidateStorefrontCache("portfolio");
       return json(project, 201);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Не удалось сохранить файлы";

@@ -1,5 +1,12 @@
 import { cn } from "@/lib/utils";
 
+/** Контейнер основного контента витрины (main, footer, шапка) */
+export const storefrontPageContainerClass =
+  "mx-auto w-full max-w-[1536px] px-4 sm:px-6 lg:px-8";
+
+/** Алиас для шапки — та же ширина, что и у страницы */
+export const storefrontHeaderContainerClass = storefrontPageContainerClass;
+
 /** Трёхколоночная сетка шапки: контакты / логотип / слоган и корзина */
 export const storefrontHeaderTripleGridClass =
   "grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]";

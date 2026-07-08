@@ -11,11 +11,13 @@ type HomeCategoryTilesProps = {
 
 function CategoryTile({
   title,
+  imageAlt,
   href,
   coverImage,
   fallbackClass,
 }: {
   title: string;
+  imageAlt: string;
   href: string;
   coverImage?: string;
   fallbackClass: string;
@@ -31,7 +33,7 @@ function CategoryTile({
       {imageSrc ? (
         <StorefrontImage
           src={imageSrc}
-          alt=""
+          alt={imageAlt}
           fill
           sizes="(max-width: 768px) 100vw, 50vw"
           className="object-contain object-right-bottom p-4 transition duration-300 group-hover:scale-[1.02]"
@@ -56,12 +58,14 @@ export function HomeCategoryTiles({ interiorCoverImage, entryCoverImage }: HomeC
       <div className="grid gap-4 md:grid-cols-2">
         <CategoryTile
           title="Межкомнатные двери"
+          imageAlt="Межкомнатные двери в каталоге"
           href={catalogPagePath(CATALOG_PAGE_SLUG.interiorDoors)}
           coverImage={interiorCoverImage}
           fallbackClass="bg-gradient-to-br from-zinc-50 to-zinc-100"
         />
         <CategoryTile
           title="Входные двери"
+          imageAlt="Входные двери в каталоге"
           href={catalogPagePath(CATALOG_PAGE_SLUG.entryDoors)}
           coverImage={entryCoverImage}
           fallbackClass="bg-gradient-to-br from-zinc-50 to-zinc-100"

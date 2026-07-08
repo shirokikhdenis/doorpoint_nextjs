@@ -1,5 +1,8 @@
 const catalogService = require("./catalogService");
 const homeProductSectionService = require("./homeProductSectionService");
+const portfolioService = require("./portfolioService");
+const homeFactoryLogoService = require("./homeFactoryLogoService");
+const testimonialService = require("./testimonialService");
 
 const shuffle = (items) => {
   const copy = [...items];
@@ -33,11 +36,15 @@ const pickRandomHits = async (catalogPage, { excludeIds = [], count = 8 } = {}) 
 };
 
 const getHomePageData = async () => {
-  const [interiorHits, entryHits, customSections] = await Promise.all([
-    pickTopHits("dveri-mezhkomnatnyye"),
-    pickTopHits("vhodnye-dveri"),
-    homeProductSectionService.listActiveSectionsWithProducts(),
-  ]);
+  const [interiorHits, entryHits, customSections, portfolioItems, factoryLogos, testimonials] =
+    await Promise.all([
+      pickTopHits("dveri-mezhkomnatnyye"),
+      pickTopHits("vhodnye-dveri"),
+      homeProductSectionService.listActiveSectionsWithProducts(),
+      portfolioService.listPublicPortfolio(),
+      homeFactoryLogoService.listPublicForHomepage(),
+      testimonialService.listPublicTestimonials(6),
+    ]);
 
   return {
     interiorHits,
@@ -45,6 +52,9 @@ const getHomePageData = async () => {
     interiorCoverImage: interiorHits.find((item) => item.image)?.image || "",
     entryCoverImage: entryHits.find((item) => item.image)?.image || "",
     customSections,
+    portfolioPreview: portfolioItems.slice(0, 4),
+    factoryLogos,
+    testimonials,
   };
 };
 

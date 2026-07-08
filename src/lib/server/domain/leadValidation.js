@@ -40,6 +40,8 @@ const normalizeLeadItem = (item, index) => {
     String(item?.name || "").trim(),
     String(item?.color || "").trim(),
     String(item?.finishName || "").trim(),
+    String(item?.glassOptionName || "").trim(),
+    item?.hardwareServices,
   );
   if (!name) return { error: `Позиция ${index + 1}: укажите наименование` };
   if (!Number.isFinite(price) || price < 0) {

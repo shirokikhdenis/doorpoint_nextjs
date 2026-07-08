@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { SiteSocialLinks } from "@/features/store/site-social-links";
+import { storefrontPageContainerClass } from "@/features/store/storefront-ui";
 import { TrackedPhoneLink } from "@/features/store/tracked-phone-link";
 import {
   SITE_ADDRESS,
@@ -23,7 +24,7 @@ export function StoreFooter() {
       className="border-t border-zinc-200 bg-zinc-900 text-zinc-100 print:hidden"
       aria-label="Подвал сайта"
     >
-      <div className="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+      <div className={`${storefrontPageContainerClass} py-12`}>
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-3 lg:gap-8">
           <div className="space-y-4">
             <p className="text-sm font-semibold uppercase tracking-wide text-zinc-400">Дверная Точка</p>

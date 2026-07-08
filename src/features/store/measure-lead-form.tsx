@@ -2,14 +2,29 @@
 
 import { FormEvent, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { FormPrivacyConsent } from "@/features/store/form-privacy-consent";
+import { storefrontPageContainerClass } from "@/features/store/storefront-ui";
+import { TrackedPhoneLink } from "@/features/store/tracked-phone-link";
 import { trackYandexGoal, YANDEX_METRIKA_GOALS } from "@/lib/client/yandex-metrika";
+import { cn } from "@/lib/utils";
+import { SITE_PHONE_DISPLAY } from "@/lib/site-contact";
 
-export function MeasureLeadForm() {
+const BENEFITS = [
+  "Выезд замерщика бесплатно",
+  "Точный расчёт стоимости дверей и монтажа",
+  "Подбор моделей под ваши проёмы и бюджет",
+] as const;
+
+type MeasureLeadFormProps = {
+  /** Внутри `<main>` на главной — без полноширинной подложки */
+  embedded?: boolean;
+};
+
+export function MeasureLeadForm({ embedded = false }: MeasureLeadFormProps) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [comment, setComment] = useState("");
@@ -54,19 +69,51 @@ export function MeasureLeadForm() {
   return (
     <section
       id="zamer-form"
-      className="scroll-mt-24 border-b border-zinc-200 bg-zinc-100/80 py-10 print:hidden"
+      className={cn(
+        "scroll-mt-24 print:hidden",
+        embedded
+          ? "rounded-xl bg-zinc-100/80 p-4 sm:p-6"
+          : "border-t border-zinc-200 bg-zinc-100/80 py-10",
+      )}
       aria-labelledby="zamer-form-title"
     >
-      <div className="mx-auto max-w-lg px-4">
-        <Card>
-          <CardHeader>
-            <CardTitle id="zamer-form-title" className="text-xl">
+      <div
+        className={cn(
+          !embedded && storefrontPageContainerClass,
+          "mx-auto grid w-full max-w-6xl gap-8 lg:grid-cols-2 lg:gap-10",
+        )}
+      >
+        <div className="space-y-5">
+          <div className="space-y-3">
+            <h2 id="zamer-form-title" className="text-2xl font-bold text-zinc-900 sm:text-3xl">
               Запишитесь на бесплатный замер
-            </CardTitle>
-            <CardDescription>
+            </h2>
+            <p className="text-base leading-relaxed text-zinc-600">
               Оставьте контакты — перезвоним в удобное время, уточним размеры проёмов и подготовим
               расчёт.
-            </CardDescription>
+            </p>
+          </div>
+          <ul className="space-y-3 text-sm text-zinc-700">
+            {BENEFITS.map((item) => (
+              <li key={item} className="flex items-start gap-2">
+                <span className="mt-0.5 text-brand" aria-hidden>
+                  ✓
+                </span>
+                {item}
+              </li>
+            ))}
+          </ul>
+          <p className="text-sm text-zinc-600">
+            Или позвоните:{" "}
+            <TrackedPhoneLink className="font-semibold text-zinc-900 hover:text-brand hover:underline">
+              {SITE_PHONE_DISPLAY}
+            </TrackedPhoneLink>
+          </p>
+        </div>
+
+        <Card>
+          <CardHeader className="pb-4">
+            <CardTitle className="text-lg">Заявка на замер</CardTitle>
           </CardHeader>
           <CardContent>
             {success ? (
@@ -142,7 +189,12 @@ export function MeasureLeadForm() {
                   onChange={setPrivacyConsent}
                   disabled={loading}
                 />
-                <Button type="submit" className="w-full" disabled={loading || !privacyConsent}>
+                <Button
+                  type="submit"
+                  variant="brand"
+                  className="w-full"
+                  disabled={loading || !privacyConsent}
+                >
                   {loading ? "Отправка…" : "Отправить заявку"}
                 </Button>
               </form>

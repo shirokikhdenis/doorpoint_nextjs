@@ -14,7 +14,10 @@ let catalogPageFilterDefaultsEnsured = false;
 let catalogPageSlugRenamesEnsured = false;
 let factoryStorefrontTablesEnsured = false;
 let doorFinishTablesEnsured = false;
+let doorOptionModuleTablesEnsured = false;
 let homeProductSectionTablesEnsured = false;
+let testimonialTablesEnsured = false;
+let homeFactoryLogoTablesEnsured = false;
 let vkSyncTablesEnsured = false;
 let vkSyncTablesEnsurePromise = null;
 let manufacturerIdAttributeEnsured = false;
@@ -148,6 +151,42 @@ const ensurePortfolioTables = async () => {
     ON portfolio_images(project_id)
   `);
   portfolioTablesEnsured = true;
+};
+
+const ensureTestimonialTables = async () => {
+  if (testimonialTablesEnsured) return;
+  await query(`
+    CREATE TABLE IF NOT EXISTS testimonials (
+      id BIGSERIAL PRIMARY KEY,
+      author_name TEXT NOT NULL,
+      body TEXT NOT NULL,
+      rating SMALLINT CHECK (rating IS NULL OR (rating >= 1 AND rating <= 5)),
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  testimonialTablesEnsured = true;
+};
+
+const ensureHomeFactoryLogoTables = async () => {
+  if (homeFactoryLogoTablesEnsured) return;
+  await query(`
+    CREATE TABLE IF NOT EXISTS home_factory_logos (
+      id BIGSERIAL PRIMARY KEY,
+      manufacturer_name TEXT NOT NULL UNIQUE,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      is_visible BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_home_factory_logos_sort
+    ON home_factory_logos(is_visible, sort_order, id)
+  `);
+  homeFactoryLogoTablesEnsured = true;
 };
 
 const ensureLeadTables = async () => {
@@ -374,6 +413,66 @@ const ensureDoorFinishTables = async () => {
   doorFinishTablesEnsured = true;
 };
 
+const ensureDoorOptionModuleTables = async () => {
+  if (doorOptionModuleTablesEnsured) return;
+  await query(`
+    CREATE TABLE IF NOT EXISTS door_hardware_services (
+      id BIGSERIAL PRIMARY KEY,
+      manufacturer_name TEXT NOT NULL,
+      code TEXT NOT NULL,
+      name TEXT NOT NULL,
+      price INTEGER NOT NULL DEFAULT 0,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(manufacturer_name, code)
+    )
+  `);
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_door_hardware_services_manufacturer_active_sort
+    ON door_hardware_services(manufacturer_name, is_active, sort_order, id)
+  `);
+  await query(`
+    CREATE TABLE IF NOT EXISTS door_glass_options (
+      id BIGSERIAL PRIMARY KEY,
+      manufacturer_name TEXT NOT NULL,
+      parent_sku TEXT NOT NULL,
+      glass_name TEXT NOT NULL,
+      price_delta INTEGER NOT NULL DEFAULT 0,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(manufacturer_name, parent_sku, glass_name)
+    )
+  `);
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_door_glass_options_parent_sku
+    ON door_glass_options(manufacturer_name, parent_sku, is_active, sort_order, id)
+  `);
+  await query(`
+    CREATE TABLE IF NOT EXISTS door_manufacturer_modules (
+      manufacturer_name TEXT PRIMARY KEY,
+      finish_picker_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      hardware_services_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+      glass_options_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await query(`
+    INSERT INTO door_manufacturer_modules(
+      manufacturer_name,
+      finish_picker_enabled,
+      hardware_services_enabled,
+      glass_options_enabled
+    )
+    VALUES ('Аэлита', TRUE, FALSE, FALSE)
+    ON CONFLICT (manufacturer_name) DO NOTHING
+  `);
+  doorOptionModuleTablesEnsured = true;
+};
+
 const ensureHomeProductSectionTables = async () => {
   if (homeProductSectionTablesEnsured) return;
   await query(`
@@ -478,7 +577,10 @@ module.exports = {
   ensureCatalogPageSlugRenames,
   ensureFactoryStorefrontTables,
   ensureDoorFinishTables,
+  ensureDoorOptionModuleTables,
   ensureHomeProductSectionTables,
+  ensureTestimonialTables,
+  ensureHomeFactoryLogoTables,
   ensureVkSyncTables,
   ensureManufacturerIdAttribute,
 };
