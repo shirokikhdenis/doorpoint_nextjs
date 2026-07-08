@@ -567,6 +567,19 @@ html {
   scrollbar-color: rgb(212 212 216) transparent;
 }
 
+/* Squircle только там, где уже задано скругление (Tailwind rounded-*) */
+:where(
+  .rounded-sm,
+  .rounded,
+  .rounded-md,
+  .rounded-lg,
+  .rounded-xl,
+  .rounded-2xl,
+  .rounded-3xl
+) {
+  corner-shape: squircle;
+}
+
 @media print {
   @page {
     margin: 1.2cm;
