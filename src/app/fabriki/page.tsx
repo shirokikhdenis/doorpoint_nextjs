@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { createRequire } from "node:module";
 import { FactorySection, type FactorySectionData } from "@/features/factories/factory-section";
+import { storefrontPageContainerClass } from "@/features/store/storefront-ui";
 import { absoluteUrl, defaultOpenGraph } from "@/lib/site-seo";
+import { cn } from "@/lib/utils";
 
 export const revalidate = 120;
 
@@ -32,7 +34,7 @@ export default async function FactoriesPage() {
   const sections = await factoryService.listPublicFactorySections();
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
+    <main className={cn(storefrontPageContainerClass, "py-6")}>
       <h1 className="text-2xl font-semibold text-zinc-900 sm:text-3xl">{PAGE_TITLE}</h1>
       <p className="mt-2 text-sm text-zinc-600">{PAGE_DESCRIPTION}</p>
 

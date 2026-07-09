@@ -39,6 +39,12 @@ const resolveLinkTarget = (linkTarget) => {
   return FACTORY_LINK_TARGETS.has(value) ? value : "collections";
 };
 
+const normalizeStorefrontCardDescription = (value) => {
+  const text = String(value || "").trim();
+  if (!text || text.toLowerCase() === "описание") return "";
+  return text;
+};
+
 const resolveFactoryCardHref = (section, manufacturerName, linkTarget, buildManufacturerCatalogHref) => {
   if (resolveLinkTarget(linkTarget) === "catalog") {
     return buildManufacturerCatalogHref(manufacturerName, section.catalogPageSlug);
@@ -161,6 +167,7 @@ const listPublicFactorySections = async () => {
           return {
             name,
             badgeLabel: resolveBadgeLabel(setting?.badgeLabel),
+            description: normalizeStorefrontCardDescription(setting?.description),
             productCount: product?.productCount ?? 0,
             logoImage: resolveImageUrl(setting?.logoUrl, null),
             doorImage: resolveImageUrl(setting?.imageUrl, product?.coverImage),
@@ -221,7 +228,7 @@ const getPublicManufacturerCollectionsPage = async (
       if (setting?.isActive === false) return null;
       return {
         name: row.name,
-        description: setting?.description || "описание",
+        description: normalizeStorefrontCardDescription(setting?.description),
         productCount: row.productCount,
         coverImage: resolveImageUrl(setting?.imageUrl, row.coverImage),
         catalogHref: buildCollectionCatalogHref(
@@ -273,6 +280,7 @@ const listAdminFactoryCards = async (sectionId) => {
       return {
         id: setting.id,
         manufacturerName,
+        description: setting.description,
         isActive: setting.isActive,
         imageUrl: setting.imageUrl,
         logoUrl: setting.logoUrl,
@@ -306,6 +314,7 @@ const updateAdminFactoryCard = async (id, payload) => {
     badgeLabel: payload.badgeLabel,
     linkTarget: payload.linkTarget,
     sortOrder: payload.sortOrder,
+    description: payload.description,
   });
   if (!updated) return { ok: false, message: "Не удалось сохранить", status: 400 };
   return { ok: true, card: updated };
@@ -362,7 +371,7 @@ const listAdminCollectionCards = async (sectionId, manufacturerName) => {
     cards.push({
       id: 0,
       collectionName: row.name,
-      description: "описание",
+      description: "",
       isActive: true,
       imageUrl: null,
       sortOrder: index * 10,

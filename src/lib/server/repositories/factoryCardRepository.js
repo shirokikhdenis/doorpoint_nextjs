@@ -5,6 +5,7 @@ const mapRow = (row) => ({
   id: Number(row.id),
   sectionId: String(row.sectionId),
   manufacturerName: String(row.manufacturerName),
+  description: String(row.description || "").trim(),
   isActive: row.isActive !== false,
   imageUrl: row.imageUrl ? String(row.imageUrl) : null,
   logoUrl: row.logoUrl ? String(row.logoUrl) : null,
@@ -23,6 +24,7 @@ const listBySection = async (sectionId) => {
       id,
       section_id AS "sectionId",
       manufacturer_name AS "manufacturerName",
+      description,
       is_active AS "isActive",
       image_url AS "imageUrl",
       logo_url AS "logoUrl",
@@ -48,6 +50,7 @@ const getById = async (id) => {
       id,
       section_id AS "sectionId",
       manufacturer_name AS "manufacturerName",
+      description,
       is_active AS "isActive",
       image_url AS "imageUrl",
       logo_url AS "logoUrl",
@@ -77,6 +80,7 @@ const upsertIfMissing = async ({ sectionId, manufacturerName, sortOrder = 0 }) =
       id,
       section_id AS "sectionId",
       manufacturer_name AS "manufacturerName",
+      description,
       is_active AS "isActive",
       image_url AS "imageUrl",
       logo_url AS "logoUrl",
@@ -93,6 +97,7 @@ const upsertIfMissing = async ({ sectionId, manufacturerName, sortOrder = 0 }) =
       id,
       section_id AS "sectionId",
       manufacturer_name AS "manufacturerName",
+      description,
       is_active AS "isActive",
       image_url AS "imageUrl",
       logo_url AS "logoUrl",
@@ -162,6 +167,10 @@ const update = async (id, payload) => {
     params.push(Number(payload.sortOrder) || 0);
     sets.push(`sort_order = $${params.length}`);
   }
+  if (payload.description !== undefined) {
+    params.push(String(payload.description ?? "").trim());
+    sets.push(`description = $${params.length}`);
+  }
 
   if (sets.length === 1) return getById(numericId);
 
@@ -175,6 +184,7 @@ const update = async (id, payload) => {
       id,
       section_id AS "sectionId",
       manufacturer_name AS "manufacturerName",
+      description,
       is_active AS "isActive",
       image_url AS "imageUrl",
       logo_url AS "logoUrl",

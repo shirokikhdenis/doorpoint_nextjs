@@ -12,6 +12,7 @@ import { FACTORY_SECTIONS } from "@/lib/factory-sections-config";
 type FactoryCardRow = {
   id: number;
   manufacturerName: string;
+  description: string;
   isActive: boolean;
   imageUrl: string | null;
   logoUrl: string | null;
@@ -35,6 +36,7 @@ type CardDraft = {
   imageUrl: string;
   logoUrl: string;
   badgeLabel: string;
+  description: string;
   linkTarget: "collections" | "catalog";
   sortOrder: number;
 };
@@ -66,6 +68,7 @@ export default function AdminFactoriesPage() {
           imageUrl: card.imageUrl || "",
           logoUrl: card.logoUrl || "",
           badgeLabel: card.badgeLabel || "",
+          description: card.description || "",
           linkTarget: card.linkTarget === "catalog" ? "catalog" : "collections",
           sortOrder: card.sortOrder,
         };
@@ -98,6 +101,7 @@ export default function AdminFactoriesPage() {
           imageUrl: draft.imageUrl.trim() || null,
           logoUrl: draft.logoUrl.trim() || null,
           badgeLabel: draft.badgeLabel.trim() || null,
+          description: draft.description.trim(),
           linkTarget: draft.linkTarget,
           sortOrder: draft.sortOrder,
         }),
@@ -237,6 +241,22 @@ export default function AdminFactoriesPage() {
                           }))
                         }
                         className="rounded border border-zinc-200 px-2 py-1.5 text-sm"
+                      />
+                    </label>
+
+                    <label className="flex flex-col gap-1 text-xs text-zinc-600">
+                      Описание на карточке
+                      <textarea
+                        rows={3}
+                        value={draft.description}
+                        placeholder="Оставьте пустым, чтобы не показывать на витрине"
+                        onChange={(e) =>
+                          setDrafts((prev) => ({
+                            ...prev,
+                            [card.id]: { ...draft, description: e.target.value },
+                          }))
+                        }
+                        className="min-h-[4.5rem] rounded border border-zinc-200 px-2 py-1.5 text-sm"
                       />
                     </label>
 

@@ -359,6 +359,10 @@ const ensureFactoryStorefrontTables = async () => {
     ADD COLUMN IF NOT EXISTS link_target TEXT NOT NULL DEFAULT 'collections'
   `);
   await query(`
+    ALTER TABLE factory_cards
+    ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT ''
+  `);
+  await query(`
     CREATE TABLE IF NOT EXISTS collection_cards (
       id BIGSERIAL PRIMARY KEY,
       section_id TEXT NOT NULL,

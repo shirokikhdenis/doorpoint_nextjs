@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { StorefrontImage } from "@/features/store/storefront-image";
+import { factoryLabelCardClass, factoryLabelCardImageClass, factoryLabelCardImageFrameClass, factoryLabelCardImagePanelClass, factoryLabelCardImageSizes } from "@/features/store/storefront-ui";
 import { toPublicImageSrc } from "@/lib/client/image-src";
 
 export type FactoryCatalogLink = {
@@ -10,6 +11,7 @@ export type FactoryCatalogLink = {
 export type FactoryLabelItem = {
   name: string;
   badgeLabel: string;
+  description?: string;
   productCount: number;
   logoImage: string | null;
   doorImage: string | null;
@@ -21,9 +23,6 @@ export type FactoryLabelItem = {
 type FactoryLabelCardProps = {
   item: FactoryLabelItem;
 };
-
-const cardClassName =
-  "group flex min-h-[240px] w-full overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-md transition hover:border-brand/25 hover:shadow-lg sm:min-h-[270px]";
 
 const ctaClassName =
   "text-xs font-medium text-zinc-700 transition hover:text-brand sm:text-sm";
@@ -67,6 +66,10 @@ function FactoryCardBody({ item }: FactoryLabelCardProps) {
           <p className="text-xs text-zinc-600 sm:text-sm">
             {item.productCount} {modelsInCatalogLabel(item.productCount)}
           </p>
+
+          {item.description?.trim() ? (
+            <p className="text-xs leading-relaxed text-zinc-500 sm:text-sm">{item.description}</p>
+          ) : null}
         </div>
 
         {item.catalogLinks?.length ? (
@@ -89,17 +92,19 @@ function FactoryCardBody({ item }: FactoryLabelCardProps) {
         )}
       </div>
 
-      <div className="relative w-[38%] shrink-0 self-stretch border-l border-zinc-100 bg-zinc-50 sm:w-[36%]">
+      <div className={factoryLabelCardImagePanelClass}>
         {doorSrc ? (
-          <StorefrontImage
-            src={doorSrc}
-            alt=""
-            fill
-            sizes="(max-width: 640px) 38vw, 18vw"
-            className="object-cover object-center transition duration-300 group-hover:scale-[1.02]"
-          />
+          <div className={factoryLabelCardImageFrameClass}>
+            <StorefrontImage
+              src={doorSrc}
+              alt=""
+              fill
+              sizes={factoryLabelCardImageSizes}
+              className={factoryLabelCardImageClass}
+            />
+          </div>
         ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-zinc-100 to-zinc-200" aria-hidden />
+          <div className={`${factoryLabelCardImageFrameClass} bg-gradient-to-br from-zinc-100 to-zinc-200`} aria-hidden />
         )}
       </div>
     </>
@@ -109,14 +114,14 @@ function FactoryCardBody({ item }: FactoryLabelCardProps) {
 export function FactoryLabelCard({ item }: FactoryLabelCardProps) {
   if (item.catalogLinks?.length) {
     return (
-      <div className={cardClassName}>
+      <div className={factoryLabelCardClass}>
         <FactoryCardBody item={item} />
       </div>
     );
   }
 
   return (
-    <Link href={item.href} prefetch={false} className={cardClassName}>
+    <Link href={item.href} prefetch={false} className={factoryLabelCardClass}>
       <FactoryCardBody item={item} />
     </Link>
   );

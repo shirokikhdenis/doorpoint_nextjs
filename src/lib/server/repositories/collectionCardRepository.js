@@ -1,14 +1,12 @@
 const { query } = require("../db/postgres");
 const { ensureFactoryStorefrontTables } = require("../db/schemaPatches");
 
-const DEFAULT_COLLECTION_DESCRIPTION = "описание";
-
 const mapRow = (row) => ({
   id: Number(row.id),
   sectionId: String(row.sectionId),
   manufacturerName: String(row.manufacturerName),
   collectionName: String(row.collectionName),
-  description: String(row.description || "").trim() || DEFAULT_COLLECTION_DESCRIPTION,
+  description: String(row.description || "").trim(),
   isActive: row.isActive !== false,
   imageUrl: row.imageUrl ? String(row.imageUrl) : null,
   sortOrder: Number(row.sortOrder) || 0,
@@ -133,8 +131,7 @@ const update = async (id, payload) => {
     sets.push(`sort_order = $${params.length}`);
   }
   if (payload.description !== undefined) {
-    const text = String(payload.description ?? "").trim();
-    params.push(text || DEFAULT_COLLECTION_DESCRIPTION);
+    params.push(String(payload.description ?? "").trim());
     sets.push(`description = $${params.length}`);
   }
 

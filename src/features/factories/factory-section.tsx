@@ -1,4 +1,5 @@
 import { FactoryLabelCard, type FactoryLabelItem } from "@/features/factories/factory-label-card";
+import { factoryLabelCardGridClass } from "@/features/store/storefront-ui";
 
 export type FactorySectionData = {
   id: string;
@@ -16,7 +17,7 @@ export function FactorySection({ section }: FactorySectionProps) {
       <h2 id={`factory-section-${section.id}`} className="text-xl font-semibold text-zinc-900 sm:text-2xl">
         {section.title}
       </h2>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
+      <div className={factoryLabelCardGridClass}>
         {section.factories.map((factory) => (
           <FactoryLabelCard key={`${section.id}-${factory.name}`} item={factory} />
         ))}

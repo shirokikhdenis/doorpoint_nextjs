@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ProductImagePicker } from "@/features/admin/product-image-picker";
 import { AdminCard } from "@/features/admin/ui/admin-card";
@@ -29,6 +29,11 @@ type CollectionCardsResponse = {
   cards: CollectionCardRow[];
 };
 
+type FactoryCardsResponse = {
+  section: { id: string; title: string };
+  cards: { manufacturerName: string }[];
+};
+
 export default function AdminFactoryCollectionsPage() {
   return (
     <Suspense
@@ -52,6 +57,8 @@ function AdminFactoryCollectionsContent() {
 
   const [sectionId, setSectionId] = useState(initialSectionId);
   const [manufacturer, setManufacturer] = useState(initialManufacturer);
+  const [manufacturerOptions, setManufacturerOptions] = useState<string[]>([]);
+  const [manufacturersLoading, setManufacturersLoading] = useState(false);
   const [data, setData] = useState<CollectionCardsResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [savingId, setSavingId] = useState<number | null>(null);
@@ -61,12 +68,25 @@ function AdminFactoryCollectionsContent() {
     Record<number, { isActive: boolean; imageUrl: string; sortOrder: number; description: string }>
   >({});
 
-  const section = useMemo(
-    () => FACTORY_SECTIONS.find((item) => item.id === sectionId),
-    [sectionId],
-  );
-
-  const manufacturerOptions = section?.manufacturers ?? [];
+  const loadManufacturers = useCallback(async (nextSectionId: string) => {
+    if (!nextSectionId) {
+      setManufacturerOptions([]);
+      return;
+    }
+    setManufacturersLoading(true);
+    try {
+      const response = await fetch(
+        `/api/admin/factory-cards?sectionId=${encodeURIComponent(nextSectionId)}`,
+      );
+      if (!response.ok) throw new Error(await response.text());
+      const json = (await response.json()) as FactoryCardsResponse;
+      setManufacturerOptions(json.cards.map((card) => card.manufacturerName));
+    } catch {
+      setManufacturerOptions([]);
+    } finally {
+      setManufacturersLoading(false);
+    }
+  }, []);
 
   const loadCards = useCallback(async (nextSectionId: string, nextManufacturer: string) => {
     if (!nextSectionId || !nextManufacturer) {
@@ -94,7 +114,7 @@ function AdminFactoryCollectionsContent() {
           isActive: card.isActive,
           imageUrl: card.imageUrl || "",
           sortOrder: card.sortOrder,
-          description: card.description || "описание",
+          description: card.description || "",
         };
       });
       setDrafts(nextDrafts);
@@ -107,8 +127,16 @@ function AdminFactoryCollectionsContent() {
   }, []);
 
   useEffect(() => {
+    void loadManufacturers(sectionId);
+  }, [sectionId, loadManufacturers]);
+
+  useEffect(() => {
     if (!manufacturer && manufacturerOptions[0]) {
       setManufacturer(manufacturerOptions[0]);
+      return;
+    }
+    if (manufacturer && !manufacturerOptions.some((name) => name === manufacturer)) {
+      setManufacturer(manufacturerOptions[0] || "");
       return;
     }
     void loadCards(sectionId, manufacturer);
@@ -128,7 +156,7 @@ function AdminFactoryCollectionsContent() {
           isActive: draft.isActive,
           imageUrl: draft.imageUrl.trim() || null,
           sortOrder: draft.sortOrder,
-          description: draft.description.trim() || "описание",
+          description: draft.description.trim(),
         }),
       });
       const payload = await response.json().catch(() => ({}));
@@ -184,9 +212,12 @@ function AdminFactoryCollectionsContent() {
             <select
               value={manufacturer}
               onChange={(e) => setManufacturer(e.target.value)}
-              className="rounded border border-zinc-200 px-3 py-2 text-sm"
+              disabled={manufacturersLoading}
+              className="rounded border border-zinc-200 px-3 py-2 text-sm disabled:bg-zinc-50"
             >
-              <option value="">Выберите производителя</option>
+              <option value="">
+                {manufacturersLoading ? "Загрузка…" : "Выберите производителя"}
+              </option>
               {manufacturerOptions.map((name) => (
                 <option key={name} value={name}>
                   {name}
@@ -276,6 +307,7 @@ function AdminFactoryCollectionsContent() {
                         <textarea
                           rows={3}
                           value={draft.description}
+                          placeholder="Оставьте пустым, чтобы не показывать на витрине"
                           onChange={(e) =>
                             setDrafts((prev) => ({
                               ...prev,

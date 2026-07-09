@@ -4,6 +4,26 @@ import { cn } from "@/lib/utils";
 export const storefrontPageContainerClass =
   "mx-auto w-full max-w-[1536px] px-4 sm:px-6 lg:px-8";
 
+/** Сетка ярлыков фабрик и коллекций на /fabriki */
+export const factoryLabelCardGridClass =
+  "grid grid-cols-1 gap-4 sm:gap-5 lg:grid-cols-2";
+
+/** Оболочка карточки ярлыка фабрики / коллекции */
+export const factoryLabelCardClass =
+  "group flex min-h-[340px] w-full overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-md transition hover:border-brand/25 hover:shadow-lg sm:min-h-[400px]";
+
+/** Правая панель с фото на ярлыке фабрики / коллекции — не шире 40% карточки */
+export const factoryLabelCardImagePanelClass =
+  "relative w-[40%] shrink-0 self-stretch bg-white py-3 sm:py-4";
+
+/** Внутренний контейнер фото с отступами от верхнего и нижнего края карточки */
+export const factoryLabelCardImageFrameClass = "relative h-full w-full";
+
+/** Фото целиком вписывается в высоту панели */
+export const factoryLabelCardImageClass = "object-contain object-center";
+
+export const factoryLabelCardImageSizes = "(max-width: 1024px) 40vw, 20vw";
+
 /** Алиас для шапки — та же ширина, что и у страницы */
 export const storefrontHeaderContainerClass = storefrontPageContainerClass;
 

@@ -3,7 +3,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createRequire } from "node:module";
 import { CollectionLabelCard } from "@/features/collections/collection-label-card";
+import { factoryLabelCardGridClass, storefrontPageContainerClass } from "@/features/store/storefront-ui";
 import { absoluteUrl, defaultOpenGraph } from "@/lib/site-seo";
+import { cn } from "@/lib/utils";
 
 export const revalidate = 120;
 
@@ -61,7 +63,7 @@ export default async function ManufacturerCollectionsPage({ params }: Collection
   if (!page) notFound();
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
+    <main className={cn(storefrontPageContainerClass, "py-6")}>
       <nav className="text-sm text-zinc-500" aria-label="Хлебные крошки">
         <ol className="flex flex-wrap items-center gap-1.5">
           <li>
@@ -95,10 +97,7 @@ export default async function ManufacturerCollectionsPage({ params }: Collection
           </Link>
         </div>
       ) : (
-        <section
-          className="mt-6 grid grid-cols-1 gap-4 sm:mt-8 sm:grid-cols-2 sm:gap-5"
-          aria-label="Коллекции"
-        >
+        <section className={cn("mt-6 sm:mt-8", factoryLabelCardGridClass)} aria-label="Коллекции">
           {page.collections.map((collection) => (
             <CollectionLabelCard key={collection.name} item={collection} />
           ))}
