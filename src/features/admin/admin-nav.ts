@@ -13,13 +13,17 @@ export type AdminNavGroup = {
 export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
   {
     label: "Работа",
-    items: [{ href: "/admin/leads", label: "Заявки" }],
+    items: [
+      { href: "/admin/leads", label: "Заявки" },
+      { href: "/admin/exhibition", label: "Учёт выставки" },
+    ],
   },
   {
     label: "Каталог",
     items: [
       { href: "/admin/products", label: "Товары" },
       { href: "/admin/stock", label: "Остатки" },
+      { href: "/admin/dveri-catalog", label: "Каталог Dveri" },
       { href: "/admin/import", label: "Импорт CSV" },
       { href: "/admin/vk-sync", label: "Синхронизация VK" },
     ],
@@ -65,8 +69,10 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
 const PAGE_TITLES: Record<string, string> = {
   "/admin": "Категории",
   "/admin/leads": "Заявки",
+  "/admin/exhibition": "Учёт выставки",
   "/admin/products": "Товары",
   "/admin/stock": "Остатки",
+  "/admin/dveri-catalog": "Каталог Dveri",
   "/admin/import": "Импорт CSV",
   "/admin/vk-sync": "Синхронизация VK",
   "/admin/catalog-pages": "Витрины каталога",

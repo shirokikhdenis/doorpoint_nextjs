@@ -2602,6 +2602,128 @@ const listPublicCollections = async ({
   }));
 };
 
+/** До N обложек товаров на производителя (для витрины ярлыков фабрик). */
+const listPublicManufacturerSampleImages = async ({
+  categoryRootSlug = null,
+  limitPerManufacturer = 3,
+} = {}) => {
+  const limit = Math.min(Math.max(Number(limitPerManufacturer) || 3, 1), 6);
+  const params = [];
+  const addParam = (value) => {
+    params.push(value);
+    return `$${params.length}`;
+  };
+
+  const whereParts = [
+    "p.is_active = TRUE",
+    storefrontListedProductPredicatesSql,
+    `TRIM(COALESCE(p.attrs->>'manufacturer', '')) <> ''`,
+  ];
+
+  if (categoryRootSlug) {
+    whereParts.push(`COALESCE(parent.slug, c.slug) = ${addParam(String(categoryRootSlug).trim())}`);
+  }
+
+  const limitParam = addParam(limit);
+
+  const res = await query(
+    `
+    WITH ranked AS (
+      SELECT
+        TRIM(p.attrs->>'manufacturer') AS scope_name,
+        NULLIF(TRIM(${productImageSubquery}), '') AS image,
+        ROW_NUMBER() OVER (
+          PARTITION BY LOWER(TRIM(p.attrs->>'manufacturer'))
+          ORDER BY ${displayOrderExpr} DESC, p.id ASC
+        ) AS rn
+      FROM products p
+      ${taxonomyJoin}
+      WHERE ${whereParts.join(" AND ")}
+    )
+    SELECT
+      scope_name AS "scopeName",
+      image
+    FROM ranked
+    WHERE rn <= ${limitParam}
+      AND image IS NOT NULL
+    ORDER BY scope_name ASC, rn ASC
+    `,
+    params,
+  );
+
+  return res.rows.map((row) => ({
+    scopeName: String(row.scopeName || "").trim(),
+    image: String(row.image || "").trim(),
+  }));
+};
+
+/** До N обложек товаров на коллекцию производителя (для витрины ярлыков коллекций). */
+const listPublicCollectionSampleImages = async ({
+  categoryRootSlug = null,
+  manufacturerName = null,
+  collectionAttrCode = "collection",
+  limitPerCollection = 3,
+} = {}) => {
+  const attrCode = String(collectionAttrCode || "collection").trim() || "collection";
+  if (!/^[a-z0-9_]+$/i.test(attrCode)) {
+    return [];
+  }
+  const collectionExpr = `p.attrs->>'${attrCode}'`;
+  const limit = Math.min(Math.max(Number(limitPerCollection) || 3, 1), 6);
+
+  const params = [];
+  const addParam = (value) => {
+    params.push(value);
+    return `$${params.length}`;
+  };
+
+  const manufacturerTrimmed = String(manufacturerName || "").trim();
+  if (!manufacturerTrimmed) return [];
+
+  const whereParts = [
+    "p.is_active = TRUE",
+    storefrontListedProductPredicatesSql,
+    `TRIM(COALESCE(${collectionExpr}, '')) <> ''`,
+    `LOWER(TRIM(COALESCE(p.attrs->>'manufacturer', ''))) = LOWER(${addParam(manufacturerTrimmed)})`,
+  ];
+
+  if (categoryRootSlug) {
+    whereParts.push(`COALESCE(parent.slug, c.slug) = ${addParam(String(categoryRootSlug).trim())}`);
+  }
+
+  const limitParam = addParam(limit);
+
+  const res = await query(
+    `
+    WITH ranked AS (
+      SELECT
+        TRIM(${collectionExpr}) AS scope_name,
+        NULLIF(TRIM(${productImageSubquery}), '') AS image,
+        ROW_NUMBER() OVER (
+          PARTITION BY LOWER(TRIM(${collectionExpr}))
+          ORDER BY ${displayOrderExpr} DESC, p.id ASC
+        ) AS rn
+      FROM products p
+      ${taxonomyJoin}
+      WHERE ${whereParts.join(" AND ")}
+    )
+    SELECT
+      scope_name AS "scopeName",
+      image
+    FROM ranked
+    WHERE rn <= ${limitParam}
+      AND image IS NOT NULL
+    ORDER BY scope_name ASC, rn ASC
+    `,
+    params,
+  );
+
+  return res.rows.map((row) => ({
+    scopeName: String(row.scopeName || "").trim(),
+    image: String(row.image || "").trim(),
+  }));
+};
+
 const listSkusBySkuList = async (skus) => {
   const normalized = [
     ...new Set(
@@ -2670,6 +2792,8 @@ module.exports = {
   listActiveProductSlugs,
   listPublicManufacturers,
   listPublicCollections,
+  listPublicManufacturerSampleImages,
+  listPublicCollectionSampleImages,
   getProductById,
   getProductBySlug,
   listAdminProducts,

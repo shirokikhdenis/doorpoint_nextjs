@@ -1,13 +1,13 @@
 import Link from "next/link";
-import { StorefrontImage } from "@/features/store/storefront-image";
-import { factoryLabelCardClass, factoryLabelCardImageClass, factoryLabelCardImageFrameClass, factoryLabelCardImagePanelClass, factoryLabelCardImageSizes } from "@/features/store/storefront-ui";
-import { toPublicImageSrc } from "@/lib/client/image-src";
+import { FactoryLabelCardImageStack } from "@/features/factories/factory-label-card-image-stack";
+import { factoryLabelCardClass, factoryLabelCardImagePanelClass } from "@/features/store/storefront-ui";
 
 export type CollectionLabelItem = {
   name: string;
   description: string;
   productCount: number;
   coverImage: string | null;
+  doorImages: string[];
   catalogHref: string;
 };
 
@@ -24,8 +24,6 @@ function modelsInCatalogLabel(count: number): string {
 }
 
 export function CollectionLabelCard({ item }: CollectionLabelCardProps) {
-  const imageSrc = toPublicImageSrc(item.coverImage);
-
   return (
     <Link
       href={item.catalogHref}
@@ -51,19 +49,7 @@ export function CollectionLabelCard({ item }: CollectionLabelCardProps) {
       </div>
 
       <div className={factoryLabelCardImagePanelClass}>
-        {imageSrc ? (
-          <div className={factoryLabelCardImageFrameClass}>
-            <StorefrontImage
-              src={imageSrc}
-              alt=""
-              fill
-              sizes={factoryLabelCardImageSizes}
-              className={factoryLabelCardImageClass}
-            />
-          </div>
-        ) : (
-          <div className={`${factoryLabelCardImageFrameClass} bg-gradient-to-br from-zinc-100 to-zinc-200`} aria-hidden />
-        )}
+        <FactoryLabelCardImageStack images={item.doorImages} />
       </div>
     </Link>
   );

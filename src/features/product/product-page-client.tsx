@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ProductAccessoriesTable } from "@/features/product/product-accessories-table";
 import { ProductAddToCart } from "@/features/product/product-add-to-cart";
+import { ProductAddToExhibition } from "@/features/product/product-add-to-exhibition";
 import { ProductFinishSelector } from "@/features/product/product-finish-selector";
 import { ProductGlassUpgradeSelector } from "@/features/product/product-glass-upgrade-selector";
 import { ProductHardwareServicesSelector } from "@/features/product/product-hardware-services-selector";
@@ -72,6 +73,8 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
     ? `${product.name} (${variantCartSuffix(page.selectedVariant)})`
     : product.name;
   const cartSku = page.selectedVariant?.sku?.trim() || product.sku?.trim() || undefined;
+  const exhibitionCoatingColor =
+    page.selectedFinish?.name?.trim() || page.cartColorLabel?.trim() || "";
   const categoryHref = productCategoryCatalogHref(product.categorySlug);
   const subcategoryHref = productSubcategoryCatalogHref(
     product.categorySlug,
@@ -166,6 +169,14 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
               manufacturerName={product.manufacturerName}
               manufacturerId={page.selectedVariant?.manufacturerId || product.manufacturerId}
               variantSku={page.selectedVariant?.sku || page.variantSku}
+            />
+            <ProductAddToExhibition
+              productId={product.id}
+              categorySlug={product.categorySlug}
+              coatingColor={exhibitionCoatingColor}
+              productSku={cartSku}
+              price={price}
+              kitPrice={kitPrice}
             />
             <ProductVariantSelectors
               product={product}

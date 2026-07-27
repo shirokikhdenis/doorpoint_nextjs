@@ -45,6 +45,39 @@ const normalizeStorefrontCardDescription = (value) => {
   return text;
 };
 
+const indexSampleImagesByScope = (rows, limit = 3) => {
+  const map = new Map();
+  rows.forEach((row) => {
+    const key = String(row.scopeName || "").trim().toLowerCase();
+    const image = String(row.image || "").trim();
+    if (!key || !image) return;
+    if (!map.has(key)) map.set(key, []);
+    const bucket = map.get(key);
+    if (bucket.length >= limit || bucket.includes(image)) return;
+    bucket.push(image);
+  });
+  return map;
+};
+
+/** [backLeft, backRight, front] — для эксперимента с тремя дверями на ярлыке */
+const buildLabelDoorImages = (preferredImage, sampleImages = []) => {
+  const merged = [];
+  const seen = new Set();
+  const push = (url) => {
+    const trimmed = String(url || "").trim();
+    if (!trimmed || seen.has(trimmed)) return;
+    seen.add(trimmed);
+    merged.push(trimmed);
+  };
+  push(preferredImage);
+  sampleImages.forEach(push);
+  if (!merged.length) return [];
+  const front = merged[0];
+  const backLeft = merged[1] ?? front;
+  const backRight = merged[2] ?? merged[1] ?? front;
+  return [backLeft, backRight, front];
+};
+
 const resolveFactoryCardHref = (section, manufacturerName, linkTarget, buildManufacturerCatalogHref) => {
   if (resolveLinkTarget(linkTarget) === "catalog") {
     return buildManufacturerCatalogHref(manufacturerName, section.catalogPageSlug);
@@ -147,6 +180,10 @@ const listPublicFactorySections = async () => {
       const productRows = await productRepository.listPublicManufacturers({
         categoryRootSlug: section.categoryRootSlug,
       });
+      const sampleRows = await productRepository.listPublicManufacturerSampleImages({
+        categoryRootSlug: section.categoryRootSlug,
+      });
+      const samplesByName = indexSampleImagesByScope(sampleRows);
       const manufacturerNames = mergeSectionManufacturers(section, productRows);
       const settings = await factoryCardRepository.listBySection(section.id);
       const settingsByName = indexByLowerName(
@@ -159,6 +196,7 @@ const listPublicFactorySections = async () => {
           const setting = settingsByName.get(name.trim().toLowerCase());
           if (setting?.isActive === false) return null;
           const product = productsByName.get(name.trim().toLowerCase());
+          const preferredDoorImage = resolveImageUrl(setting?.imageUrl, product?.coverImage);
           const linkTarget = resolveLinkTarget(setting?.linkTarget);
           const catalogLinks =
             section.id === "entry" && linkTarget === "catalog"
@@ -170,7 +208,11 @@ const listPublicFactorySections = async () => {
             description: normalizeStorefrontCardDescription(setting?.description),
             productCount: product?.productCount ?? 0,
             logoImage: resolveImageUrl(setting?.logoUrl, null),
-            doorImage: resolveImageUrl(setting?.imageUrl, product?.coverImage),
+            doorImage: preferredDoorImage,
+            doorImages: buildLabelDoorImages(
+              preferredDoorImage,
+              samplesByName.get(name.trim().toLowerCase()) || [],
+            ),
             linkTarget,
             catalogLinks,
             href:
@@ -209,14 +251,20 @@ const getPublicManufacturerCollectionsPage = async (
   await syncCollectionCards(section.id, manufacturer);
 
   const collectionAttrCode = await resolveCollectionAttrCode();
-  const [settings, productRows] = await Promise.all([
+  const [settings, productRows, sampleRows] = await Promise.all([
     collectionCardRepository.listByScope(section.id, manufacturer),
     productRepository.listPublicCollections({
       categoryRootSlug: section.categoryRootSlug,
       manufacturerName: manufacturer,
       collectionAttrCode,
     }),
+    productRepository.listPublicCollectionSampleImages({
+      categoryRootSlug: section.categoryRootSlug,
+      manufacturerName: manufacturer,
+      collectionAttrCode,
+    }),
   ]);
+  const samplesByName = indexSampleImagesByScope(sampleRows);
 
   const settingsByName = indexByLowerName(
     settings.map((row) => ({ ...row, name: row.collectionName })),
@@ -226,11 +274,16 @@ const getPublicManufacturerCollectionsPage = async (
     .map((row, index) => {
       const setting = settingsByName.get(row.name.trim().toLowerCase());
       if (setting?.isActive === false) return null;
+      const preferredCoverImage = resolveImageUrl(setting?.imageUrl, row.coverImage);
       return {
         name: row.name,
         description: normalizeStorefrontCardDescription(setting?.description),
         productCount: row.productCount,
-        coverImage: resolveImageUrl(setting?.imageUrl, row.coverImage),
+        coverImage: preferredCoverImage,
+        doorImages: buildLabelDoorImages(
+          preferredCoverImage,
+          samplesByName.get(row.name.trim().toLowerCase()) || [],
+        ),
         catalogHref: buildCollectionCatalogHref(
           section.catalogPageSlug,
           manufacturer,

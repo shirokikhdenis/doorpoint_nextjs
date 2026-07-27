@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { StorefrontImage } from "@/features/store/storefront-image";
-import { factoryLabelCardClass, factoryLabelCardImageClass, factoryLabelCardImageFrameClass, factoryLabelCardImagePanelClass, factoryLabelCardImageSizes } from "@/features/store/storefront-ui";
+import { FactoryLabelCardImageStack } from "@/features/factories/factory-label-card-image-stack";
+import { factoryLabelCardClass, factoryLabelCardImagePanelClass } from "@/features/store/storefront-ui";
 import { toPublicImageSrc } from "@/lib/client/image-src";
 
 export type FactoryCatalogLink = {
@@ -15,6 +16,7 @@ export type FactoryLabelItem = {
   productCount: number;
   logoImage: string | null;
   doorImage: string | null;
+  doorImages: string[];
   linkTarget: "collections" | "catalog";
   href: string;
   catalogLinks: FactoryCatalogLink[] | null;
@@ -37,7 +39,6 @@ function modelsInCatalogLabel(count: number): string {
 
 function FactoryCardBody({ item }: FactoryLabelCardProps) {
   const logoSrc = toPublicImageSrc(item.logoImage);
-  const doorSrc = toPublicImageSrc(item.doorImage);
 
   return (
     <>
@@ -93,19 +94,7 @@ function FactoryCardBody({ item }: FactoryLabelCardProps) {
       </div>
 
       <div className={factoryLabelCardImagePanelClass}>
-        {doorSrc ? (
-          <div className={factoryLabelCardImageFrameClass}>
-            <StorefrontImage
-              src={doorSrc}
-              alt=""
-              fill
-              sizes={factoryLabelCardImageSizes}
-              className={factoryLabelCardImageClass}
-            />
-          </div>
-        ) : (
-          <div className={`${factoryLabelCardImageFrameClass} bg-gradient-to-br from-zinc-100 to-zinc-200`} aria-hidden />
-        )}
+        <FactoryLabelCardImageStack images={item.doorImages} />
       </div>
     </>
   );

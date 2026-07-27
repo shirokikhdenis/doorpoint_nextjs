@@ -20,6 +20,7 @@ let testimonialTablesEnsured = false;
 let homeFactoryLogoTablesEnsured = false;
 let vkSyncTablesEnsured = false;
 let vkSyncTablesEnsurePromise = null;
+let exhibitionDoorTablesEnsured = false;
 let manufacturerIdAttributeEnsured = false;
 
 const ensureManufacturerIdAttribute = async () => {
@@ -565,6 +566,37 @@ const ensureVkSyncTables = async () => {
   await vkSyncTablesEnsurePromise;
 };
 
+const ensureExhibitionDoorTables = async () => {
+  if (exhibitionDoorTablesEnsured) return;
+  await query(`
+    CREATE TABLE IF NOT EXISTS exhibition_doors (
+      id BIGSERIAL PRIMARY KEY,
+      category_type TEXT NOT NULL CHECK (category_type IN ('entry', 'interior')),
+      product_id BIGINT REFERENCES products(id) ON DELETE SET NULL,
+      product_name TEXT NOT NULL,
+      product_sku TEXT NOT NULL DEFAULT '',
+      coating_color TEXT NOT NULL DEFAULT '',
+      coating_type TEXT NOT NULL DEFAULT '',
+      manufacturer_name TEXT NOT NULL DEFAULT '',
+      accessories JSONB NOT NULL DEFAULT '[]'::jsonb,
+      price INTEGER,
+      kit_price INTEGER,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_exhibition_doors_category_sort
+    ON exhibition_doors(category_type, sort_order, id)
+  `);
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_exhibition_doors_manufacturer
+    ON exhibition_doors(manufacturer_name)
+  `);
+  exhibitionDoorTablesEnsured = true;
+};
+
 module.exports = {
   CATALOG_PAGE_SLUG_RENAMES,
   ensureProductBadgesColumn,
@@ -586,5 +618,6 @@ module.exports = {
   ensureTestimonialTables,
   ensureHomeFactoryLogoTables,
   ensureVkSyncTables,
+  ensureExhibitionDoorTables,
   ensureManufacturerIdAttribute,
 };

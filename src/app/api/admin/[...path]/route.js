@@ -15,6 +15,7 @@ const doorManufacturerModulesAdminService = require("@/lib/server/services/doorM
 const vkExportService = require("@/lib/server/services/vkExportService");
 const vkSyncAdminService = require("@/lib/server/services/vkSyncAdminService");
 const prometStockService = require("@/lib/server/services/prometStockService");
+const dveriCatalogService = require("@/lib/server/services/dveriCatalogService");
 const { withErrorHandling, json, empty, getQuery, readBody } = require("@/lib/server/http/handlers");
 const { requestHasAdminSession } = require("@/lib/server/auth/adminAuth");
 
@@ -276,6 +277,15 @@ const handle = async (request, context) =>
 
     if (match(path, method, "GET", "promet", "stock")) {
       const result = await prometStockService.getStock();
+      if (!result.ok) {
+        return json({ message: result.message, error: result.error }, result.status);
+      }
+      return json(result.data);
+    }
+
+    if (match(path, method, "GET", "dveri", "catalog")) {
+      const refresh = query.refresh === "1";
+      const result = await dveriCatalogService.getCatalog({ refresh });
       if (!result.ok) {
         return json({ message: result.message, error: result.error }, result.status);
       }
