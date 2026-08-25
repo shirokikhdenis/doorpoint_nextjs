@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createRequire } from "node:module";
-import { CollectionLabelCard } from "@/features/collections/collection-label-card";
+import {
+  CollectionLabelCard,
+  type CollectionLabelItem,
+} from "@/features/collections/collection-label-card";
 import { factoryLabelCardGridClass, storefrontPageContainerClass } from "@/features/store/storefront-ui";
 import { absoluteUrl, defaultOpenGraph } from "@/lib/site-seo";
 import { cn } from "@/lib/utils";
@@ -18,13 +21,7 @@ const collectionService = require("@/lib/server/services/collectionService") as 
     section: { id: string; title: string; catalogPageSlug: string };
     manufacturer: string;
     manufacturerCatalogHref: string;
-    collections: Array<{
-      name: string;
-      description: string;
-      productCount: number;
-      coverImage: string | null;
-      catalogHref: string;
-    }>;
+    collections: CollectionLabelItem[];
   } | null>;
 };
 
