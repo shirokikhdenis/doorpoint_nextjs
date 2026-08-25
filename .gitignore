@@ -25,6 +25,9 @@
 .DS_Store
 *.pem
 
+# uploaded media (kept on disk / VPS, not in git)
+/public/uploads/
+
 # database backups
 /backups/
 *.dump
