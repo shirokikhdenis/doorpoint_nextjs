@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useReducer, useRef } from "react";
-import { CATALOG_PAGE_LIMIT } from "@/features/catalog/catalog-constants";
+import { catalogPageLimit } from "@/features/catalog/catalog-constants";
 import { dedupeProductsById } from "@/features/catalog/catalog-filter-utils";
 import {
   clearCatalogReturnPayload,
@@ -280,7 +280,7 @@ export function useCatalogSession({
               pageNumbers.map(async (pageNumber) => {
                 const params = new URLSearchParams(query);
                 params.set("page", String(pageNumber));
-                params.set("limit", String(CATALOG_PAGE_LIMIT));
+                params.set("limit", String(catalogPageLimit(catalogPage)));
                 const response = await fetch(`/api/products?${params.toString()}`);
                 if (!response.ok) throw new Error("Не удалось загрузить данные каталога");
                 return (await response.json()) as { total?: number };
@@ -320,7 +320,7 @@ export function useCatalogSession({
 
         const params = new URLSearchParams(query);
         params.set("page", String(page));
-        params.set("limit", String(CATALOG_PAGE_LIMIT));
+        params.set("limit", String(catalogPageLimit(catalogPage)));
         const res = await fetch(`/api/products?${params.toString()}`);
         if (!res.ok) throw new Error("Не удалось загрузить данные каталога");
         const json = (await res.json()) as { total?: number };

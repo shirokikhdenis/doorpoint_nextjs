@@ -6,8 +6,21 @@ import {
   buildCatalogCartItem,
   CatalogProductCard,
 } from "@/features/catalog/catalog-product-card";
+import { CATALOG_PAGE_SLUG, resolveCatalogPageSlug } from "@/lib/catalog-page-slugs";
 import { useCart } from "@/lib/client/use-cart";
 import type { ProductCard } from "@/lib/client/normalizers";
+
+const DEFAULT_GRID_CLASS =
+  "grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4";
+/** Фурнитура — компактнее: 6 карточек в ряд на lg+. */
+const FITTINGS_GRID_CLASS =
+  "grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-6";
+
+function catalogProductGridClass(catalogPage?: string) {
+  return resolveCatalogPageSlug(catalogPage ?? "") === CATALOG_PAGE_SLUG.fittings
+    ? FITTINGS_GRID_CLASS
+    : DEFAULT_GRID_CLASS;
+}
 
 function CatalogProductSkeleton() {
   return (
@@ -25,6 +38,7 @@ type CatalogProductGridProps = {
   loading: boolean;
   loadingMore: boolean;
   error: string;
+  catalogPage?: string;
   isRestoringReturn?: boolean;
   onLoadMore: () => void;
   onRememberScroll: () => void;
@@ -36,19 +50,18 @@ export function CatalogProductGrid({
   loading,
   loadingMore,
   error,
+  catalogPage,
   isRestoringReturn = false,
   onLoadMore,
   onRememberScroll,
 }: CatalogProductGridProps) {
   const { addItem } = useCart();
   const [hoveredProductId, setHoveredProductId] = useState<number | null>(null);
+  const gridClass = catalogProductGridClass(catalogPage);
 
   if (loading && products.length === 0) {
     return (
-      <div
-        className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4"
-        data-testid="catalog-product-grid-loading"
-      >
+      <div className={gridClass} data-testid="catalog-product-grid-loading">
         {Array.from({ length: 8 }, (_, i) => (
           <CatalogProductSkeleton key={i} />
         ))}
@@ -90,7 +103,7 @@ export function CatalogProductGrid({
           <span className="rounded-md bg-white px-3 py-1.5 text-sm text-zinc-600 shadow">Обновление…</span>
         </div>
       ) : null}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
+      <div className={gridClass}>
         {products.map((item) => {
           const showHover =
             hoveredProductId === item.id &&

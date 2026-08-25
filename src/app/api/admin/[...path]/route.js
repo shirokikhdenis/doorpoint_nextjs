@@ -12,6 +12,7 @@ const doorFinishAdminService = require("@/lib/server/services/doorFinishAdminSer
 const doorHardwareAdminService = require("@/lib/server/services/doorHardwareAdminService");
 const doorGlassAdminService = require("@/lib/server/services/doorGlassAdminService");
 const doorManufacturerModulesAdminService = require("@/lib/server/services/doorManufacturerModulesAdminService");
+const doorFactoryFittingBrandAdminService = require("@/lib/server/services/doorFactoryFittingBrandAdminService");
 const vkExportService = require("@/lib/server/services/vkExportService");
 const vkSyncAdminService = require("@/lib/server/services/vkSyncAdminService");
 const prometStockService = require("@/lib/server/services/prometStockService");
@@ -501,6 +502,17 @@ const handle = async (request, context) =>
     }
     if (match(path, method, "PATCH", "door-manufacturer-modules")) {
       const result = await doorManufacturerModulesAdminService.updateAdminDoorManufacturerModules(body);
+      if (!result.ok) return json({ message: result.message }, result.status || 400);
+      await invalidateStorefrontCache("products");
+      return json(result);
+    }
+
+    if (match(path, method, "GET", "door-factory-fitting-brands")) {
+      const result = await doorFactoryFittingBrandAdminService.listAdminDoorFactoryFittingBrands();
+      return json(result);
+    }
+    if (match(path, method, "PUT", "door-factory-fitting-brands")) {
+      const result = await doorFactoryFittingBrandAdminService.saveAdminDoorFactoryFittingBrands(body);
       if (!result.ok) return json({ message: result.message }, result.status || 400);
       await invalidateStorefrontCache("products");
       return json(result);

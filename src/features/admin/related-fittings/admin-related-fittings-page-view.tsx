@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { AdminCard } from "@/features/admin/ui/admin-card";
 import { AdminPage } from "@/features/admin/ui/admin-page";
@@ -44,15 +45,17 @@ function KeyValueList({
 
 export function AdminRelatedFittingsPageView({
   snapshot,
+  extra,
 }: {
   snapshot: RelatedFittingsAdminSnapshot;
+  extra?: ReactNode;
 }) {
   const { trigger, slots, resolvedAttributes, selection, stats, sourceFile } = snapshot;
 
   return (
     <AdminPage
       title="Сопутствующая фурнитура"
-      description="Просмотр правил подбора блока на карточке ручки. Редактирование — только в коде."
+      description="Привязка фабрик для блока «Выберите ручки» на межкомнатных дверях и правила подбора сопутствующих позиций на карточке ручки."
       actions={
         <Button variant="outline" size="sm" asChild>
           <Link
@@ -65,6 +68,7 @@ export function AdminRelatedFittingsPageView({
         </Button>
       }
     >
+      {extra}
       <AdminCard
         title="Источник правил"
         description="Актуальная конфигурация читается из доменного модуля при каждом запросе."

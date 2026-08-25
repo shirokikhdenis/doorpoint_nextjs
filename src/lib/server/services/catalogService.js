@@ -13,6 +13,7 @@ const { loadManufacturerModules } = require("../domain/doorManufacturerModules")
 const { attachManufacturerBrand } = require("../domain/productManufacturerBrand");
 const { resolveFinishPickerTemplateId } = require("../domain/doorFinishPickerSettings");
 const doorFinishPickerSettingsRepository = require("../repositories/doorFinishPickerSettingsRepository");
+const doorFactoryFittingBrandRepository = require("../repositories/doorFactoryFittingBrandRepository");
 
 const HANDLES_SUBCATEGORY_SLUGS = ["handles", "ручки"];
 
@@ -216,15 +217,17 @@ const getFilterMeta = async (query = {}) => {
 
 const listCatalogPages = async () => catalogPageRepository.listCatalogPages();
 
-const pickRandomHandles = async ({ count = 4, excludeIds = [] } = {}) => {
+const pickRandomHandles = async ({ count = 6, excludeIds = [], manufacturer = "" } = {}) => {
   const limit = Math.min(64, Math.max(count * 8, 24));
   const exclude = new Set(excludeIds.map((id) => Number(id)).filter((id) => id > 0));
+  const fittingsManufacturer = String(manufacturer || "").trim();
   const result = await getProducts({
     categories: "fittings",
     subcategories: HANDLES_SUBCATEGORY_SLUGS.join(","),
     limit,
     page: 1,
     sort: "popularity",
+    ...(fittingsManufacturer ? { attr_manufacturer: fittingsManufacturer } : {}),
   });
   const pool = result.items.filter((item) => !exclude.has(Number(item.id)));
   return shuffle(pool).slice(0, count);
@@ -253,10 +256,13 @@ const attachInteriorDoorExtras = async (product) => {
     return product;
   }
   const manufacturer = readProductAttrValue(product, "manufacturer");
+  const fittingsManufacturer = manufacturer
+    ? await doorFactoryFittingBrandRepository.getFittingsManufacturerForDoorFactory(manufacturer)
+    : "";
 
   const [suggestedHandles, relatedCollectionDoors, finishOptionsRaw, pickerSettings, moduleSettings, hardwareServiceOptions, glassUpgradeOptions] =
     await Promise.all([
-      pickRandomHandles({ count: 4 }),
+      pickRandomHandles({ count: 6, manufacturer: fittingsManufacturer }),
       loadRelatedCollectionDoors({ product, getProducts }),
       loadFinishOptionsForProduct(product),
       doorFinishPickerSettingsRepository.getDoorFinishPickerSettings(),

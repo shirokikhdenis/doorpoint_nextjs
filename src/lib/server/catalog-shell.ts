@@ -1,4 +1,4 @@
-import { CATALOG_PAGE_LIMIT } from "@/features/catalog/catalog-constants";
+import { catalogPageLimit } from "@/features/catalog/catalog-constants";
 import {
   applyLabelToSelections,
   buildCatalogApiQuery,
@@ -59,7 +59,7 @@ export async function getCatalogShell(
   const productQuery = {
     ...catalogQueryObjectFromQueryString(queryString),
     page: "1",
-    limit: String(CATALOG_PAGE_LIMIT),
+    limit: String(catalogPageLimit(catalogPage)),
   };
 
   const [catalogPagesRaw, productsRaw] = await Promise.all([

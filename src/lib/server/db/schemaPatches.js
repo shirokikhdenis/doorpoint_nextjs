@@ -22,6 +22,7 @@ let vkSyncTablesEnsured = false;
 let vkSyncTablesEnsurePromise = null;
 let exhibitionDoorTablesEnsured = false;
 let manufacturerIdAttributeEnsured = false;
+let doorFactoryFittingBrandTablesEnsured = false;
 
 const ensureManufacturerIdAttribute = async () => {
   if (manufacturerIdAttributeEnsured) return;
@@ -597,6 +598,18 @@ const ensureExhibitionDoorTables = async () => {
   exhibitionDoorTablesEnsured = true;
 };
 
+const ensureDoorFactoryFittingBrandTables = async () => {
+  if (doorFactoryFittingBrandTablesEnsured) return;
+  await query(`
+    CREATE TABLE IF NOT EXISTS door_factory_fitting_brands (
+      door_manufacturer_name TEXT PRIMARY KEY,
+      fittings_manufacturer_name TEXT NOT NULL,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  doorFactoryFittingBrandTablesEnsured = true;
+};
+
 module.exports = {
   CATALOG_PAGE_SLUG_RENAMES,
   ensureProductBadgesColumn,
@@ -620,4 +633,5 @@ module.exports = {
   ensureVkSyncTables,
   ensureExhibitionDoorTables,
   ensureManufacturerIdAttribute,
+  ensureDoorFactoryFittingBrandTables,
 };

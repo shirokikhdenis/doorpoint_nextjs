@@ -149,6 +149,7 @@ function CatalogPageContent({ initial }: CatalogPageClientProps) {
                 loading={loading}
                 loadingMore={loadingMore}
                 error={error}
+                catalogPage={filters.catalogPage}
                 isRestoringReturn={isRestoringReturn}
                 onLoadMore={() => setPage((current) => current + 1)}
                 onRememberScroll={rememberScrollForProduct}
