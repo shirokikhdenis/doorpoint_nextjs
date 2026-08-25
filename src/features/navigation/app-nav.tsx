@@ -57,7 +57,6 @@ export function AppNav() {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const showCatalogSearch = isCatalogPathname(pathname);
-  const showHomeSearch = pathname === "/";
 
   useEffect(() => {
     setIsMobileMenuOpen(false);
@@ -70,12 +69,11 @@ export function AppNav() {
 
   const headerActions = (
     <div className="flex min-w-0 items-center justify-end gap-2 sm:gap-3">
-      {showHomeSearch ? (
-        <HomeCatalogSearch className="min-w-0 flex-1 sm:flex-none sm:w-44 md:w-56" />
-      ) : null}
       {showCatalogSearch ? (
         <CatalogHeaderSearch className="min-w-0 flex-1 sm:flex-none sm:w-44 md:w-56" />
-      ) : null}
+      ) : (
+        <HomeCatalogSearch className="min-w-0 flex-1 sm:flex-none sm:w-44 md:w-56" />
+      )}
       <CartNavLink className="shrink-0" />
     </div>
   );

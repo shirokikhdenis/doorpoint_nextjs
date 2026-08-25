@@ -45,7 +45,11 @@ export const downloadCartCsv = async (items: CartItem[]) => {
   if (items.length === 0 || typeof window === "undefined") return;
 
   const missingIds = [
-    ...new Set(items.filter((item) => !item.sku?.trim()).map((item) => item.id)),
+    ...new Set(
+      items
+        .filter((item) => item.id > 0 && !item.sku?.trim())
+        .map((item) => item.id),
+    ),
   ];
   const skuById = new Map<number, string>();
   await Promise.all(

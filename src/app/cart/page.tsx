@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { formatCartItemName } from "@/lib/client/cart-item-name";
 import { downloadCartCsv } from "@/lib/client/cart-csv-export";
 import { CartItem, cartItemHasProductLink } from "@/lib/client/cart-store";
@@ -10,6 +10,14 @@ import { productHref } from "@/lib/client/product-url";
 import { useCart } from "@/lib/client/use-cart";
 import { CartLeadForm } from "@/features/store/cart-lead-form";
 import { AdminCartLeadForm } from "@/features/store/admin-cart-lead-form";
+import {
+  ADMIN_CART_SERVICE_DEFS,
+  createInitialAdminCartServiceLines,
+  sumAdminServiceLines,
+  toAdminServiceCartItems,
+  type AdminCartServiceKey,
+  type AdminCartServiceLineState,
+} from "@/features/store/admin-cart-service-lines";
 import { useAdminSession } from "@/lib/client/use-admin-session";
 import { SITE_EMAIL, SITE_PHONE_DISPLAY, SITE_PHONE_TEL } from "@/lib/site-contact";
 
@@ -120,16 +128,195 @@ function CartLineQuantity({
   );
 }
 
+function AdminServiceLineControls({
+  line,
+  onChange,
+}: {
+  line: AdminCartServiceLineState;
+  onChange: (
+    patch: Partial<Pick<AdminCartServiceLineState, "name" | "quantity" | "price">>,
+  ) => void;
+}) {
+  const [nameText, setNameText] = useState(() => line.name);
+  const [qtyText, setQtyText] = useState(() => String(line.quantity));
+  const [priceText, setPriceText] = useState(() => String(line.price));
+
+  useEffect(() => {
+    setNameText(line.name);
+  }, [line.name, line.key]);
+
+  useEffect(() => {
+    setQtyText(String(line.quantity));
+  }, [line.quantity, line.key]);
+
+  useEffect(() => {
+    setPriceText(String(line.price));
+  }, [line.price, line.key]);
+
+  const applyQuantity = (next: number) => {
+    const clamped = Math.min(CART_QTY_MAX, Math.max(1, Math.floor(next)));
+    setQtyText(String(clamped));
+    onChange({ quantity: clamped });
+  };
+
+  const handleQtyChange = (raw: string) => {
+    if (raw === "") {
+      setQtyText("");
+      return;
+    }
+    if (!/^\d+$/.test(raw)) {
+      setQtyText(String(line.quantity));
+      return;
+    }
+    const n = parseInt(raw, 10);
+    const clamped = Math.min(CART_QTY_MAX, Math.max(1, n));
+    setQtyText(String(clamped));
+    onChange({ quantity: clamped });
+  };
+
+  const handleQtyBlur = () => {
+    if (qtyText === "" || !/^\d+$/.test(qtyText)) {
+      setQtyText(String(line.quantity));
+      return;
+    }
+    applyQuantity(parseInt(qtyText, 10));
+  };
+
+  const handlePriceChange = (raw: string) => {
+    if (raw === "") {
+      setPriceText("");
+      return;
+    }
+    if (!/^\d+$/.test(raw)) {
+      setPriceText(String(line.price));
+      return;
+    }
+    const n = parseInt(raw, 10);
+    const clamped = Math.max(0, n);
+    setPriceText(String(clamped));
+    onChange({ price: clamped });
+  };
+
+  const handlePriceBlur = () => {
+    if (priceText === "" || !/^\d+$/.test(priceText)) {
+      setPriceText(String(line.price));
+      onChange({ price: line.price });
+      return;
+    }
+    const clamped = Math.max(0, parseInt(priceText, 10));
+    setPriceText(String(clamped));
+    onChange({ price: clamped });
+  };
+
+  const handleNameBlur = () => {
+    const next = nameText.trim() || line.name;
+    setNameText(next);
+    if (next !== line.name) onChange({ name: next });
+  };
+
+  return (
+    <>
+      <td className="px-4 py-3 align-middle">
+        <input
+          type="text"
+          aria-label="Наименование услуги"
+          className="w-full min-w-[10rem] rounded border border-zinc-300 px-2 py-1 text-sm font-medium text-zinc-900 print:hidden"
+          value={nameText}
+          onChange={(event) => setNameText(event.target.value)}
+          onBlur={handleNameBlur}
+        />
+        <p className="hidden font-medium leading-snug text-zinc-900 print:block">{line.name}</p>
+      </td>
+      <td className="whitespace-nowrap px-4 py-3 align-middle font-medium">
+        <div className="print:hidden">
+          <input
+            type="text"
+            inputMode="numeric"
+            autoComplete="off"
+            aria-label={`Цена: ${line.name}`}
+            className="w-24 rounded border border-zinc-300 px-2 py-1 text-sm tabular-nums"
+            value={priceText}
+            onChange={(event) => handlePriceChange(event.target.value)}
+            onBlur={handlePriceBlur}
+          />
+          <span className="ml-1 text-zinc-500">₽</span>
+        </div>
+        <span className="hidden print:inline">{formatPrice(line.price)}</span>
+      </td>
+      <td className="px-4 py-3 align-middle">
+        <div className="flex items-center gap-2 print:hidden">
+          <button
+            type="button"
+            className="rounded border px-2"
+            onClick={() => applyQuantity(line.quantity - 1)}
+          >
+            -
+          </button>
+          <input
+            type="text"
+            inputMode="numeric"
+            autoComplete="off"
+            aria-label={`Количество: ${line.name}`}
+            className="w-9 shrink-0 rounded border border-zinc-300 px-1 py-1 text-center text-sm tabular-nums"
+            value={qtyText}
+            onChange={(event) => handleQtyChange(event.target.value)}
+            onBlur={handleQtyBlur}
+          />
+          <button
+            type="button"
+            className="rounded border px-2"
+            onClick={() => applyQuantity(line.quantity + 1)}
+          >
+            +
+          </button>
+        </div>
+        <span className="hidden whitespace-nowrap print:inline">{line.quantity} шт.</span>
+      </td>
+      <td className="whitespace-nowrap px-4 py-3 text-right align-middle font-medium">
+        {formatPrice(line.price * line.quantity)}
+      </td>
+      <td className="px-2 py-3 text-right align-middle print:hidden" />
+    </>
+  );
+}
+
 export default function CartPage() {
   const { items, totalPrice, totalQuantity, setQuantity, removeItem, clear } = useCart();
   const { isAdmin, loading: adminLoading } = useAdminSession();
   const [isExporting, setIsExporting] = useState(false);
+  const [serviceLines, setServiceLines] = useState(createInitialAdminCartServiceLines);
+
+  const adminMode = !adminLoading && isAdmin;
+  const serviceCartItems = useMemo(
+    () => (adminMode ? toAdminServiceCartItems(serviceLines) : []),
+    [adminMode, serviceLines],
+  );
+  const serviceTotal = useMemo(
+    () => (adminMode ? sumAdminServiceLines(serviceLines) : 0),
+    [adminMode, serviceLines],
+  );
+  const invoiceItems = useMemo(
+    () => (adminMode ? [...items, ...serviceCartItems] : items),
+    [adminMode, items, serviceCartItems],
+  );
+  const invoiceTotal = totalPrice + serviceTotal;
+  const invoiceQuantity = totalQuantity + serviceCartItems.reduce((sum, item) => sum + item.quantity, 0);
+
+  const updateServiceLine = (
+    key: AdminCartServiceKey,
+    patch: Partial<Pick<AdminCartServiceLineState, "enabled" | "name" | "quantity" | "price">>,
+  ) => {
+    setServiceLines((current) =>
+      current.map((line) => (line.key === key ? { ...line, ...patch } : line)),
+    );
+  };
 
   const handleClear = () => {
     if (items.length === 0) return;
     const ok = window.confirm("Очистить корзину? Действие нельзя отменить.");
     if (!ok) return;
     clear();
+    setServiceLines(createInitialAdminCartServiceLines());
   };
 
   const handlePrint = () => {
@@ -137,10 +324,10 @@ export default function CartPage() {
   };
 
   const handleExportCsv = async () => {
-    if (items.length === 0 || isExporting) return;
+    if (invoiceItems.length === 0 || isExporting) return;
     setIsExporting(true);
     try {
-      await downloadCartCsv(items);
+      await downloadCartCsv(invoiceItems);
     } finally {
       setIsExporting(false);
     }
@@ -171,29 +358,31 @@ export default function CartPage() {
           ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2 print:hidden">
-          <button
-            type="button"
-            onClick={handleExportCsv}
-            disabled={isExporting}
-            className="inline-flex items-center gap-2 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-800 transition hover:border-zinc-500 hover:bg-zinc-50 disabled:cursor-wait disabled:opacity-60"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-4 w-4"
-              aria-hidden="true"
+          {adminMode ? (
+            <button
+              type="button"
+              onClick={handleExportCsv}
+              disabled={isExporting}
+              className="inline-flex items-center gap-2 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-800 transition hover:border-zinc-500 hover:bg-zinc-50 disabled:cursor-wait disabled:opacity-60"
             >
-              <path d="M12 3v12" />
-              <path d="m7 10 5 5 5-5" />
-              <path d="M5 19h14" />
-            </svg>
-            {isExporting ? "Экспорт…" : "Экспорт CSV"}
-          </button>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-4 w-4"
+                aria-hidden="true"
+              >
+                <path d="M12 3v12" />
+                <path d="m7 10 5 5 5-5" />
+                <path d="M5 19h14" />
+              </svg>
+              {isExporting ? "Экспорт…" : "Экспорт CSV"}
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={handlePrint}
@@ -257,6 +446,16 @@ export default function CartPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">
+            {adminMode ? (
+              <tr className="bg-zinc-50 print:bg-transparent">
+                <td
+                  colSpan={5}
+                  className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-zinc-600"
+                >
+                  Товары
+                </td>
+              </tr>
+            ) : null}
             {items.map((item) => (
               <tr
                 key={`${item.id}-${item.name}-${item.color ?? ""}-${item.hideCartImage ? "1" : "0"}`}
@@ -324,21 +523,127 @@ export default function CartPage() {
                 </td>
               </tr>
             ))}
+            {adminMode ? (
+              <tr className="bg-zinc-50/80 print:break-inside-avoid print:bg-transparent">
+                <td colSpan={3} className="px-4 py-2.5 text-sm font-medium text-zinc-700">
+                  Сумма товара
+                </td>
+                <td className="whitespace-nowrap px-4 py-2.5 text-right text-sm font-semibold text-zinc-900">
+                  {formatPrice(totalPrice)}
+                </td>
+                <td className="print:hidden" />
+              </tr>
+            ) : null}
+
+            {adminMode && serviceCartItems.length > 0 ? (
+              <>
+                <tr className="bg-zinc-50 print:bg-transparent">
+                  <td
+                    colSpan={5}
+                    className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-zinc-600"
+                  >
+                    Услуги
+                  </td>
+                </tr>
+                {serviceLines
+                  .filter((line) => line.enabled)
+                  .map((line) => (
+                    <tr
+                      key={`admin-service-${line.key}`}
+                      className="bg-amber-50/40 hover:bg-amber-50/70 print:break-inside-avoid print:bg-transparent"
+                    >
+                      <AdminServiceLineControls
+                        line={line}
+                        onChange={(patch) => updateServiceLine(line.key, patch)}
+                      />
+                    </tr>
+                  ))}
+                <tr className="bg-zinc-50/80 print:break-inside-avoid print:bg-transparent">
+                  <td colSpan={3} className="px-4 py-2.5 text-sm font-medium text-zinc-700">
+                    Сумма услуг
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-2.5 text-right text-sm font-semibold text-zinc-900">
+                    {formatPrice(serviceTotal)}
+                  </td>
+                  <td className="print:hidden" />
+                </tr>
+              </>
+            ) : null}
           </tbody>
         </table>
       </div>
 
-      <div className="mt-6 flex flex-wrap items-baseline justify-end gap-x-6 gap-y-1 text-right">
-        <span className="hidden text-sm text-zinc-700 print:block">
-          Позиций: {items.length} · Всего предметов: {totalQuantity}
-        </span>
-        <span className="text-lg font-semibold">
-          Итого: {formatPrice(totalPrice)}
-        </span>
+      {adminMode ? (
+        <fieldset className="mt-4 space-y-3 rounded-lg border border-amber-200 bg-amber-50/40 px-4 py-3 print:hidden">
+          <legend className="px-1 text-sm font-medium text-amber-950">Добавить к счёту</legend>
+          {serviceLines.map((line) => (
+            <div key={line.key} className="flex flex-wrap items-center gap-2">
+              <input
+                type="checkbox"
+                id={`admin-service-${line.key}`}
+                className="h-4 w-4 rounded border-zinc-300 text-amber-700 focus:ring-amber-500"
+                checked={line.enabled}
+                onChange={(event) => updateServiceLine(line.key, { enabled: event.target.checked })}
+              />
+              <label htmlFor={`admin-service-${line.key}`} className="sr-only">
+                Добавить {line.name}
+              </label>
+              <input
+                type="text"
+                aria-label={`Название услуги ${line.key === "montage" ? "монтажа" : "доставки"}`}
+                className="min-w-[10rem] flex-1 rounded border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-800"
+                value={line.name}
+                onChange={(event) => updateServiceLine(line.key, { name: event.target.value })}
+                onBlur={(event) => {
+                  const next = event.target.value.trim();
+                  if (!next) {
+                    const fallback =
+                      ADMIN_CART_SERVICE_DEFS.find((def) => def.key === line.key)?.name || line.name;
+                    updateServiceLine(line.key, { name: fallback });
+                  } else if (next !== line.name) {
+                    updateServiceLine(line.key, { name: next });
+                  }
+                }}
+              />
+            </div>
+          ))}
+        </fieldset>
+      ) : null}
+
+      <div className="mt-6 space-y-1 text-right">
+        {adminMode ? (
+          <>
+            <p className="text-sm text-zinc-600">
+              Сумма товара:{" "}
+              <span className="font-medium text-zinc-900">{formatPrice(totalPrice)}</span>
+            </p>
+            {serviceCartItems.length > 0 ? (
+              <p className="text-sm text-zinc-600">
+                Сумма услуг:{" "}
+                <span className="font-medium text-zinc-900">{formatPrice(serviceTotal)}</span>
+              </p>
+            ) : null}
+            <p className="text-lg font-semibold text-zinc-900">
+              Сумма под ключ: {formatPrice(invoiceTotal)}
+            </p>
+          </>
+        ) : (
+          <p className="text-lg font-semibold">Итого: {formatPrice(totalPrice)}</p>
+        )}
+        <p className="hidden text-sm text-zinc-700 print:block">
+          Позиций: {invoiceItems.length} · Всего предметов: {invoiceQuantity}
+        </p>
       </div>
 
-      {!adminLoading && isAdmin ? (
-        <AdminCartLeadForm items={items} totalPrice={totalPrice} />
+      {adminMode ? (
+        <AdminCartLeadForm
+          items={invoiceItems}
+          productItems={items}
+          serviceItems={serviceCartItems}
+          productTotal={totalPrice}
+          serviceTotal={serviceTotal}
+          totalPrice={invoiceTotal}
+        />
       ) : (
         <CartLeadForm items={items} totalPrice={totalPrice} onSubmitted={clear} />
       )}

@@ -12,13 +12,25 @@ import { formatPrice } from "@/lib/client/format";
 
 type AdminCartLeadFormProps = {
   items: CartItem[];
+  productItems?: CartItem[];
+  serviceItems?: CartItem[];
+  productTotal?: number;
+  serviceTotal?: number;
   totalPrice: number;
   onSubmitted?: () => void;
 };
 
 const todayIsoDate = () => new Date().toISOString().slice(0, 10);
 
-export function AdminCartLeadForm({ items, totalPrice, onSubmitted }: AdminCartLeadFormProps) {
+export function AdminCartLeadForm({
+  items,
+  productItems,
+  serviceItems,
+  productTotal,
+  serviceTotal,
+  totalPrice,
+  onSubmitted,
+}: AdminCartLeadFormProps) {
   const router = useRouter();
   const [customerName, setCustomerName] = useState("");
   const [address, setAddress] = useState("");
@@ -28,6 +40,11 @@ export function AdminCartLeadForm({ items, totalPrice, onSubmitted }: AdminCartL
   const [deliveryDays, setDeliveryDays] = useState("15");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const products = productItems ?? items;
+  const services = serviceItems ?? [];
+  const goodsTotal = productTotal ?? items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const servicesSum = serviceTotal ?? 0;
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -89,7 +106,7 @@ export function AdminCartLeadForm({ items, totalPrice, onSubmitted }: AdminCartL
             Создать заявку
           </CardTitle>
           <CardDescription>
-            Режим администратора. Заявка сохранится в CRM на сумму{" "}
+            Режим администратора. Заявка сохранится в CRM на сумму под ключ{" "}
             <span className="font-medium text-zinc-900">{formatPrice(totalPrice)}</span>.
           </CardDescription>
         </CardHeader>
@@ -106,8 +123,13 @@ export function AdminCartLeadForm({ items, totalPrice, onSubmitted }: AdminCartL
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-100">
-                    {items.map((item) => (
-                      <tr key={`${item.id}-${item.name}-${item.color ?? ""}`}>
+                    <tr className="bg-zinc-50">
+                      <td colSpan={4} className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-zinc-600">
+                        Товары
+                      </td>
+                    </tr>
+                    {products.map((item) => (
+                      <tr key={`product-${item.id}-${item.name}-${item.color ?? ""}`}>
                         <td className="px-3 py-2">
                           <p className="font-medium text-zinc-900">
                             {formatCartItemName(
@@ -126,6 +148,51 @@ export function AdminCartLeadForm({ items, totalPrice, onSubmitted }: AdminCartL
                         </td>
                       </tr>
                     ))}
+                    <tr className="bg-zinc-50/80">
+                      <td colSpan={3} className="px-3 py-2 text-sm font-medium text-zinc-700">
+                        Сумма товара
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-right text-sm font-semibold">
+                        {formatPrice(goodsTotal)}
+                      </td>
+                    </tr>
+                    {services.length > 0 ? (
+                      <>
+                        <tr className="bg-zinc-50">
+                          <td colSpan={4} className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-zinc-600">
+                            Услуги
+                          </td>
+                        </tr>
+                        {services.map((item) => (
+                          <tr key={`service-${item.name}`}>
+                            <td className="px-3 py-2">
+                              <p className="font-medium text-zinc-900">{item.name}</p>
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-2">{formatPrice(item.price)}</td>
+                            <td className="px-3 py-2">{item.quantity}</td>
+                            <td className="whitespace-nowrap px-3 py-2 text-right">
+                              {formatPrice(item.price * item.quantity)}
+                            </td>
+                          </tr>
+                        ))}
+                        <tr className="bg-zinc-50/80">
+                          <td colSpan={3} className="px-3 py-2 text-sm font-medium text-zinc-700">
+                            Сумма услуг
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-2 text-right text-sm font-semibold">
+                            {formatPrice(servicesSum)}
+                          </td>
+                        </tr>
+                      </>
+                    ) : null}
+                    <tr>
+                      <td colSpan={3} className="px-3 py-2.5 text-sm font-semibold text-zinc-900">
+                        Сумма под ключ
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2.5 text-right text-sm font-semibold text-zinc-900">
+                        {formatPrice(totalPrice)}
+                      </td>
+                    </tr>
                   </tbody>
                 </table>
               </div>
