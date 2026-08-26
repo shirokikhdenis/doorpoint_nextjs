@@ -5,9 +5,20 @@ import type { PromotionBanner } from "@/lib/client/normalizers";
 const promoCardClass =
   "rounded-lg border border-zinc-200 bg-white shadow-md transition hover:border-brand/25 hover:shadow-lg";
 
-function PromoIconBadge({ children }: { children: React.ReactNode }) {
+function PromoIconBadge({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
   return (
-    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand/10 text-brand">
+    <span
+      className={cn(
+        "flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand/10 text-brand",
+        className,
+      )}
+    >
       {children}
     </span>
   );
@@ -45,38 +56,53 @@ type InfoCardProps = {
   description: string;
   icon: React.ReactNode;
   href?: string;
+  variant?: "default" | "offer";
 };
 
-function InfoCard({ title, description, icon, href }: InfoCardProps) {
+function InfoCard({ title, description, icon, href, variant = "default" }: InfoCardProps) {
+  const isOffer = variant === "offer";
   const body = (
     <>
-      <PromoIconBadge>{icon}</PromoIconBadge>
-      <div>
-        <p className="font-semibold text-zinc-900">{title}</p>
-        <p className={cn("mt-1 text-sm leading-snug", href ? "font-medium text-brand" : "text-zinc-600")}>
-          {description}
-        </p>
+      <PromoIconBadge className={isOffer ? "bg-white/15 text-white" : undefined}>{icon}</PromoIconBadge>
+      <div className="min-w-0">
+        <p className={cn("font-semibold", isOffer ? "text-white" : "text-zinc-900")}>{title}</p>
+        {isOffer ? (
+          <span className="mt-2 inline-flex items-center rounded-md bg-white px-3 py-1.5 text-sm font-semibold text-brand shadow-sm">
+            {description}
+          </span>
+        ) : (
+          <p className={cn("mt-1 text-sm leading-snug", href ? "font-medium text-brand" : "text-zinc-600")}>
+            {description}
+          </p>
+        )}
       </div>
     </>
+  );
+
+  const className = cn(
+    "flex items-start gap-3 p-4",
+    isOffer
+      ? "rounded-lg bg-brand text-white shadow-md transition hover:bg-brand-hover hover:shadow-lg"
+      : promoCardClass,
   );
 
   if (href) {
     if (href === "/catalog") {
       return (
-        <a href={href} className={cn(promoCardClass, "flex items-start gap-3 p-4")}>
+        <a href={href} className={className}>
           {body}
         </a>
       );
     }
 
     return (
-      <Link href={href} prefetch={false} className={cn(promoCardClass, "flex items-start gap-3 p-4")}>
+      <Link href={href} prefetch={false} className={className}>
         {body}
       </Link>
     );
   }
 
-  return <div className={cn(promoCardClass, "flex items-start gap-3 p-4")}>{body}</div>;
+  return <div className={className}>{body}</div>;
 }
 
 export function HomePromotions({ banners }: { banners: PromotionBanner[] }) {
@@ -102,9 +128,10 @@ export function HomePromotions({ banners }: { banners: PromotionBanner[] }) {
         />
         <InfoCard
           title="Бесплатный замер"
-          description="Оставить заявку →"
+          description="Оставить заявку"
           icon={<RulerIcon />}
           href="/#zamer-form"
+          variant="offer"
         />
       </div>
     </section>

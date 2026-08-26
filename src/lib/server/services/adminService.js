@@ -345,6 +345,8 @@ const getProductsTable = async (query) => {
       manufacturer: query.manufacturer ? String(query.manufacturer).trim() : null,
       hit: query.hit === "1" ? true : query.hit === "0" ? false : null,
       onSale: query.onSale === "1" ? true : query.onSale === "0" ? false : null,
+      sortBy: String(query.sort || ""),
+      sortDir: String(query.dir || ""),
       attributeFilters: Object.fromEntries(
         Object.entries(query)
           .filter(([key, value]) => key.startsWith("attr_") && String(value || "").trim())
@@ -396,6 +398,9 @@ const patchProductSale = async (id, body) => {
 
 const patchProductSeo = async (id, body) => productRepository.patchProductSeo(Number(id), body);
 
+const patchProductAttributes = async (id, body) =>
+  productRepository.patchProductAttributes(Number(id), body);
+
 const getProductAttributeDistinctValues = async (query) =>
   productRepository.listProductAttributeDistinctValues({
     code: String(query.code || "").trim(),
@@ -435,6 +440,7 @@ module.exports = {
   patchProductBadges,
   patchProductSale,
   patchProductSeo,
+  patchProductAttributes,
   getProductAttributeDistinctValues,
   listCatalogPageLabels,
   createCatalogPageLabel,

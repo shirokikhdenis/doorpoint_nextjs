@@ -55,6 +55,7 @@ export type ProductsTableResponse = {
 
 export type HitFilter = "" | "yes" | "no";
 export type SaleFilter = "" | "yes" | "no";
+export type ProductsTableSortDir = "asc" | "desc";
 
 export type FixedColumnKey =
   | "order"

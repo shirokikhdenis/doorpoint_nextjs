@@ -101,8 +101,8 @@ export function AdminProductsFilters({
     : subcategories;
 
   useEffect(() => {
-    if (attrCode || manufacturer) setAdvancedOpen(true);
-  }, [attrCode, manufacturer]);
+    if (attrCode) setAdvancedOpen(true);
+  }, [attrCode]);
 
   return (
     <div className="space-y-3 rounded-xl border border-zinc-200 bg-white shadow-sm">
@@ -134,8 +134,8 @@ export function AdminProductsFilters({
           </div>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <label className="flex flex-col gap-1 md:col-span-2 xl:col-span-2">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          <label className="flex flex-col gap-1 md:col-span-2">
             <span className={labelClass}>Поиск</span>
             <input
               type="search"
@@ -172,6 +172,21 @@ export function AdminProductsFilters({
               {visibleSubcategories.map((sub) => (
                 <option key={sub.id} value={sub.id}>
                   {sub.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className={labelClass}>Производитель</span>
+            <select
+              value={manufacturer}
+              onChange={(event) => onManufacturerChange(event.target.value)}
+              className={fieldClass}
+            >
+              <option value="">Все</option>
+              {manufacturers.map((name) => (
+                <option key={name} value={name}>
+                  {name}
                 </option>
               ))}
             </select>
@@ -228,22 +243,7 @@ export function AdminProductsFilters({
         </button>
 
         {advancedOpen ? (
-          <div className="grid gap-3 rounded-lg border border-zinc-100 bg-zinc-50 p-3 md:grid-cols-3">
-            <label className="flex flex-col gap-1">
-              <span className={labelClass}>Производитель</span>
-              <select
-                value={manufacturer}
-                onChange={(event) => onManufacturerChange(event.target.value)}
-                className={fieldClass}
-              >
-                <option value="">Все</option>
-                {manufacturers.map((name) => (
-                  <option key={name} value={name}>
-                    {name}
-                  </option>
-                ))}
-              </select>
-            </label>
+          <div className="grid gap-3 rounded-lg border border-zinc-100 bg-zinc-50 p-3 md:grid-cols-2">
             <label className="flex flex-col gap-1">
               <span className={labelClass}>Характеристика</span>
               <select

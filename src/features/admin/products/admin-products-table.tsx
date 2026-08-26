@@ -2,24 +2,28 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { PRODUCT_BADGE_HIT } from "@/lib/client/product-badges";
 import { toPublicImageSrc } from "@/lib/client/image-src";
 import {
   ActiveStatusBadge,
+  AttributeCell,
   DisplayOrderInput,
   HitBadgeToggle,
   SalePriceInput,
   SaleToggle,
 } from "./admin-product-cells";
 import { ProductSeoEditor } from "./product-seo-editor";
+import { AdminProductEditor } from "./admin-product-editor";
 import { COLUMN_LABELS } from "./constants";
-import type { AttributeDef, ColumnVisibility, ProductRow } from "./types";
-
-const formatAttrValue = (value: ProductRow["attributes"][string]): string => {
-  if (value === null || value === undefined) return "";
-  if (typeof value === "boolean") return value ? "Да" : "Нет";
-  return String(value);
-};
+import type {
+  AttributeDef,
+  CategoryRef,
+  ColumnVisibility,
+  ProductRow,
+  ProductsTableSortDir,
+  SubcategoryRef,
+} from "./types";
 
 const stickyHead = "sticky top-0 z-10 bg-zinc-50";
 const stickyNameHead = "sticky left-10 z-20 bg-zinc-50 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]";
@@ -28,13 +32,65 @@ const stickyNameCell =
   "sticky left-10 z-[5] bg-white shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)] group-hover:bg-zinc-50";
 const stickyCheckCell = "sticky left-0 z-[5] bg-white group-hover:bg-zinc-50";
 
+function SortableTh({
+  label,
+  sortKey,
+  sortBy,
+  sortDir,
+  onSort,
+  className = "",
+  align = "left",
+  extra,
+}: {
+  label: ReactNode;
+  sortKey: string;
+  sortBy: string;
+  sortDir: ProductsTableSortDir;
+  onSort: (key: string) => void;
+  className?: string;
+  align?: "left" | "right" | "center";
+  extra?: ReactNode;
+}) {
+  const active = sortBy === sortKey;
+  const justify =
+    align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start";
+  return (
+    <th
+      className={className}
+      aria-sort={active ? (sortDir === "asc" ? "ascending" : "descending") : "none"}
+    >
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        title={active ? (sortDir === "asc" ? "По убыванию" : "По возрастанию") : "Сортировать"}
+        className={`inline-flex w-full items-center gap-0.5 ${justify} text-inherit hover:text-zinc-800`}
+      >
+        <span className="truncate">{label}</span>
+        {extra}
+        <span
+          className={`shrink-0 text-[9px] ${active ? "text-zinc-800" : "text-zinc-300"}`}
+          aria-hidden
+        >
+          {active ? (sortDir === "asc" ? "↑" : "↓") : "↕"}
+        </span>
+      </button>
+    </th>
+  );
+}
+
 type AdminProductsTableProps = {
   rows: ProductRow[];
   attributes: AttributeDef[];
+  categories: CategoryRef[];
+  subcategories: SubcategoryRef[];
   columnVisibility: ColumnVisibility;
   compact: boolean;
+  editMode?: boolean;
   loading: boolean;
   selectedIds: Set<number>;
+  sortBy: string;
+  sortDir: ProductsTableSortDir;
+  onSort: (key: string) => void;
   onToggleRow: (id: number) => void;
   onSaved: () => void;
 };
@@ -42,10 +98,16 @@ type AdminProductsTableProps = {
 export function AdminProductsTable({
   rows,
   attributes,
+  categories,
+  subcategories,
   columnVisibility,
   compact,
+  editMode = false,
   loading,
   selectedIds,
+  sortBy,
+  sortDir,
+  onSort,
   onToggleRow,
   onSaved,
 }: AdminProductsTableProps) {
@@ -69,58 +131,181 @@ export function AdminProductsTable({
               <span className="sr-only">Выбор</span>
             </th>
             {showColumn("order") ? (
-              <th className={`whitespace-nowrap ${cellPad} text-right`}>{COLUMN_LABELS.order}</th>
+              <SortableTh
+                className={`whitespace-nowrap ${cellPad}`}
+                align="right"
+                label={COLUMN_LABELS.order}
+                sortKey="order"
+                sortBy={sortBy}
+                sortDir={sortDir}
+                onSort={onSort}
+              />
             ) : null}
-            {showColumn("id") ? <th className={cellPad}>{COLUMN_LABELS.id}</th> : null}
-            {showColumn("sku") ? <th className={cellPad}>{COLUMN_LABELS.sku}</th> : null}
+            {showColumn("id") ? (
+              <SortableTh
+                className={cellPad}
+                label={COLUMN_LABELS.id}
+                sortKey="id"
+                sortBy={sortBy}
+                sortDir={sortDir}
+                onSort={onSort}
+              />
+            ) : null}
+            {showColumn("sku") ? (
+              <SortableTh
+                className={cellPad}
+                label={COLUMN_LABELS.sku}
+                sortKey="sku"
+                sortBy={sortBy}
+                sortDir={sortDir}
+                onSort={onSort}
+              />
+            ) : null}
             {showColumn("name") ? (
-              <th
+              <SortableTh
                 className={`${stickyNameHead} ${compact ? "min-w-[160px]" : "min-w-[220px]"} ${cellPad}`}
-              >
-                {COLUMN_LABELS.name}
-              </th>
+                label={COLUMN_LABELS.name}
+                sortKey="name"
+                sortBy={sortBy}
+                sortDir={sortDir}
+                onSort={onSort}
+              />
             ) : null}
-            {showColumn("category") ? <th className={cellPad}>{COLUMN_LABELS.category}</th> : null}
+            {showColumn("category") ? (
+              <SortableTh
+                className={cellPad}
+                label={COLUMN_LABELS.category}
+                sortKey="category"
+                sortBy={sortBy}
+                sortDir={sortDir}
+                onSort={onSort}
+              />
+            ) : null}
             {showColumn("subcategory") ? (
-              <th className={cellPad}>{COLUMN_LABELS.subcategory}</th>
+              <SortableTh
+                className={cellPad}
+                label={COLUMN_LABELS.subcategory}
+                sortKey="subcategory"
+                sortBy={sortBy}
+                sortDir={sortDir}
+                onSort={onSort}
+              />
             ) : null}
             {showColumn("price") ? (
-              <th className={`${cellPad} text-right`}>{COLUMN_LABELS.price}</th>
+              <SortableTh
+                className={cellPad}
+                align="right"
+                label={COLUMN_LABELS.price}
+                sortKey="price"
+                sortBy={sortBy}
+                sortDir={sortDir}
+                onSort={onSort}
+              />
             ) : null}
             {showColumn("compareAtPrice") ? (
-              <th className={`${cellPad} text-right`}>{COLUMN_LABELS.compareAtPrice}</th>
+              <SortableTh
+                className={cellPad}
+                align="right"
+                label={COLUMN_LABELS.compareAtPrice}
+                sortKey="compareAtPrice"
+                sortBy={sortBy}
+                sortDir={sortDir}
+                onSort={onSort}
+              />
             ) : null}
             {showColumn("hit") ? (
-              <th className={`${cellPad} text-center`}>{COLUMN_LABELS.hit}</th>
+              <SortableTh
+                className={cellPad}
+                align="center"
+                label={COLUMN_LABELS.hit}
+                sortKey="hit"
+                sortBy={sortBy}
+                sortDir={sortDir}
+                onSort={onSort}
+              />
             ) : null}
             {showColumn("sale") ? (
-              <th className={`${cellPad} text-center`}>{COLUMN_LABELS.sale}</th>
+              <SortableTh
+                className={cellPad}
+                align="center"
+                label={COLUMN_LABELS.sale}
+                sortKey="sale"
+                sortBy={sortBy}
+                sortDir={sortDir}
+                onSort={onSort}
+              />
             ) : null}
             {showColumn("active") ? (
-              <th className={`${cellPad} text-center`}>{COLUMN_LABELS.active}</th>
+              <SortableTh
+                className={cellPad}
+                align="center"
+                label={COLUMN_LABELS.active}
+                sortKey="active"
+                sortBy={sortBy}
+                sortDir={sortDir}
+                onSort={onSort}
+              />
             ) : null}
             {showColumn("variants") ? (
-              <th className={`${cellPad} text-right`}>{COLUMN_LABELS.variants}</th>
+              <SortableTh
+                className={cellPad}
+                align="right"
+                label={COLUMN_LABELS.variants}
+                sortKey="variants"
+                sortBy={sortBy}
+                sortDir={sortDir}
+                onSort={onSort}
+              />
             ) : null}
             {showColumn("images") ? (
-              <th className={`${cellPad} text-right`}>{COLUMN_LABELS.images}</th>
+              <SortableTh
+                className={cellPad}
+                align="right"
+                label={COLUMN_LABELS.images}
+                sortKey="images"
+                sortBy={sortBy}
+                sortDir={sortDir}
+                onSort={onSort}
+              />
             ) : null}
-            {showColumn("modelKey") ? <th className={cellPad}>{COLUMN_LABELS.modelKey}</th> : null}
+            {showColumn("modelKey") ? (
+              <SortableTh
+                className={cellPad}
+                label={COLUMN_LABELS.modelKey}
+                sortKey="modelKey"
+                sortBy={sortBy}
+                sortDir={sortDir}
+                onSort={onSort}
+              />
+            ) : null}
             {visibleAttributeColumns.map((attribute) => (
-              <th
+              <SortableTh
                 key={attribute.id}
                 className={`whitespace-nowrap ${cellPad}`}
-                title={`${attribute.code} · ${attribute.type}${attribute.isVariantAxis ? " · variant" : ""}`}
-              >
-                {attribute.name}
-                {attribute.isVariantAxis ? (
-                  <span className="ml-1 rounded bg-violet-100 px-1 text-[9px] text-violet-700">
-                    var
-                  </span>
-                ) : null}
-              </th>
+                label={attribute.name}
+                sortKey={`attr.${attribute.code}`}
+                sortBy={sortBy}
+                sortDir={sortDir}
+                onSort={onSort}
+                extra={
+                  attribute.isVariantAxis ? (
+                    <span className="ml-0.5 rounded bg-violet-100 px-1 text-[9px] text-violet-700">
+                      var
+                    </span>
+                  ) : null
+                }
+              />
             ))}
-            {showColumn("photos") ? <th className={cellPad}>{COLUMN_LABELS.photos}</th> : null}
+            {showColumn("photos") ? (
+              <SortableTh
+                className={cellPad}
+                label={COLUMN_LABELS.photos}
+                sortKey="photos"
+                sortBy={sortBy}
+                sortDir={sortDir}
+                onSort={onSort}
+              />
+            ) : null}
           </tr>
         </thead>
         <tbody>
@@ -171,9 +356,17 @@ export function AdminProductsTable({
                       className={`${stickyNameCell} ${cellPad} ${compact ? "max-w-[200px]" : "max-w-[280px]"} ${selected ? "!bg-sky-50/60" : ""}`}
                     >
                       {compact ? (
-                        <p className="truncate font-medium text-zinc-900" title={row.name}>
+                        <AdminProductEditor
+                          productId={row.id}
+                          productName={row.name}
+                          attributes={attributes}
+                          categories={categories}
+                          subcategories={subcategories}
+                          onSaved={onSaved}
+                          className="block w-full truncate"
+                        >
                           {row.name}
-                        </p>
+                        </AdminProductEditor>
                       ) : (
                         <div className="flex items-start gap-2">
                           {imageSrc ? (
@@ -190,7 +383,17 @@ export function AdminProductsTable({
                             </span>
                           )}
                           <div className="min-w-0">
-                            <p className="line-clamp-2 font-medium text-zinc-900">{row.name}</p>
+                            <AdminProductEditor
+                              productId={row.id}
+                              productName={row.name}
+                              attributes={attributes}
+                              categories={categories}
+                              subcategories={subcategories}
+                              onSaved={onSaved}
+                              className="line-clamp-2"
+                            >
+                              {row.name}
+                            </AdminProductEditor>
                             {row.slug ? (
                               <Link
                                 href={`/product/${row.slug}`}
@@ -281,8 +484,15 @@ export function AdminProductsTable({
                     </td>
                   ) : null}
                   {visibleAttributeColumns.map((attribute) => (
-                    <td key={attribute.id} className={`whitespace-nowrap ${cellPad} text-zinc-700`}>
-                      {formatAttrValue(row.attributes?.[attribute.code])}
+                    <td key={attribute.id} className={`whitespace-nowrap ${cellPad}`}>
+                      <AttributeCell
+                        productId={row.id}
+                        attribute={attribute}
+                        value={row.attributes?.[attribute.code]}
+                        editable={editMode}
+                        compact={compact}
+                        onSaved={onSaved}
+                      />
                     </td>
                   ))}
                   {showColumn("photos") ? (

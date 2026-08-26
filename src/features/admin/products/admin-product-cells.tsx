@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { PRODUCT_BADGE_HIT } from "@/lib/client/product-badges";
 
 export function SaleToggle({
@@ -265,5 +265,180 @@ export function ActiveStatusBadge({ active }: { active: boolean }) {
     <span className="inline-flex rounded-full bg-zinc-200 px-2 py-0.5 text-[10px] font-medium text-zinc-600">
       нет
     </span>
+  );
+}
+
+const optionValues = (options: Array<string | { value: string }> | undefined): string[] =>
+  (options || [])
+    .map((option) => (typeof option === "string" ? option : option.value))
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
+
+const isTruthyBoolean = (value: string) =>
+  ["да", "yes", "true", "1"].includes(value.trim().toLowerCase());
+
+export function attrValueToInputString(
+  value: string | number | boolean | null | undefined,
+  type: string,
+): string {
+  if (value === null || value === undefined || value === "") return "";
+  if (type === "boolean") {
+    if (value === true) return "Да";
+    if (value === false) return "Нет";
+    const text = String(value).trim();
+    if (!text) return "";
+    return isTruthyBoolean(text) ? "Да" : "Нет";
+  }
+  return String(value);
+}
+
+export function AttributeCell({
+  productId,
+  attribute,
+  value,
+  editable,
+  compact,
+  onSaved,
+}: {
+  productId: number;
+  attribute: {
+    id: number;
+    code: string;
+    name: string;
+    type: string;
+    isVariantAxis?: boolean;
+    options?: Array<string | { value: string }>;
+  };
+  value: string | number | boolean | null | undefined;
+  editable: boolean;
+  compact?: boolean;
+  onSaved: () => void;
+}) {
+  const display = attrValueToInputString(value, attribute.type);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const selectRef = useRef<HTMLSelectElement>(null);
+  const [saving, setSaving] = useState(false);
+
+  if (!editable || attribute.isVariantAxis) {
+    return <span className="text-zinc-700">{display}</span>;
+  }
+
+  const commit = async (raw: string) => {
+    let nextText = raw;
+    let nextNumber: number | null = null;
+    if (attribute.type === "number") {
+      const trimmed = raw.trim();
+      if (trimmed === "") {
+        nextText = "";
+        nextNumber = null;
+      } else {
+        const n = Number(trimmed.replace(",", "."));
+        if (!Number.isFinite(n)) {
+          if (inputRef.current) inputRef.current.value = display;
+          if (selectRef.current) selectRef.current.value = display;
+          return;
+        }
+        nextNumber = n;
+        nextText = String(n);
+      }
+    } else if (attribute.type === "boolean") {
+      const trimmed = raw.trim();
+      nextText = trimmed === "" ? "" : isTruthyBoolean(trimmed) ? "Да" : "Нет";
+    }
+
+    if (nextText === display) return;
+    setSaving(true);
+    try {
+      const entry =
+        attribute.type === "number"
+          ? {
+              attributeId: attribute.id,
+              valueText: null,
+              valueNumber: nextNumber,
+              valueOptionId: null,
+            }
+          : {
+              attributeId: attribute.id,
+              valueText: nextText,
+              valueNumber: null,
+              valueOptionId: null,
+            };
+      const res = await fetch(`/api/admin/products/${productId}/attributes`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ attributes: [entry] }),
+      });
+      if (!res.ok) {
+        const payload = (await res.json().catch(() => null)) as { message?: string } | null;
+        throw new Error(payload?.message || `HTTP ${res.status}`);
+      }
+      onSaved();
+    } catch {
+      if (inputRef.current) inputRef.current.value = display;
+      if (selectRef.current) selectRef.current.value = display;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const fieldClass = `rounded border border-zinc-200 bg-white px-1 py-0.5 text-zinc-800 focus:border-zinc-400 focus:outline-none disabled:opacity-60 ${
+    compact ? "min-w-[4.5rem] max-w-[9rem] text-[10px]" : "min-w-[5.5rem] max-w-[12rem] text-[11px]"
+  }`;
+
+  if (attribute.type === "boolean") {
+    return (
+      <select
+        ref={selectRef}
+        key={`${productId}-${attribute.id}-${display}`}
+        defaultValue={display}
+        disabled={saving}
+        aria-label={attribute.name}
+        className={fieldClass}
+        onChange={(event) => void commit(event.target.value)}
+      >
+        <option value="">—</option>
+        <option value="Да">Да</option>
+        <option value="Нет">Нет</option>
+      </select>
+    );
+  }
+
+  const options = optionValues(attribute.options);
+  if (attribute.type === "option" && options.length > 0) {
+    const selectOptions = display && !options.includes(display) ? [display, ...options] : options;
+    return (
+      <select
+        ref={selectRef}
+        key={`${productId}-${attribute.id}-${display}`}
+        defaultValue={display}
+        disabled={saving}
+        aria-label={attribute.name}
+        className={fieldClass}
+        onChange={(event) => void commit(event.target.value)}
+      >
+        <option value="">—</option>
+        {selectOptions.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    );
+  }
+
+  return (
+    <input
+      ref={inputRef}
+      key={`${productId}-${attribute.id}-${display}`}
+      type={attribute.type === "number" ? "number" : "text"}
+      defaultValue={display}
+      disabled={saving}
+      aria-label={attribute.name}
+      className={fieldClass}
+      onBlur={(event) => void commit(event.target.value)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") (event.target as HTMLInputElement).blur();
+      }}
+    />
   );
 }

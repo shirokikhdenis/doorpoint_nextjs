@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type {
   HitFilter,
   ProductsTableResponse,
+  ProductsTableSortDir,
   SaleFilter,
 } from "./types";
 
@@ -18,6 +19,8 @@ type UseAdminProductsDataOptions = {
   appliedAttrValue: string;
   hitFilter: HitFilter;
   saleFilter: SaleFilter;
+  sortBy: string;
+  sortDir: ProductsTableSortDir;
   reloadToken: number;
 };
 
@@ -32,6 +35,8 @@ export function useAdminProductsData({
   appliedAttrValue,
   hitFilter,
   saleFilter,
+  sortBy,
+  sortDir,
   reloadToken,
 }: UseAdminProductsDataOptions) {
   const [data, setData] = useState<ProductsTableResponse | null>(null);
@@ -59,6 +64,10 @@ export function useAdminProductsData({
       else if (hitFilter === "no") params.set("hit", "0");
       if (saleFilter === "yes") params.set("onSale", "1");
       else if (saleFilter === "no") params.set("onSale", "0");
+      if (sortBy.trim()) {
+        params.set("sort", sortBy.trim());
+        params.set("dir", sortDir);
+      }
 
       try {
         const response = await fetch(`/api/admin/products-table?${params.toString()}`, {
@@ -92,6 +101,8 @@ export function useAdminProductsData({
     appliedAttrValue,
     hitFilter,
     saleFilter,
+    sortBy,
+    sortDir,
     reloadToken,
   ]);
 

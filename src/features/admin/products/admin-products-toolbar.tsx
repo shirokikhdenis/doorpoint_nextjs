@@ -15,6 +15,10 @@ type AdminProductsToolbarProps = {
   onColumnVisibilityChange: (value: ColumnVisibility) => void;
   compact: boolean;
   onCompactChange: (value: boolean) => void;
+  editMode: boolean;
+  onEditModeChange: (value: boolean) => void;
+  search: string;
+  onSearchChange: (value: string) => void;
   onBulkAction: (action: BulkAction) => void;
   bulkLoading: boolean;
   loading: boolean;
@@ -30,6 +34,10 @@ export function AdminProductsToolbar({
   onColumnVisibilityChange,
   compact,
   onCompactChange,
+  editMode,
+  onEditModeChange,
+  search,
+  onSearchChange,
   onBulkAction,
   bulkLoading,
   loading,
@@ -124,6 +132,25 @@ export function AdminProductsToolbar({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
+        <input
+          type="search"
+          value={search}
+          onChange={(event) => onSearchChange(event.target.value)}
+          placeholder="SKU или название"
+          aria-label="Поиск товаров"
+          className="w-56 rounded-md border border-zinc-200 bg-white px-2.5 py-1 text-xs text-zinc-800 placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none"
+        />
+        <button
+          type="button"
+          onClick={() => onEditModeChange(!editMode)}
+          className={`rounded-md border px-2.5 py-1 text-xs ${
+            editMode
+              ? "border-zinc-900 bg-zinc-900 text-white"
+              : "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50"
+          }`}
+        >
+          Режим редактирования
+        </button>
         <button
           type="button"
           onClick={() => onCompactChange(!compact)}

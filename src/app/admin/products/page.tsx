@@ -15,7 +15,7 @@ import { runBulkProductAction } from "@/features/admin/products/bulk-actions";
 import { loadColumnVisibility, saveColumnVisibility } from "@/features/admin/products/column-visibility";
 import { useAdminProductsData } from "@/features/admin/products/use-admin-products-data";
 import { buildProductsFilterSearchParams } from "@/lib/client/admin-products-export";
-import type { BulkAction, ColumnVisibility, HitFilter, SaleFilter, SaleSettings } from "@/features/admin/products/types";
+import type { BulkAction, ColumnVisibility, HitFilter, ProductsTableSortDir, SaleFilter, SaleSettings } from "@/features/admin/products/types";
 
 export default function AdminProductsPage() {
   const [notice, setNotice] = useState("");
@@ -44,6 +44,9 @@ export default function AdminProductsPage() {
 
   const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>(() => loadColumnVisibility());
   const [compact, setCompact] = useState(true);
+  const [editMode, setEditMode] = useState(false);
+  const [sortBy, setSortBy] = useState("");
+  const [sortDir, setSortDir] = useState<ProductsTableSortDir>("asc");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [saleSettings, setSaleSettings] = useState<SaleSettings>({
     mode: "minus_percent",
@@ -62,12 +65,14 @@ export default function AdminProductsPage() {
     appliedAttrValue,
     hitFilter,
     saleFilter,
+    sortBy,
+    sortDir,
     reloadToken,
   });
 
   useEffect(() => {
     setSelectedIds(new Set());
-  }, [page, limit, appliedSearch, categoryId, subcategoryId, appliedManufacturer, appliedAttrCode, appliedAttrValue, hitFilter, saleFilter, reloadToken]);
+  }, [page, limit, appliedSearch, categoryId, subcategoryId, appliedManufacturer, appliedAttrCode, appliedAttrValue, hitFilter, saleFilter, sortBy, sortDir, reloadToken]);
 
   useEffect(() => {
     if (!data?.saleSettings) return;
@@ -110,6 +115,16 @@ export default function AdminProductsPage() {
   }, [attrCode, categoryId, subcategoryId]);
 
   const triggerReload = () => setReloadToken((token) => token + 1);
+
+  useEffect(() => {
+    const next = search.trim();
+    if (next === appliedSearch) return;
+    const handle = window.setTimeout(() => {
+      setAppliedSearch(next);
+      setPage(1);
+    }, 300);
+    return () => window.clearTimeout(handle);
+  }, [search, appliedSearch]);
 
   const categoryNameById = useMemo(() => {
     const map = new Map<number, string>();
@@ -485,6 +500,7 @@ export default function AdminProductsPage() {
     <AdminPage
       title="Товары"
       description="Управление каталогом: фильтры, массовые действия, настройка колонок и быстрое редактирование цен и статусов."
+      className="max-w-none"
       actions={
         <Button variant="outline" size="sm" asChild>
           <Link href="/admin/import">Импорт CSV</Link>
@@ -508,6 +524,19 @@ export default function AdminProductsPage() {
         }}
       />
 
+      <AdminProductsExportBar
+        filters={exportFilters}
+        selectedCount={selectedIds.size}
+        selectedIds={[...selectedIds]}
+        onNotice={(message, variant = "info") => {
+          setNotice(message);
+          setNoticeVariant(variant);
+        }}
+      />
+
+      {error ? <AdminNotice variant="error">{error}</AdminNotice> : null}
+
+      <div className="space-y-3">
       <AdminProductsFilters
         loading={loading}
         total={data?.total ?? null}
@@ -574,18 +603,6 @@ export default function AdminProductsPage() {
         canDeleteByFilter={canDeleteByFilter}
       />
 
-      <AdminProductsExportBar
-        filters={exportFilters}
-        selectedCount={selectedIds.size}
-        selectedIds={[...selectedIds]}
-        onNotice={(message, variant = "info") => {
-          setNotice(message);
-          setNoticeVariant(variant);
-        }}
-      />
-
-      {error ? <AdminNotice variant="error">{error}</AdminNotice> : null}
-
       <section className="overflow-hidden border border-admin-border bg-admin-surface shadow-sm">
         <AdminProductsToolbar
           selectedCount={selectedIds.size}
@@ -606,6 +623,20 @@ export default function AdminProductsPage() {
               });
             }
           }}
+          editMode={editMode}
+          onEditModeChange={(value) => {
+            setEditMode(value);
+            if (value) {
+              setColumnVisibility((prev) => {
+                if (prev.attributes) return prev;
+                const next = { ...prev, attributes: true };
+                saveColumnVisibility(next);
+                return next;
+              });
+            }
+          }}
+          search={search}
+          onSearchChange={setSearch}
           onBulkAction={(action) => void handleBulkAction(action)}
           bulkLoading={bulkLoading}
           loading={loading}
@@ -614,10 +645,24 @@ export default function AdminProductsPage() {
         <AdminProductsTable
           rows={rows}
           attributes={attributes}
+          categories={data?.categories || []}
+          subcategories={data?.subcategories || []}
           columnVisibility={columnVisibility}
           compact={compact}
+          editMode={editMode}
           loading={loading}
           selectedIds={selectedIds}
+          sortBy={sortBy}
+          sortDir={sortDir}
+          onSort={(key) => {
+            setPage(1);
+            if (sortBy === key) {
+              setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
+              return;
+            }
+            setSortBy(key);
+            setSortDir("asc");
+          }}
           onToggleRow={toggleRow}
           onSaved={triggerReload}
         />
@@ -633,6 +678,7 @@ export default function AdminProductsPage() {
           />
         ) : null}
       </section>
+      </div>
     </AdminPage>
   );
 }

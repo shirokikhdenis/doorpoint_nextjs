@@ -1503,6 +1503,50 @@ const buildProductsTableWhere = ({
   return { whereSql, params, manufacturerTrimmed };
 };
 
+const ATTR_SORT_CODE_RE = /^[a-zA-Z0-9_]{1,64}$/;
+const DEFAULT_PRODUCTS_TABLE_ORDER = `${displayOrderExpr} DESC, p.id DESC`;
+
+const PRODUCTS_TABLE_SORT_COLUMNS = {
+  order: displayOrderExpr,
+  id: "p.id",
+  sku: "LOWER(p.sku)",
+  name: "LOWER(p.name)",
+  category: "LOWER(COALESCE(parent.name, c.name))",
+  subcategory: `NULLIF(LOWER(CASE WHEN parent.id IS NOT NULL THEN c.name ELSE '' END), '')`,
+  price: "p.price",
+  compareAtPrice: "p.compare_at_price",
+  hit: `(COALESCE(p.badges, ARRAY[]::text[]) @> ARRAY['hit']::text[])`,
+  sale: "p.is_on_sale",
+  active: "p.is_active",
+  variants: "(SELECT COUNT(*) FROM product_variants pv WHERE pv.product_id = p.id)",
+  images: "(SELECT COUNT(*) FROM product_images pi WHERE pi.product_id = p.id)",
+  modelKey: `NULLIF(LOWER(COALESCE(p.model_key, '')), '')`,
+  photos: "(SELECT COUNT(*) FROM product_images pi WHERE pi.product_id = p.id)",
+};
+
+const buildProductsTableOrderBy = (sortBy, sortDir, addParam) => {
+  const dir = String(sortDir || "").toLowerCase() === "asc" ? "ASC" : "DESC";
+  const key = String(sortBy || "").trim();
+  if (!key) return DEFAULT_PRODUCTS_TABLE_ORDER;
+
+  if (key.startsWith("attr.")) {
+    const code = key.slice(5);
+    if (!ATTR_SORT_CODE_RE.test(code)) return DEFAULT_PRODUCTS_TABLE_ORDER;
+    const param = addParam(code);
+    const raw = `NULLIF(BTRIM(COALESCE(p.attrs->>${param}, '')), '')`;
+    return `
+      CASE WHEN ${raw} IS NULL THEN 1 ELSE 0 END ASC,
+      CASE WHEN ${raw} ~ '^-?[0-9]+([.,][0-9]+)?$' THEN REPLACE(${raw}, ',', '.')::numeric END ${dir} NULLS LAST,
+      LOWER(${raw}) ${dir} NULLS LAST,
+      p.id DESC
+    `;
+  }
+
+  const expr = PRODUCTS_TABLE_SORT_COLUMNS[key];
+  if (!expr) return DEFAULT_PRODUCTS_TABLE_ORDER;
+  return `${expr} ${dir} NULLS LAST, p.id DESC`;
+};
+
 const listProductsTable = async ({
   page = 1,
   limit = 100,
@@ -1513,6 +1557,8 @@ const listProductsTable = async ({
   manufacturer = null,
   hit = null,
   onSale = null,
+  sortBy = "",
+  sortDir = "",
 }) => {
   await ensureProductBadgesColumn();
   await ensureProductSaleColumns();
@@ -1574,6 +1620,7 @@ const listProductsTable = async ({
     listParams.push(value);
     return `$${listParams.length}`;
   };
+  const orderSql = buildProductsTableOrderBy(sortBy, sortDir, addListParam);
   const limitParam = addListParam(safeLimit);
   const offsetParam = addListParam(offset);
 
@@ -1609,7 +1656,7 @@ const listProductsTable = async ({
     FROM products p
     ${taxonomyJoin}
     ${fullWhere.whereSql}
-    ORDER BY ${displayOrderExpr} DESC, p.id DESC
+    ORDER BY ${orderSql}
     LIMIT ${limitParam} OFFSET ${offsetParam}
     `,
     listParams,
@@ -1920,10 +1967,30 @@ const createProduct = async (payload) => {
 
 const updateProduct = async (id, payload) =>
   withTransaction(async (client) => {
+    const currentRes = await client.query(
+      `SELECT id, attrs FROM products WHERE id = $1 LIMIT 1`,
+      [id],
+    );
+    if (currentRes.rows.length === 0) return null;
+
     const attrDefs = await attributeRepository.listAttributes();
     const attrDefById = new Map(attrDefs.map((def) => [def.id, def]));
-    const partitioned = partitionAttributesByScope(payload.attributes, attrDefById);
-    const productAttrs = productAttrsFromPayload(partitioned.product, attrDefById);
+    const nextAttrs = { ...ensureAttrs(currentRes.rows[0].attrs) };
+
+    if (Array.isArray(payload.attributes)) {
+      const partitioned = partitionAttributesByScope(payload.attributes, attrDefById);
+      for (const entry of partitioned.product) {
+        const def = attrDefById.get(Number(entry.attributeId));
+        if (!def) continue;
+        const value = attributeRepository.resolveAttributeValue(def, entry);
+        if (value === null || value === undefined || value === "") {
+          delete nextAttrs[def.code];
+        } else {
+          nextAttrs[def.code] = value;
+        }
+      }
+    }
+
     const targetCategoryId = resolveTargetCategoryId(payload);
     if (!targetCategoryId) throw new Error("categoryId is required");
 
@@ -1950,7 +2017,7 @@ const updateProduct = async (id, payload) =>
         payload.name,
         payload.modelKey || null,
         payload.price,
-        JSON.stringify(productAttrs),
+        JSON.stringify(nextAttrs),
         payload.isActive !== false,
       ],
     );
@@ -1965,6 +2032,55 @@ const updateProduct = async (id, payload) =>
 
     return updated.rows[0];
   });
+
+const patchProductAttributes = async (id, payload = {}) => {
+  const numericId = Number(id);
+  if (!Number.isInteger(numericId) || numericId <= 0) return null;
+  const entries = Array.isArray(payload.attributes) ? payload.attributes : [];
+  if (entries.length === 0) return { id: numericId };
+
+  return withTransaction(async (client) => {
+    const currentRes = await client.query(
+      `SELECT id, attrs FROM products WHERE id = $1 LIMIT 1`,
+      [numericId],
+    );
+    if (currentRes.rows.length === 0) return null;
+
+    const attrDefs = await attributeRepository.listAttributes();
+    const attrDefById = new Map(attrDefs.map((def) => [def.id, def]));
+    const nextAttrs = { ...ensureAttrs(currentRes.rows[0].attrs) };
+    const partitioned = partitionAttributesByScope(entries, attrDefById);
+    let changed = false;
+
+    for (const entry of partitioned.product) {
+      const def = attrDefById.get(Number(entry.attributeId));
+      if (!def) continue;
+      const value = attributeRepository.resolveAttributeValue(def, entry);
+      if (value === null || value === undefined || value === "") {
+        if (nextAttrs[def.code] === undefined) continue;
+        delete nextAttrs[def.code];
+        changed = true;
+      } else if (String(nextAttrs[def.code] ?? "") !== String(value)) {
+        nextAttrs[def.code] = value;
+        changed = true;
+      }
+    }
+
+    if (!changed) return { id: numericId, attrs: nextAttrs };
+
+    const res = await client.query(
+      `
+      UPDATE products
+      SET attrs = $2::jsonb, updated_at = NOW()
+      WHERE id = $1
+      RETURNING id
+      `,
+      [numericId, JSON.stringify(nextAttrs)],
+    );
+    if (!res.rows[0]) return null;
+    return { id: Number(res.rows[0].id), attrs: nextAttrs };
+  });
+};
 
 const DEFAULT_IMPORT_IMAGE = "https://picsum.photos/seed/imported/500/360";
 
@@ -2803,6 +2919,7 @@ module.exports = {
   listProductAttributeDistinctValues,
   createProduct,
   updateProduct,
+  patchProductAttributes,
   upsertProductBySku,
   listSkusBySkuList,
   listVariantSkusBySkuList,

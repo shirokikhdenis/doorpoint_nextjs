@@ -228,8 +228,18 @@ const handle = async (request, context) =>
       await invalidateStorefrontCache("products");
       return json(updated);
     }
+    if (path[0] === "products" && path.length === 3 && path[2] === "attributes" && method === "PATCH") {
+      if (!Array.isArray(body.attributes)) {
+        return json({ message: "attributes must be an array" }, 400);
+      }
+      const updated = await adminService.patchProductAttributes(Number(path[1]), body);
+      if (!updated) return json({ message: "Product not found" }, 404);
+      await invalidateStorefrontCache("products");
+      return json(updated);
+    }
     if (path[0] === "products" && path.length === 2 && method === "PUT") {
       const updated = await adminService.updateProduct(Number(path[1]), body);
+      if (!updated) return json({ message: "Product not found" }, 404);
       await invalidateStorefrontCache("products");
       return json(updated);
     }
