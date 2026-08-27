@@ -5,8 +5,11 @@ export const storefrontPageContainerClass =
   "mx-auto w-full max-w-[1536px] px-4 sm:px-6 lg:px-8";
 
 /** Сетка ярлыков фабрик и коллекций на /fabriki */
-export const factoryLabelCardGridClass =
-  "grid grid-cols-1 gap-4 sm:gap-5 lg:grid-cols-2";
+export function factoryLabelCardGridClass(cardsPerRow?: number): string {
+  return Number(cardsPerRow) === 3
+    ? "grid grid-cols-1 gap-4 sm:gap-5 md:grid-cols-2 lg:grid-cols-3"
+    : "grid grid-cols-1 gap-4 sm:gap-5 lg:grid-cols-2";
+}
 
 /** Оболочка карточки ярлыка фабрики / коллекции */
 export const factoryLabelCardClass =

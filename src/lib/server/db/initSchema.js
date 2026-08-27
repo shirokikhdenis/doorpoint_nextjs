@@ -61,7 +61,10 @@ CREATE TABLE catalog_pages (
   name TEXT NOT NULL,
   category_slugs TEXT[] NOT NULL DEFAULT '{}'::text[],
   filter_codes TEXT[] NOT NULL DEFAULT '{}'::text[],
-  sort_order INTEGER NOT NULL DEFAULT 0
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  cards_per_row INTEGER NOT NULL DEFAULT 4,
+  grid_rows INTEGER NOT NULL DEFAULT 5,
+  card_image_height TEXT NOT NULL DEFAULT 'default'
 );
 
 CREATE INDEX idx_catalog_pages_category_slugs ON catalog_pages USING gin (category_slugs);
@@ -415,9 +418,18 @@ const seedCatalogPages = async (client) => {
   for (const page of pages) {
     order += 10;
     await client.query(
-      `INSERT INTO catalog_pages(slug, name, category_slugs, filter_codes, sort_order)
-       VALUES ($1, $2, $3::text[], $4::text[], $5)`,
-      [page.slug, page.name, page.categories, page.filters, order],
+      `INSERT INTO catalog_pages(slug, name, category_slugs, filter_codes, sort_order, cards_per_row, grid_rows, card_image_height)
+       VALUES ($1, $2, $3::text[], $4::text[], $5, $6, $7, $8)`,
+      [
+        page.slug,
+        page.name,
+        page.categories,
+        page.filters,
+        order,
+        page.slug === "furnitura" ? 6 : 4,
+        page.slug === "furnitura" ? 4 : 5,
+        page.slug === "furnitura" ? "compact" : "default",
+      ],
     );
   }
 };

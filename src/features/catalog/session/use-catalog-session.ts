@@ -77,6 +77,7 @@ export function useCatalogSession({
   const fetchGenerationRef = useRef(0);
   const catalogPageRef = useRef(catalogPage);
   const queryRef = useRef(query);
+  const catalogPagesRef = useRef<CatalogPageItem[]>(initial?.catalogPages ?? []);
 
   const [state, dispatch] = useReducer(
     catalogSessionReducer,
@@ -173,6 +174,9 @@ export function useCatalogSession({
       if (!pagesRes.ok) return;
       const safePages = normalizeCatalogPages(await pagesRes.json());
       if (cancelled) return;
+      if (safePages.length > 0) {
+        catalogPagesRef.current = safePages;
+      }
       if (safePages.length && !safePages.some((p) => p.slug === catalogPage)) {
         const fallback = safePages.find((p) => p.isDefault) || safePages[0];
         setCatalogPage(fallback?.slug || "all");
@@ -266,6 +270,13 @@ export function useCatalogSession({
     (async () => {
       dispatch({ type: "FETCH_START", page });
 
+      const layoutPage =
+        catalogPagesRef.current.find((entry) => entry.slug === catalogPage) ??
+        (initialShellRef.current?.catalogPage === catalogPage
+          ? initialShellRef.current.meta
+          : undefined);
+      const pageLimit = catalogPageLimit(catalogPage, layoutPage);
+
       try {
         if (needsRestore) {
           const snap = restoreTargetRef.current!;
@@ -280,7 +291,7 @@ export function useCatalogSession({
               pageNumbers.map(async (pageNumber) => {
                 const params = new URLSearchParams(query);
                 params.set("page", String(pageNumber));
-                params.set("limit", String(catalogPageLimit(catalogPage)));
+                params.set("limit", String(pageLimit));
                 const response = await fetch(`/api/products?${params.toString()}`);
                 if (!response.ok) throw new Error("Не удалось загрузить данные каталога");
                 return (await response.json()) as { total?: number };
@@ -320,7 +331,7 @@ export function useCatalogSession({
 
         const params = new URLSearchParams(query);
         params.set("page", String(page));
-        params.set("limit", String(catalogPageLimit(catalogPage)));
+        params.set("limit", String(pageLimit));
         const res = await fetch(`/api/products?${params.toString()}`);
         if (!res.ok) throw new Error("Не удалось загрузить данные каталога");
         const json = (await res.json()) as { total?: number };

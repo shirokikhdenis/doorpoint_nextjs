@@ -3,7 +3,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { CATALOG_CARD_IMAGE_HEIGHT } from "@/features/catalog/catalog-constants";
+import {
+  catalogCardImageHeightClass,
+  catalogGridClass,
+  type CatalogCardImageHeight,
+} from "@/features/catalog/catalog-constants";
 import { cn } from "@/lib/utils";
 import {
   buildCatalogCartItem,
@@ -20,12 +24,14 @@ type HomeProductHitsProps = {
   sectionId?: number;
   loadMoreCount?: number;
   variant?: "default" | "muted";
+  cardsPerRow?: number;
+  cardImageHeight?: CatalogCardImageHeight;
 };
 
-function HomeProductSkeleton() {
+function HomeProductSkeleton({ imageHeight }: { imageHeight?: CatalogCardImageHeight }) {
   return (
     <div className="flex h-full flex-col rounded-lg bg-white p-2 shadow-md">
-      <div className={`mb-3 ${CATALOG_CARD_IMAGE_HEIGHT} animate-pulse rounded bg-zinc-100`} />
+      <div className={`mb-3 ${catalogCardImageHeightClass(imageHeight)} animate-pulse rounded bg-zinc-100`} />
       <div className="h-4 w-3/4 animate-pulse rounded bg-zinc-100" />
       <div className="mt-2 h-5 w-1/3 animate-pulse rounded bg-zinc-100" />
     </div>
@@ -40,6 +46,8 @@ export function HomeProductHits({
   sectionId,
   loadMoreCount = 8,
   variant = "default",
+  cardsPerRow = 4,
+  cardImageHeight,
 }: HomeProductHitsProps) {
   const { addItem } = useCart();
   const [hoveredProductId, setHoveredProductId] = useState<number | null>(null);
@@ -103,14 +111,14 @@ export function HomeProductHits({
       </div>
 
       {displayedProducts.length === 0 ? (
-        <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
+        <div className={catalogGridClass(cardsPerRow, catalogPage)}>
           {Array.from({ length: 8 }, (_, i) => (
-            <HomeProductSkeleton key={i} />
+            <HomeProductSkeleton key={i} imageHeight={cardImageHeight} />
           ))}
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
+          <div className={catalogGridClass(cardsPerRow, catalogPage)}>
             {displayedProducts.map((item) => {
               const showHover =
                 hoveredProductId === item.id &&
@@ -124,6 +132,7 @@ export function HomeProductHits({
                   onMouseLeave={() => setHoveredProductId(null)}
                   onNavigateToProduct={() => {}}
                   onAddToCart={() => addItem(buildCatalogCartItem(item))}
+                  imageHeight={cardImageHeight}
                 />
               );
             })}

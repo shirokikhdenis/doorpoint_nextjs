@@ -11,6 +11,9 @@ const require = createRequire(import.meta.url);
 const factoryService = require("@/lib/server/services/factoryService") as {
   listPublicFactorySections: () => Promise<FactorySectionData[]>;
 };
+const storefrontSettingsRepository = require("@/lib/server/repositories/storefrontSettingsRepository") as {
+  getStorefrontSettings: () => Promise<{ factoryCardsPerRow: number }>;
+};
 
 const PAGE_TITLE = "Фабрики";
 const PAGE_DESCRIPTION =
@@ -31,7 +34,10 @@ export const metadata: Metadata = {
 };
 
 export default async function FactoriesPage() {
-  const sections = await factoryService.listPublicFactorySections();
+  const [sections, settings] = await Promise.all([
+    factoryService.listPublicFactorySections(),
+    storefrontSettingsRepository.getStorefrontSettings(),
+  ]);
 
   return (
     <main className={cn(storefrontPageContainerClass, "py-6")}>
@@ -40,7 +46,7 @@ export default async function FactoriesPage() {
 
       <div className="mt-8 space-y-10 sm:space-y-12">
         {sections.map((section) => (
-          <FactorySection key={section.id} section={section} />
+          <FactorySection key={section.id} section={section} cardsPerRow={settings.factoryCardsPerRow} />
         ))}
       </div>
     </main>

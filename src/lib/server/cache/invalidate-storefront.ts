@@ -24,6 +24,7 @@ export async function invalidateStorefrontCache(scope: StorefrontCacheScope = "a
   if (scope === "all" || scope === "catalog-pages") {
     expireTag("catalog-pages");
     expireTag("catalog-meta");
+    expireTag("home-hits");
   }
 
   if (scope === "all" || scope === "promotions") {
@@ -51,7 +52,7 @@ export async function invalidateStorefrontCache(scope: StorefrontCacheScope = "a
     expireTag("home-hits");
   }
 
-  if (scope === "all" || scope === "products" || scope === "promotions" || scope === "home-sections" || scope === "testimonials" || scope === "portfolio") {
+  if (scope === "all" || scope === "products" || scope === "promotions" || scope === "home-sections" || scope === "testimonials" || scope === "portfolio" || scope === "catalog-pages") {
     revalidatePath("/");
   }
 

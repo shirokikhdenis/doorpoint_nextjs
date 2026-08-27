@@ -165,8 +165,9 @@ const getFilterMeta = async (query = {}) => {
   const filters = {};
   let labels = [];
   let collapsedFilterSections = null;
+  let page = null;
   if (pageSlug) {
-    const page = await catalogPageRepository.findCatalogPageBySlug(pageSlug);
+    page = await catalogPageRepository.findCatalogPageBySlug(pageSlug);
     if (page) {
       collapsedFilterSections = page.collapsedFilterSections ?? null;
       const labelRows = await catalogPageLabelRepository.listByCatalogPageId(page.id);
@@ -210,6 +211,13 @@ const getFilterMeta = async (query = {}) => {
     ...meta,
     labels,
     collapsedFilterSections,
+    ...(page
+      ? {
+          cardsPerRow: page.cardsPerRow,
+          gridRows: page.gridRows,
+          cardImageHeight: page.cardImageHeight,
+        }
+      : {}),
     manufacturerCollectionTree,
     collectionAttrCode,
   };
@@ -236,7 +244,7 @@ const pickRandomHandles = async ({ count = 6, excludeIds = [], manufacturer = ""
 const INTERIOR_DOORS_CATEGORY_SLUG = "interior-doors";
 const ENTRY_DOORS_CATEGORY_SLUG = "entry-doors";
 
-const attachEntryDoorExtras = async (product) => {
+const attachEntryDoorExtras = async (product, settings) => {
   if (!product || product.categorySlug !== ENTRY_DOORS_CATEGORY_SLUG) {
     return product;
   }
@@ -244,6 +252,7 @@ const attachEntryDoorExtras = async (product) => {
     product,
     getProducts,
     shuffle,
+    count: settings?.subcategoryDoorsCardsPerRow || 4,
   });
   return {
     ...product,
@@ -251,7 +260,7 @@ const attachEntryDoorExtras = async (product) => {
   };
 };
 
-const attachInteriorDoorExtras = async (product) => {
+const attachInteriorDoorExtras = async (product, settings) => {
   if (!product || product.categorySlug !== INTERIOR_DOORS_CATEGORY_SLUG) {
     return product;
   }
@@ -259,11 +268,13 @@ const attachInteriorDoorExtras = async (product) => {
   const fittingsManufacturer = manufacturer
     ? await doorFactoryFittingBrandRepository.getFittingsManufacturerForDoorFactory(manufacturer)
     : "";
+  const collectionDoorsCount = settings?.collectionDoorsCardsPerRow || 4;
+  const suggestedHandlesCount = settings?.suggestedHandlesCardsPerRow || 6;
 
   const [suggestedHandles, relatedCollectionDoors, finishOptionsRaw, pickerSettings, moduleSettings, hardwareServiceOptions, glassUpgradeOptions] =
     await Promise.all([
-      pickRandomHandles({ count: 6, manufacturer: fittingsManufacturer }),
-      loadRelatedCollectionDoors({ product, getProducts }),
+      pickRandomHandles({ count: suggestedHandlesCount, manufacturer: fittingsManufacturer }),
+      loadRelatedCollectionDoors({ product, getProducts, count: collectionDoorsCount }),
       loadFinishOptionsForProduct(product),
       doorFinishPickerSettingsRepository.getDoorFinishPickerSettings(),
       manufacturer ? loadManufacturerModules(manufacturer) : Promise.resolve(null),
@@ -294,9 +305,17 @@ const attachInteriorDoorExtras = async (product) => {
 
 const attachProductPageExtras = async (product) => {
   if (!product) return null;
+  const settings = await storefrontSettingsRepository.getStorefrontSettings();
   const withBrand = await attachManufacturerBrand(product);
-  const withEntryDoors = await attachEntryDoorExtras(withBrand);
-  return attachInteriorDoorExtras(withEntryDoors);
+  const withEntryDoors = await attachEntryDoorExtras(withBrand, settings);
+  const withInterior = await attachInteriorDoorExtras(withEntryDoors, settings);
+  return {
+    ...withInterior,
+    relatedFittingsCardsPerRow: settings.relatedFittingsCardsPerRow,
+    collectionDoorsCardsPerRow: settings.collectionDoorsCardsPerRow,
+    suggestedHandlesCardsPerRow: settings.suggestedHandlesCardsPerRow,
+    subcategoryDoorsCardsPerRow: settings.subcategoryDoorsCardsPerRow,
+  };
 };
 
 const getProductById = async (id) => {

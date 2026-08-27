@@ -12,6 +12,17 @@ const resolveCatalogPageSlug = (slug) => {
   return match ? match[1] : trimmed;
 };
 
+const clampInt = (value, min, max, fallback) => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, Math.round(n)));
+};
+
+const clampCardsPerRow = (value) => clampInt(value, 2, 8, 4);
+const clampGridRows = (value) => clampInt(value, 1, 12, 5);
+const clampCardImageHeight = (value, fallback = "default") =>
+  String(value || fallback).trim() === "compact" ? "compact" : "default";
+
 /**
  * catalog_pages — единственная таблица витрин. Три бывших M2M-таблицы свернуты в массивы:
  *   - category_slugs TEXT[] (содержит и корневые, и дочерние slug — старая семантика)
@@ -22,6 +33,21 @@ const resolveCatalogPageSlug = (slug) => {
  */
 
 const DEFAULT_SLUG = "all";
+
+const CATALOG_PAGE_SELECT = `
+      id,
+      name,
+      slug,
+      sort_order AS "sortOrder",
+      category_slugs AS "categorySlugs",
+      filter_codes AS "filterCodes",
+      seo_title AS "seoTitle",
+      seo_description AS "seoDescription",
+      collapsed_filter_sections AS "collapsedFilterSections",
+      cards_per_row AS "cardsPerRow",
+      grid_rows AS "gridRows",
+      card_image_height AS "cardImageHeight"
+`;
 
 const mapBaseRow = (row) => ({
   id: Number(row.id),
@@ -35,6 +61,9 @@ const mapBaseRow = (row) => ({
   collapsedFilterSections: Array.isArray(row.collapsedFilterSections)
     ? row.collapsedFilterSections.filter(Boolean)
     : null,
+  cardsPerRow: clampCardsPerRow(row.cardsPerRow),
+  gridRows: clampGridRows(row.gridRows),
+  cardImageHeight: clampCardImageHeight(row.cardImageHeight),
 });
 
 const expandPages = async (rows) => {
@@ -141,15 +170,7 @@ const listCatalogPages = async () => {
   const res = await query(
     `
     SELECT
-      id,
-      name,
-      slug,
-      sort_order AS "sortOrder",
-      category_slugs AS "categorySlugs",
-      filter_codes AS "filterCodes",
-      seo_title AS "seoTitle",
-      seo_description AS "seoDescription",
-      collapsed_filter_sections AS "collapsedFilterSections"
+      ${CATALOG_PAGE_SELECT}
     FROM catalog_pages
     ORDER BY sort_order ASC, id ASC
     `,
@@ -165,15 +186,7 @@ const findCatalogPageBySlug = async (slug) => {
   const res = await query(
     `
     SELECT
-      id,
-      name,
-      slug,
-      sort_order AS "sortOrder",
-      category_slugs AS "categorySlugs",
-      filter_codes AS "filterCodes",
-      seo_title AS "seoTitle",
-      seo_description AS "seoDescription",
-      collapsed_filter_sections AS "collapsedFilterSections"
+      ${CATALOG_PAGE_SELECT}
     FROM catalog_pages
     WHERE slug = $1
     LIMIT 1
@@ -192,15 +205,7 @@ const findCatalogPageById = async (id) => {
   const res = await query(
     `
     SELECT
-      id,
-      name,
-      slug,
-      sort_order AS "sortOrder",
-      category_slugs AS "categorySlugs",
-      filter_codes AS "filterCodes",
-      seo_title AS "seoTitle",
-      seo_description AS "seoDescription",
-      collapsed_filter_sections AS "collapsedFilterSections"
+      ${CATALOG_PAGE_SELECT}
     FROM catalog_pages
     WHERE id = $1
     LIMIT 1
@@ -216,12 +221,7 @@ const findDefaultCatalogPage = async () => {
   const res = await query(
     `
     SELECT
-      id,
-      name,
-      slug,
-      sort_order AS "sortOrder",
-      category_slugs AS "categorySlugs",
-      filter_codes AS "filterCodes"
+      ${CATALOG_PAGE_SELECT}
     FROM catalog_pages
     WHERE slug = $1
     LIMIT 1
@@ -265,6 +265,7 @@ const codesForAttributeIds = async (client, ids) => {
 
 const createCatalogPage = async (payload) =>
   withTransaction(async (client) => {
+    await ensureCatalogPageFilterDefaultsColumn();
     const maxOrderRes = await client.query(
       `SELECT COALESCE(MAX(sort_order), 0) + 10 AS next FROM catalog_pages`,
     );
@@ -281,17 +282,27 @@ const createCatalogPage = async (payload) =>
 
     const res = await client.query(
       `
-      INSERT INTO catalog_pages(slug, name, category_slugs, filter_codes, sort_order)
-      VALUES ($1, $2, $3::text[], $4::text[], $5)
+      INSERT INTO catalog_pages(slug, name, category_slugs, filter_codes, sort_order, cards_per_row, grid_rows, card_image_height)
+      VALUES ($1, $2, $3::text[], $4::text[], $5, $6, $7, $8)
       RETURNING id
       `,
-      [payload.slug, payload.name, [...new Set(categorySlugs)], uniqueOrdered(filterCodes), sortOrder],
+      [
+        payload.slug,
+        payload.name,
+        [...new Set(categorySlugs)],
+        uniqueOrdered(filterCodes),
+        sortOrder,
+        clampCardsPerRow(payload.cardsPerRow),
+        clampGridRows(payload.gridRows),
+        clampCardImageHeight(payload.cardImageHeight),
+      ],
     );
     return Number(res.rows[0].id);
   });
 
 const updateCatalogPage = async (id, payload) =>
   withTransaction(async (client) => {
+    await ensureCatalogPageFilterDefaultsColumn();
     const categorySlugs = [
       ...(await slugsForCategoryIds(client, payload.categoryIds || [])),
       ...(await slugsForCategoryIds(client, payload.subcategoryIds || [])),
@@ -309,7 +320,10 @@ const updateCatalogPage = async (id, payload) =>
         filter_codes = $6::text[],
         seo_title = $7,
         seo_description = $8,
-        collapsed_filter_sections = $9::text[]
+        collapsed_filter_sections = $9::text[],
+        cards_per_row = COALESCE($10, cards_per_row),
+        grid_rows = COALESCE($11, grid_rows),
+        card_image_height = COALESCE($12, card_image_height)
       WHERE id = $1
       RETURNING id
       `,
@@ -323,10 +337,45 @@ const updateCatalogPage = async (id, payload) =>
         payload.seoTitle ?? null,
         payload.seoDescription ?? null,
         Array.isArray(payload.collapsedFilterSections) ? payload.collapsedFilterSections : null,
+        payload.cardsPerRow === undefined || payload.cardsPerRow === null || payload.cardsPerRow === ""
+          ? null
+          : clampCardsPerRow(payload.cardsPerRow),
+        payload.gridRows === undefined || payload.gridRows === null || payload.gridRows === ""
+          ? null
+          : clampGridRows(payload.gridRows),
+        payload.cardImageHeight === undefined || payload.cardImageHeight === null || payload.cardImageHeight === ""
+          ? null
+          : clampCardImageHeight(payload.cardImageHeight),
       ],
     );
     return res.rows[0] ? Number(res.rows[0].id) : null;
   });
+
+const updateCatalogPageGrid = async (id, payload) => {
+  await ensureCatalogPageFilterDefaultsColumn();
+  const numericId = Number(id);
+  if (!Number.isFinite(numericId) || numericId <= 0) return null;
+  const res = await query(
+    `
+    UPDATE catalog_pages
+    SET
+      cards_per_row = $2,
+      grid_rows = $3,
+      card_image_height = COALESCE($4, card_image_height)
+    WHERE id = $1
+    RETURNING id
+    `,
+    [
+      numericId,
+      clampCardsPerRow(payload.cardsPerRow),
+      clampGridRows(payload.gridRows),
+      payload.cardImageHeight === undefined || payload.cardImageHeight === null || payload.cardImageHeight === ""
+        ? null
+        : clampCardImageHeight(payload.cardImageHeight),
+    ],
+  );
+  return res.rows[0] ? Number(res.rows[0].id) : null;
+};
 
 const deleteCatalogPage = async (id) => {
   const res = await query(
@@ -343,5 +392,6 @@ module.exports = {
   findDefaultCatalogPage,
   createCatalogPage,
   updateCatalogPage,
+  updateCatalogPageGrid,
   deleteCatalogPage,
 };

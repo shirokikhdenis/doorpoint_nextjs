@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
+import { catalogGridClass } from "@/features/catalog/catalog-constants";
 import { AddToCartIconButton } from "@/features/store/add-to-cart-icon-button";
 import { CartQuantityStepper } from "@/features/store/cart-quantity-stepper";
 import { CartLineRef, findCartLine } from "@/lib/client/cart-store";
@@ -79,9 +80,10 @@ function RelatedFittingCard({ item }: { item: RelatedFittingItem }) {
 
 type ProductRelatedFittingsProps = {
   relatedFittings: RelatedFittings;
+  cardsPerRow?: number;
 };
 
-export function ProductRelatedFittings({ relatedFittings }: ProductRelatedFittingsProps) {
+export function ProductRelatedFittings({ relatedFittings, cardsPerRow }: ProductRelatedFittingsProps) {
   const items = relatedFittings.items;
   if (items.length === 0) return null;
 
@@ -95,7 +97,7 @@ export function ProductRelatedFittings({ relatedFittings }: ProductRelatedFittin
         {mentionsRosette ? " (для фиксатора — также по розетке)" : ""}
         , с учётом типа замка и петель.
       </p>
-      <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-6">
+      <div className={`mt-5 ${catalogGridClass(cardsPerRow ?? 6)}`}>
         {items.map((item) => (
           <RelatedFittingCard key={item.id} item={item} />
         ))}

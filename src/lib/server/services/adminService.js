@@ -48,7 +48,10 @@ const createCatalogPage = async (payload) =>
     isActive: payload.isActive !== false,
     categoryIds: Array.isArray(payload.categoryIds) ? payload.categoryIds.map(Number) : [],
     subcategoryIds: Array.isArray(payload.subcategoryIds) ? payload.subcategoryIds.map(Number) : [],
-    filterAttributeIds: Array.isArray(payload.filterAttributeIds) ? payload.filterAttributeIds.map(Number) : []
+    filterAttributeIds: Array.isArray(payload.filterAttributeIds) ? payload.filterAttributeIds.map(Number) : [],
+    cardsPerRow: payload.cardsPerRow,
+    gridRows: payload.gridRows,
+    cardImageHeight: payload.cardImageHeight,
   });
 
 const updateCatalogPage = async (id, payload) =>
@@ -66,9 +69,24 @@ const updateCatalogPage = async (id, payload) =>
     collapsedFilterSections: Array.isArray(payload.collapsedFilterSections)
       ? payload.collapsedFilterSections.map(String).filter(Boolean)
       : null,
+    cardsPerRow: payload.cardsPerRow,
+    gridRows: payload.gridRows,
+    cardImageHeight: payload.cardImageHeight,
   });
 
 const deleteCatalogPage = async (id) => catalogPageRepository.deleteCatalogPage(Number(id));
+
+const listCatalogPages = async () => catalogPageRepository.listCatalogPages();
+
+const updateCatalogPageGrid = async (id, payload) => {
+  const updatedId = await catalogPageRepository.updateCatalogPageGrid(Number(id), {
+    cardsPerRow: payload.cardsPerRow,
+    gridRows: payload.gridRows,
+    cardImageHeight: payload.cardImageHeight,
+  });
+  if (!updatedId) return null;
+  return catalogPageRepository.findCatalogPageById(updatedId);
+};
 
 const normalizeLabelFiltersInput = (raw) => catalogPageLabelRepository.normalizeFilters(raw);
 
@@ -414,6 +432,8 @@ module.exports = {
   listBootstrap,
   createCatalogPage,
   updateCatalogPage,
+  updateCatalogPageGrid,
+  listCatalogPages,
   deleteCatalogPage,
   createCategory,
   updateCategory,

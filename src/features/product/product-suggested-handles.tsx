@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { catalogGridClass } from "@/features/catalog/catalog-constants";
 import {
   buildCatalogCartItem,
   CatalogProductCard,
@@ -17,9 +18,10 @@ const HANDLES_CATALOG_HREF = buildCatalogPublicHrefFromFlat(CATALOG_PAGE_SLUG.fi
 
 type ProductSuggestedHandlesProps = {
   handles: ProductCard[];
+  cardsPerRow?: number;
 };
 
-export function ProductSuggestedHandles({ handles }: ProductSuggestedHandlesProps) {
+export function ProductSuggestedHandles({ handles, cardsPerRow }: ProductSuggestedHandlesProps) {
   const { addItem } = useCart();
   const [hoveredProductId, setHoveredProductId] = useState<number | null>(null);
 
@@ -38,7 +40,7 @@ export function ProductSuggestedHandles({ handles }: ProductSuggestedHandlesProp
           Все ручки →
         </Link>
       </div>
-      <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-6">
+      <div className={`mt-5 ${catalogGridClass(cardsPerRow ?? 6)}`}>
         {handles.map((item) => {
           const showHover =
             hoveredProductId === item.id &&
@@ -52,6 +54,7 @@ export function ProductSuggestedHandles({ handles }: ProductSuggestedHandlesProp
               onMouseLeave={() => setHoveredProductId(null)}
               onNavigateToProduct={() => {}}
               onAddToCart={() => addItem(buildCatalogCartItem(item))}
+              imageHeight="compact"
             />
           );
         })}

@@ -59,30 +59,40 @@ type InfoCardProps = {
   variant?: "default" | "offer";
 };
 
+const infoCardCtaClass =
+  "mt-2 inline-flex h-9 items-center justify-center rounded-md px-4 text-sm font-semibold shadow-sm";
+
 function InfoCard({ title, description, icon, href, variant = "default" }: InfoCardProps) {
   const isOffer = variant === "offer";
   const body = (
     <>
       <PromoIconBadge className={isOffer ? "bg-white/15 text-white" : undefined}>{icon}</PromoIconBadge>
-      <div className="min-w-0">
-        <p className={cn("font-semibold", isOffer ? "text-white" : "text-zinc-900")}>{title}</p>
-        {isOffer ? (
-          <span className="mt-2 inline-flex items-center rounded-md bg-white px-3 py-1.5 text-sm font-semibold text-brand shadow-sm">
+      <div className="min-w-0 flex-1">
+        <p className={cn("text-sm font-semibold leading-5", isOffer ? "text-white" : "text-zinc-900")}>
+          {title}
+        </p>
+        {href ? (
+          <span
+            className={cn(
+              infoCardCtaClass,
+              isOffer
+                ? "bg-white text-brand"
+                : "border border-brand bg-white text-brand",
+            )}
+          >
             {description}
           </span>
         ) : (
-          <p className={cn("mt-1 text-sm leading-snug", href ? "font-medium text-brand" : "text-zinc-600")}>
-            {description}
-          </p>
+          <p className="mt-2 text-sm leading-5 text-zinc-600">{description}</p>
         )}
       </div>
     </>
   );
 
   const className = cn(
-    "flex items-start gap-3 p-4",
+    "flex h-full items-center gap-3 p-4",
     isOffer
-      ? "rounded-lg bg-brand text-white shadow-md transition hover:bg-brand-hover hover:shadow-lg"
+      ? "rounded-lg border border-brand bg-brand text-white shadow-md transition hover:bg-brand-hover hover:shadow-lg"
       : promoCardClass,
   );
 
@@ -105,7 +115,52 @@ function InfoCard({ title, description, icon, href, variant = "default" }: InfoC
   return <div className={className}>{body}</div>;
 }
 
-export function HomePromotions({ banners }: { banners: PromotionBanner[] }) {
+export type HomePromoCard = {
+  icon: "price" | "catalog" | "measure";
+  title: string;
+  description: string;
+  href: string | null;
+  variant: "default" | "offer";
+};
+
+const DEFAULT_PROMO_CARDS: HomePromoCard[] = [
+  {
+    icon: "price",
+    title: "Гарантия лучшей цены",
+    description: "Найдете дешевле - сделаем скидку!",
+    href: null,
+    variant: "default",
+  },
+  {
+    icon: "catalog",
+    title: "Двери на любой вкус от ведущих фабрик РФ",
+    description: "Перейти в каталог",
+    href: "/catalog",
+    variant: "default",
+  },
+  {
+    icon: "measure",
+    title: "Бесплатный замер",
+    description: "Оставить заявку",
+    href: "/#zamer-form",
+    variant: "offer",
+  },
+];
+
+const PROMO_ICONS = {
+  price: <TagIcon />,
+  catalog: <DoorCatalogIcon />,
+  measure: <RulerIcon />,
+} as const;
+
+export function HomePromotions({
+  banners,
+  cards = DEFAULT_PROMO_CARDS,
+}: {
+  banners: PromotionBanner[];
+  cards?: HomePromoCard[];
+}) {
+  const promoCards = cards.length === 3 ? cards : DEFAULT_PROMO_CARDS;
   return (
     <section aria-labelledby="home-promotions-title" className="space-y-4">
       <h2 id="home-promotions-title" className="sr-only">
@@ -114,25 +169,17 @@ export function HomePromotions({ banners }: { banners: PromotionBanner[] }) {
 
       <HomePromotionSlider banners={banners} />
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <InfoCard
-          title="Гарантия лучшей цены"
-          description="Найдете дешевле - сделаем скидку!"
-          icon={<TagIcon />}
-        />
-        <InfoCard
-          title="Двери на любой вкус от ведущих фабрик РФ"
-          description="Перейти в каталог →"
-          icon={<DoorCatalogIcon />}
-          href="/catalog"
-        />
-        <InfoCard
-          title="Бесплатный замер"
-          description="Оставить заявку"
-          icon={<RulerIcon />}
-          href="/#zamer-form"
-          variant="offer"
-        />
+      <div className="grid items-stretch gap-4 sm:grid-cols-3">
+        {promoCards.map((card, index) => (
+          <InfoCard
+            key={`${card.icon}-${index}`}
+            title={card.title}
+            description={card.description}
+            icon={PROMO_ICONS[card.icon] ?? PROMO_ICONS.price}
+            href={card.href || undefined}
+            variant={card.variant}
+          />
+        ))}
       </div>
     </section>
   );

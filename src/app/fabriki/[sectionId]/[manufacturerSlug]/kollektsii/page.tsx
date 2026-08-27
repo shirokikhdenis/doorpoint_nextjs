@@ -24,6 +24,9 @@ const collectionService = require("@/lib/server/services/collectionService") as 
     collections: CollectionLabelItem[];
   } | null>;
 };
+const storefrontSettingsRepository = require("@/lib/server/repositories/storefrontSettingsRepository") as {
+  getStorefrontSettings: () => Promise<{ factoryCardsPerRow: number }>;
+};
 
 type CollectionsPageProps = {
   params: Promise<{ sectionId: string; manufacturerSlug: string }>;
@@ -56,7 +59,10 @@ export async function generateMetadata({ params }: CollectionsPageProps): Promis
 
 export default async function ManufacturerCollectionsPage({ params }: CollectionsPageProps) {
   const { sectionId, manufacturerSlug } = await params;
-  const page = await collectionService.getManufacturerCollectionsPage(sectionId, manufacturerSlug);
+  const [page, settings] = await Promise.all([
+    collectionService.getManufacturerCollectionsPage(sectionId, manufacturerSlug),
+    storefrontSettingsRepository.getStorefrontSettings(),
+  ]);
   if (!page) notFound();
 
   return (
@@ -94,7 +100,7 @@ export default async function ManufacturerCollectionsPage({ params }: Collection
           </Link>
         </div>
       ) : (
-        <section className={cn("mt-6 sm:mt-8", factoryLabelCardGridClass)} aria-label="Коллекции">
+        <section className={cn("mt-6 sm:mt-8", factoryLabelCardGridClass(settings.factoryCardsPerRow))} aria-label="Коллекции">
           {page.collections.map((collection) => (
             <CollectionLabelCard key={collection.name} item={collection} />
           ))}

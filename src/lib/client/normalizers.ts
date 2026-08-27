@@ -3,7 +3,14 @@ import { parseProductBadges, type ProductBadge } from "@/lib/client/product-badg
 
 export type { ProductBadge };
 
-export type CatalogPageItem = { slug: string; name: string; isDefault?: boolean };
+export type CatalogPageItem = {
+  slug: string;
+  name: string;
+  isDefault?: boolean;
+  cardsPerRow?: number;
+  gridRows?: number;
+  cardImageHeight?: "default" | "compact";
+};
 export type CatalogAttributeFilter = {
   code: string;
   name: string;
@@ -33,6 +40,9 @@ export type CatalogMeta = {
   labels: CatalogLabel[];
   /** null — встроенные правила; массив — явная настройка витрины в админке */
   collapsedFilterSections: string[] | null;
+  cardsPerRow?: number;
+  gridRows?: number;
+  cardImageHeight?: "default" | "compact";
   /** Древовидный фильтр фабрика → коллекция (межкомнатные). */
   manufacturerCollectionTree?: CatalogManufacturerTreeItem[];
   /** Код атрибута коллекции в attrs (например productline). */
@@ -215,6 +225,10 @@ export type ProductData = {
   badges?: ProductBadge[];
   kitPricing?: KitPricing | null;
   kitPrice?: number | null;
+  relatedFittingsCardsPerRow?: number;
+  collectionDoorsCardsPerRow?: number;
+  suggestedHandlesCardsPerRow?: number;
+  subcategoryDoorsCardsPerRow?: number;
 };
 
 export type AdminCatalogPage = {
@@ -230,6 +244,9 @@ export type AdminCatalogPage = {
   subcategories: Array<{ id: number; name: string; slug: string; categorySlug: string | null }>;
   filterAttributes: Array<{ id: number; code: string; name: string; type: string }>;
   collapsedFilterSections: string[] | null;
+  cardsPerRow: number;
+  gridRows: number;
+  cardImageHeight: "default" | "compact";
 };
 
 export type AdminBootstrap = {
@@ -242,7 +259,20 @@ export type AdminBootstrap = {
 
 const asArray = <T>(value: unknown): T[] => (Array.isArray(value) ? (value as T[]) : []);
 
-export const normalizeCatalogPages = (value: unknown): CatalogPageItem[] => asArray<CatalogPageItem>(value);
+const optionalPositiveInt = (value: unknown): number | undefined => {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? Math.round(n) : undefined;
+};
+
+export const normalizeCatalogPages = (value: unknown): CatalogPageItem[] =>
+  asArray<Record<string, unknown>>(value).map((entry) => ({
+    slug: String(entry.slug || ""),
+    name: String(entry.name || ""),
+    isDefault: Boolean(entry.isDefault),
+    cardsPerRow: optionalPositiveInt(entry.cardsPerRow),
+    gridRows: optionalPositiveInt(entry.gridRows),
+    cardImageHeight: entry.cardImageHeight === "compact" ? "compact" : "default",
+  }));
 
 export const normalizeCatalogMeta = (value: unknown): CatalogMeta => {
   const source = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
@@ -287,6 +317,14 @@ export const normalizeCatalogMeta = (value: unknown): CatalogMeta => {
     collapsedFilterSections: Array.isArray(source.collapsedFilterSections)
       ? source.collapsedFilterSections.map(String).filter(Boolean)
       : null,
+    cardsPerRow: optionalPositiveInt(source.cardsPerRow),
+    gridRows: optionalPositiveInt(source.gridRows),
+    cardImageHeight:
+      source.cardImageHeight === "compact"
+        ? "compact"
+        : source.cardImageHeight === "default"
+          ? "default"
+          : undefined,
     manufacturerCollectionTree: asArray<Record<string, unknown>>(source.manufacturerCollectionTree)
       .map((entry) => {
         const manufacturer = String(entry.manufacturer || "").trim();
@@ -591,6 +629,10 @@ export const normalizeProductData = (value: unknown): ProductData => {
       source.kitPrice === null || source.kitPrice === undefined
         ? null
         : Number(source.kitPrice) || null,
+    relatedFittingsCardsPerRow: optionalPositiveInt(source.relatedFittingsCardsPerRow),
+    collectionDoorsCardsPerRow: optionalPositiveInt(source.collectionDoorsCardsPerRow),
+    suggestedHandlesCardsPerRow: optionalPositiveInt(source.suggestedHandlesCardsPerRow),
+    subcategoryDoorsCardsPerRow: optionalPositiveInt(source.subcategoryDoorsCardsPerRow),
   };
 };
 
@@ -696,6 +738,9 @@ export const normalizeAdminBootstrap = (value: unknown): AdminBootstrap => {
       collapsedFilterSections: Array.isArray(entry.collapsedFilterSections)
         ? entry.collapsedFilterSections.map(String).filter(Boolean)
         : null,
+      cardsPerRow: optionalPositiveInt(entry.cardsPerRow) ?? 4,
+      gridRows: optionalPositiveInt(entry.gridRows) ?? 5,
+      cardImageHeight: entry.cardImageHeight === "compact" ? "compact" : "default",
     })),
   };
 };

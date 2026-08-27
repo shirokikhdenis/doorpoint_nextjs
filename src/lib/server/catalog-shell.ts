@@ -59,7 +59,7 @@ export async function getCatalogShell(
   const productQuery = {
     ...catalogQueryObjectFromQueryString(queryString),
     page: "1",
-    limit: String(catalogPageLimit(catalogPage)),
+    limit: String(catalogPageLimit(catalogPage, meta)),
   };
 
   const [catalogPagesRaw, productsRaw] = await Promise.all([

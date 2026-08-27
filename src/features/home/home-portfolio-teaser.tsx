@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { catalogGridClass } from "@/features/catalog/catalog-constants";
 import { StorefrontImage } from "@/features/store/storefront-image";
 import { toPublicImageSrc } from "@/lib/client/image-src";
 
@@ -11,9 +12,10 @@ export type HomePortfolioPreviewItem = {
 
 type HomePortfolioTeaserProps = {
   items: HomePortfolioPreviewItem[];
+  cardsPerRow?: number;
 };
 
-export function HomePortfolioTeaser({ items }: HomePortfolioTeaserProps) {
+export function HomePortfolioTeaser({ items, cardsPerRow = 4 }: HomePortfolioTeaserProps) {
   if (items.length === 0) return null;
 
   return (
@@ -29,7 +31,7 @@ export function HomePortfolioTeaser({ items }: HomePortfolioTeaserProps) {
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+      <div className={catalogGridClass(cardsPerRow)}>
         {items.map((item) => {
           const imageSrc = toPublicImageSrc(item.coverImage);
           return (

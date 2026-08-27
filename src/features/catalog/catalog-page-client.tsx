@@ -2,6 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { CatalogActiveFilterChips } from "@/features/catalog/catalog-active-filter-chips";
+import { resolveCatalogGridLayout } from "@/features/catalog/catalog-constants";
 import { CatalogFilterSidebar } from "@/features/catalog/catalog-filter-sidebar";
 import { CatalogProductGrid } from "@/features/catalog/catalog-product-grid";
 import { CatalogSearchRegistrar } from "@/features/catalog/catalog-search-context";
@@ -72,6 +73,11 @@ function CatalogPageContent({ initial }: CatalogPageClientProps) {
     }),
     [filters.searchInput, filters.setSearchInput],
   );
+
+  const gridLayout = useMemo(() => {
+    const fromPages = initial.catalogPages.find((page) => page.slug === filters.catalogPage);
+    return resolveCatalogGridLayout(filters.catalogPage, fromPages ?? meta);
+  }, [filters.catalogPage, initial.catalogPages, meta]);
 
   return (
     <>
@@ -150,6 +156,8 @@ function CatalogPageContent({ initial }: CatalogPageClientProps) {
                 loadingMore={loadingMore}
                 error={error}
                 catalogPage={filters.catalogPage}
+                cardsPerRow={gridLayout.cardsPerRow}
+                cardImageHeight={gridLayout.cardImageHeight}
                 isRestoringReturn={isRestoringReturn}
                 onLoadMore={() => setPage((current) => current + 1)}
                 onRememberScroll={rememberScrollForProduct}

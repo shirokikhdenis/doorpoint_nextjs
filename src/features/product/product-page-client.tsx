@@ -275,7 +275,10 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
         </div>
         </div>
 
-        <ProductRelatedFittings relatedFittings={relatedFittings} />
+        <ProductRelatedFittings
+          relatedFittings={relatedFittings}
+          cardsPerRow={product.relatedFittingsCardsPerRow}
+        />
         {finishPickerProps && finishPickerPlacement === "below-card" ? (
           <ProductFinishSelector placement="below-card" {...finishPickerProps} />
         ) : null}
@@ -283,11 +286,18 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
           accessories={product.accessories}
           doorColor={page.cartColorLabel}
         />
-        <ProductSuggestedHandles handles={product.suggestedHandles ?? []} />
-        <ProductRelatedCollectionDoors relatedCollectionDoors={product.relatedCollectionDoors} />
+        <ProductSuggestedHandles
+          handles={product.suggestedHandles ?? []}
+          cardsPerRow={product.suggestedHandlesCardsPerRow}
+        />
+        <ProductRelatedCollectionDoors
+          relatedCollectionDoors={product.relatedCollectionDoors}
+          cardsPerRow={product.collectionDoorsCardsPerRow}
+        />
         <ProductRelatedCollectionDoors
           relatedCollectionDoors={product.relatedSubcategoryDoors}
           variant="subcategory"
+          cardsPerRow={product.subcategoryDoorsCardsPerRow}
         />
       </main>
       <ImageLightbox

@@ -4,7 +4,7 @@ import { HomeFactoryLogos } from "@/features/home/home-factory-logos";
 import { HomeHero } from "@/features/home/home-hero";
 import { HomePortfolioTeaser } from "@/features/home/home-portfolio-teaser";
 import { HomeProductHits } from "@/features/home/home-product-hits";
-import { HomePromotions } from "@/features/home/home-promotions";
+import { HomePromotions, type HomePromoCard } from "@/features/home/home-promotions";
 import { HomeTestimonials } from "@/features/home/home-testimonials";
 import { LocalBusinessJsonLd } from "@/features/store/local-business-json-ld";
 import { MeasureLeadForm } from "@/features/store/measure-lead-form";
@@ -51,6 +51,16 @@ type HomePageData = {
     body: string;
     rating: number | null;
   }>;
+  homeHitsCardsPerRow?: number;
+  homePortfolioCardsPerRow?: number;
+  homePromoCards?: Array<{
+    icon: "price" | "catalog" | "measure";
+    title: string;
+    description: string;
+    href: string | null;
+    variant: "default" | "offer";
+  }>;
+  cardImageHeightBySlug?: Record<string, "default" | "compact">;
 };
 
 export default async function HomePage() {
@@ -71,13 +81,17 @@ export default async function HomePage() {
     body: item.body,
     rating: item.rating,
   }));
+  const hitsCols = homeData.homeHitsCardsPerRow ?? 4;
+  const portfolioCols = homeData.homePortfolioCardsPerRow ?? 4;
+  const promoCards = homeData.homePromoCards as HomePromoCard[] | undefined;
+  const imageHeightBySlug = homeData.cardImageHeightBySlug ?? {};
 
   return (
     <>
       <LocalBusinessJsonLd />
       <main className={cn(storefrontPageContainerClass, "space-y-12 py-6 lg:space-y-16 lg:py-8")}>
         <HomeHero />
-        <HomePromotions banners={promotionBanners} />
+        <HomePromotions banners={promotionBanners} cards={promoCards} />
         <HomeCategoryTiles
           interiorCoverImage={homeData.interiorCoverImage}
           entryCoverImage={homeData.entryCoverImage}
@@ -88,6 +102,8 @@ export default async function HomePage() {
           catalogPage={CATALOG_PAGE_SLUG.interiorDoors}
           catalogHref={catalogPagePath(CATALOG_PAGE_SLUG.interiorDoors)}
           products={interiorHits}
+          cardsPerRow={hitsCols}
+          cardImageHeight={imageHeightBySlug[CATALOG_PAGE_SLUG.interiorDoors]}
         />
         <HomeProductHits
           title="Входные хиты продаж"
@@ -95,6 +111,8 @@ export default async function HomePage() {
           catalogHref={catalogPagePath(CATALOG_PAGE_SLUG.entryDoors)}
           products={entryHits}
           variant="muted"
+          cardsPerRow={hitsCols}
+          cardImageHeight={imageHeightBySlug[CATALOG_PAGE_SLUG.entryDoors]}
         />
         {customSections.map((section, index) => (
           <HomeProductHits
@@ -106,9 +124,11 @@ export default async function HomePage() {
             sectionId={section.id}
             loadMoreCount={section.productLimit}
             variant={index % 2 === 0 ? "default" : "muted"}
+            cardsPerRow={hitsCols}
+            cardImageHeight={imageHeightBySlug[section.catalogPageSlug]}
           />
         ))}
-        <HomePortfolioTeaser items={portfolioPreview} />
+        <HomePortfolioTeaser items={portfolioPreview} cardsPerRow={portfolioCols} />
         <HomeTestimonials items={testimonials} />
         <MeasureLeadForm embedded />
       </main>

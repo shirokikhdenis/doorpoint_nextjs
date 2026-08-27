@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { catalogGridClass } from "@/features/catalog/catalog-constants";
 import {
   buildCatalogCartItem,
   CatalogProductCard,
@@ -12,11 +13,13 @@ import type { RelatedCollectionDoors } from "@/lib/client/normalizers";
 type ProductRelatedCollectionDoorsProps = {
   relatedCollectionDoors?: RelatedCollectionDoors | null;
   variant?: "collection" | "subcategory";
+  cardsPerRow?: number;
 };
 
 export function ProductRelatedCollectionDoors({
   relatedCollectionDoors,
   variant = "collection",
+  cardsPerRow,
 }: ProductRelatedCollectionDoorsProps) {
   const { addItem } = useCart();
   const [hoveredProductId, setHoveredProductId] = useState<number | null>(null);
@@ -43,7 +46,7 @@ export function ProductRelatedCollectionDoors({
           {linkLabel}
         </Link>
       </div>
-      <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-4">
+      <div className={`mt-5 ${catalogGridClass(cardsPerRow ?? 4)}`}>
         {items.map((item) => {
           const showHover =
             hoveredProductId === item.id &&

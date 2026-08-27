@@ -39,10 +39,19 @@ const handle = async (request, context) =>
 
     if (match(path, method, "GET", "bootstrap")) return json(await adminService.listBootstrap());
     if (match(path, method, "GET", "attributes")) return json(await adminService.listAttributes());
+    if (match(path, method, "GET", "catalog-pages")) {
+      return json(await adminService.listCatalogPages());
+    }
     if (match(path, method, "POST", "catalog-pages")) {
       const created = await adminService.createCatalogPage(body);
       await invalidateStorefrontCache("catalog-pages");
       return json(created, 201);
+    }
+    if (path[0] === "catalog-pages" && path.length === 2 && method === "PATCH") {
+      const updated = await adminService.updateCatalogPageGrid(Number(path[1]), body);
+      if (!updated) return json({ message: "Catalog page not found" }, 404);
+      await invalidateStorefrontCache("catalog-pages");
+      return json(updated);
     }
     if (path[0] === "catalog-pages" && path.length === 2 && method === "PUT") {
       const updated = await adminService.updateCatalogPage(Number(path[1]), body);
@@ -261,6 +270,7 @@ const handle = async (request, context) =>
     if (match(path, method, "PATCH", "storefront-settings")) {
       const updated = await adminService.updateStorefrontSettings(body);
       await invalidateStorefrontCache("products");
+      await invalidateStorefrontCache("factories");
       return json(updated);
     }
     if (match(path, method, "GET", "product-attribute-values")) {

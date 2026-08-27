@@ -43,6 +43,12 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
     ],
   },
   {
+    label: "Фронтенд",
+    items: [
+      { href: "/admin/frontend-cards", label: "Карточки" },
+    ],
+  },
+  {
     label: "Контент",
     items: [
       { href: "/admin/portfolio", label: "Портфолио" },
@@ -84,6 +90,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin/home-sections": "Блоки на главной",
   "/admin/home-factory-logos": "Логотипы на главной",
   "/admin/related-fittings": "Сопутствующая фурнитура",
+  "/admin/frontend-cards": "Фронтенд-карточки",
   "/admin/portfolio": "Портфолио",
   "/admin/testimonials": "Отзывы",
   "/admin/services": "Услуги",

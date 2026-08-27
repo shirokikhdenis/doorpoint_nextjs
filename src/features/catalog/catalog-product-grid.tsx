@@ -1,31 +1,22 @@
 "use client";
 
 import { useState } from "react";
-import { CATALOG_CARD_IMAGE_HEIGHT } from "@/features/catalog/catalog-constants";
+import {
+  catalogCardImageHeightClass,
+  catalogGridClass,
+  type CatalogCardImageHeight,
+} from "@/features/catalog/catalog-constants";
 import {
   buildCatalogCartItem,
   CatalogProductCard,
 } from "@/features/catalog/catalog-product-card";
-import { CATALOG_PAGE_SLUG, resolveCatalogPageSlug } from "@/lib/catalog-page-slugs";
 import { useCart } from "@/lib/client/use-cart";
 import type { ProductCard } from "@/lib/client/normalizers";
 
-const DEFAULT_GRID_CLASS =
-  "grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4";
-/** Фурнитура — компактнее: 6 карточек в ряд на lg+. */
-const FITTINGS_GRID_CLASS =
-  "grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-6";
-
-function catalogProductGridClass(catalogPage?: string) {
-  return resolveCatalogPageSlug(catalogPage ?? "") === CATALOG_PAGE_SLUG.fittings
-    ? FITTINGS_GRID_CLASS
-    : DEFAULT_GRID_CLASS;
-}
-
-function CatalogProductSkeleton() {
+function CatalogProductSkeleton({ imageHeight }: { imageHeight?: CatalogCardImageHeight }) {
   return (
     <div className="flex h-full flex-col rounded-lg bg-white p-2 shadow-md">
-      <div className={`mb-3 ${CATALOG_CARD_IMAGE_HEIGHT} animate-pulse rounded bg-zinc-100`} />
+      <div className={`mb-3 ${catalogCardImageHeightClass(imageHeight)} animate-pulse rounded bg-zinc-100`} />
       <div className="h-4 w-3/4 animate-pulse rounded bg-zinc-100" />
       <div className="mt-2 h-5 w-1/3 animate-pulse rounded bg-zinc-100" />
     </div>
@@ -39,6 +30,8 @@ type CatalogProductGridProps = {
   loadingMore: boolean;
   error: string;
   catalogPage?: string;
+  cardsPerRow?: number;
+  cardImageHeight?: CatalogCardImageHeight;
   isRestoringReturn?: boolean;
   onLoadMore: () => void;
   onRememberScroll: () => void;
@@ -51,19 +44,21 @@ export function CatalogProductGrid({
   loadingMore,
   error,
   catalogPage,
+  cardsPerRow,
+  cardImageHeight,
   isRestoringReturn = false,
   onLoadMore,
   onRememberScroll,
 }: CatalogProductGridProps) {
   const { addItem } = useCart();
   const [hoveredProductId, setHoveredProductId] = useState<number | null>(null);
-  const gridClass = catalogProductGridClass(catalogPage);
+  const gridClass = catalogGridClass(cardsPerRow, catalogPage);
 
   if (loading && products.length === 0) {
     return (
       <div className={gridClass} data-testid="catalog-product-grid-loading">
         {Array.from({ length: 8 }, (_, i) => (
-          <CatalogProductSkeleton key={i} />
+          <CatalogProductSkeleton key={i} imageHeight={cardImageHeight} />
         ))}
       </div>
     );
@@ -117,6 +112,7 @@ export function CatalogProductGrid({
               onMouseLeave={() => setHoveredProductId(null)}
               onNavigateToProduct={onRememberScroll}
               onAddToCart={() => addItem(buildCatalogCartItem(item))}
+              imageHeight={cardImageHeight}
             />
           );
         })}

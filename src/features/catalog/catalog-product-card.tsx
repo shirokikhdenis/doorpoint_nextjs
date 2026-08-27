@@ -1,5 +1,8 @@
 import { StorefrontImage } from "@/features/store/storefront-image";
-import { CATALOG_CARD_IMAGE_HEIGHT } from "@/features/catalog/catalog-constants";
+import {
+  catalogCardImageHeightClass,
+  type CatalogCardImageHeight,
+} from "@/features/catalog/catalog-constants";
 import { CatalogProductLink } from "@/features/catalog/catalog-product-link";
 import { ProductPricingBlock } from "@/features/product/product-pricing-block";
 import { AddToCartIconButton } from "@/features/store/add-to-cart-icon-button";
@@ -16,6 +19,7 @@ type CatalogProductCardProps = {
   onMouseLeave: () => void;
   onNavigateToProduct: () => void;
   onAddToCart: () => void;
+  imageHeight?: CatalogCardImageHeight;
 };
 
 export function CatalogProductCard({
@@ -25,11 +29,13 @@ export function CatalogProductCard({
   onMouseLeave,
   onNavigateToProduct,
   onAddToCart,
+  imageHeight,
 }: CatalogProductCardProps) {
   const primaryImage = toPublicImageSrc(item.image);
   const hoverImage = toPublicImageSrc(item.hoverImage);
   const cardImage = showHover && hoverImage ? hoverImage : primaryImage;
   const displayName = item.color ? `${item.name} ${item.color}` : item.name;
+  const imageHeightClass = catalogCardImageHeightClass(imageHeight);
 
   return (
     <article
@@ -46,7 +52,7 @@ export function CatalogProductCard({
           onBeforeNavigate={onNavigateToProduct}
         >
           <div
-            className={`relative mb-3 ${CATALOG_CARD_IMAGE_HEIGHT} overflow-hidden bg-white p-2`}
+            className={`relative mb-3 ${imageHeightClass} overflow-hidden bg-white p-2`}
           >
             {cardImage ? (
               <StorefrontImage

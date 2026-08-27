@@ -11,6 +11,8 @@ let leadTablesEnsured = false;
 let servicesTablesEnsured = false;
 let seoColumnsEnsured = false;
 let catalogPageFilterDefaultsEnsured = false;
+let catalogPageGridColumnsEnsured = false;
+let catalogPageCardImageHeightEnsured = false;
 let catalogPageSlugRenamesEnsured = false;
 let factoryStorefrontTablesEnsured = false;
 let doorFinishTablesEnsured = false;
@@ -307,9 +309,63 @@ const ensureSeoColumns = async () => {
   seoColumnsEnsured = true;
 };
 
+const ensureCatalogPageGridColumns = async () => {
+  if (catalogPageGridColumnsEnsured) return;
+  await query(`
+    ALTER TABLE catalog_pages
+    ADD COLUMN IF NOT EXISTS cards_per_row INTEGER
+  `);
+  await query(`
+    ALTER TABLE catalog_pages
+    ADD COLUMN IF NOT EXISTS grid_rows INTEGER
+  `);
+  await query(`
+    UPDATE catalog_pages
+    SET
+      cards_per_row = CASE WHEN slug = 'furnitura' THEN 6 ELSE 4 END,
+      grid_rows = CASE WHEN slug = 'furnitura' THEN 4 ELSE 5 END
+    WHERE cards_per_row IS NULL OR grid_rows IS NULL
+  `);
+  await query(`
+    ALTER TABLE catalog_pages
+    ALTER COLUMN cards_per_row SET DEFAULT 4,
+    ALTER COLUMN cards_per_row SET NOT NULL
+  `);
+  await query(`
+    ALTER TABLE catalog_pages
+    ALTER COLUMN grid_rows SET DEFAULT 5,
+    ALTER COLUMN grid_rows SET NOT NULL
+  `);
+  catalogPageGridColumnsEnsured = true;
+};
+
+const ensureCatalogPageCardImageHeightColumn = async () => {
+  if (catalogPageCardImageHeightEnsured) return;
+  await query(`
+    ALTER TABLE catalog_pages
+    ADD COLUMN IF NOT EXISTS card_image_height TEXT
+  `);
+  await query(`
+    UPDATE catalog_pages
+    SET card_image_height = CASE WHEN slug = 'furnitura' THEN 'compact' ELSE 'default' END
+    WHERE card_image_height IS NULL
+  `);
+  await query(`
+    ALTER TABLE catalog_pages
+    ALTER COLUMN card_image_height SET DEFAULT 'default'
+  `);
+  await query(`
+    ALTER TABLE catalog_pages
+    ALTER COLUMN card_image_height SET NOT NULL
+  `);
+  catalogPageCardImageHeightEnsured = true;
+};
+
 const ensureCatalogPageFilterDefaultsColumn = async () => {
   if (catalogPageFilterDefaultsEnsured) return;
   await ensureSeoColumns();
+  await ensureCatalogPageGridColumns();
+  await ensureCatalogPageCardImageHeightColumn();
   await query(`
     ALTER TABLE catalog_pages
     ADD COLUMN IF NOT EXISTS collapsed_filter_sections TEXT[]
@@ -622,6 +678,8 @@ module.exports = {
   ensureSaleSettingsTable,
   ensureServicesTables,
   ensureSeoColumns,
+  ensureCatalogPageGridColumns,
+  ensureCatalogPageCardImageHeightColumn,
   ensureCatalogPageFilterDefaultsColumn,
   ensureCatalogPageSlugRenames,
   ensureFactoryStorefrontTables,

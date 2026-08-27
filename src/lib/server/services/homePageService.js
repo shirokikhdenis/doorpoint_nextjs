@@ -3,6 +3,7 @@ const homeProductSectionService = require("./homeProductSectionService");
 const portfolioService = require("./portfolioService");
 const homeFactoryLogoService = require("./homeFactoryLogoService");
 const testimonialService = require("./testimonialService");
+const storefrontSettingsRepository = require("../repositories/storefrontSettingsRepository");
 
 const shuffle = (items) => {
   const copy = [...items];
@@ -36,15 +37,23 @@ const pickRandomHits = async (catalogPage, { excludeIds = [], count = 8 } = {}) 
 };
 
 const getHomePageData = async () => {
-  const [interiorHits, entryHits, customSections, portfolioItems, factoryLogos, testimonials] =
+  const settings = await storefrontSettingsRepository.getStorefrontSettings();
+  const hitsCount = Math.max(8, settings.homeHitsCardsPerRow * 2);
+  const portfolioCount = settings.homePortfolioCardsPerRow;
+  const [interiorHits, entryHits, customSections, portfolioItems, factoryLogos, testimonials, catalogPages] =
     await Promise.all([
-      pickTopHits("dveri-mezhkomnatnyye"),
-      pickTopHits("vhodnye-dveri"),
+      pickTopHits("dveri-mezhkomnatnyye", hitsCount),
+      pickTopHits("vhodnye-dveri", hitsCount),
       homeProductSectionService.listActiveSectionsWithProducts(),
       portfolioService.listPublicPortfolio(),
       homeFactoryLogoService.listPublicForHomepage(),
       testimonialService.listPublicTestimonials(6),
+      catalogService.listCatalogPages(),
     ]);
+
+  const cardImageHeightBySlug = Object.fromEntries(
+    (catalogPages || []).map((page) => [page.slug, page.cardImageHeight || "default"]),
+  );
 
   return {
     interiorHits,
@@ -52,9 +61,13 @@ const getHomePageData = async () => {
     interiorCoverImage: interiorHits.find((item) => item.image)?.image || "",
     entryCoverImage: entryHits.find((item) => item.image)?.image || "",
     customSections,
-    portfolioPreview: portfolioItems.slice(0, 4),
+    portfolioPreview: portfolioItems.slice(0, portfolioCount),
     factoryLogos,
     testimonials,
+    homeHitsCardsPerRow: settings.homeHitsCardsPerRow,
+    homePortfolioCardsPerRow: settings.homePortfolioCardsPerRow,
+    homePromoCards: settings.homePromoCards,
+    cardImageHeightBySlug,
   };
 };
 
