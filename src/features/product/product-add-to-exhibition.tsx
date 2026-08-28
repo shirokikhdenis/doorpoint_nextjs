@@ -71,9 +71,9 @@ export function ProductAddToExhibition({
   const isDisabled = state === "loading" || state === "success";
 
   return (
-    <div className="rounded-lg border border-amber-200 bg-amber-50/80 px-3 py-2.5">
+    <div className="rounded-lg border border-sky-200 bg-sky-50/40 px-3 py-2.5">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-medium uppercase tracking-wide text-amber-900">
+        <span className="text-xs font-medium uppercase tracking-wide text-sky-950">
           Учёт выставки
         </span>
         <Button
@@ -83,7 +83,7 @@ export function ProductAddToExhibition({
           disabled={isDisabled}
           onClick={() => void handleClick()}
           className={cn(
-            "border-amber-300 bg-white text-amber-950 hover:bg-amber-100",
+            "border-sky-200 bg-white text-sky-950 hover:bg-sky-100",
             state === "success" && "border-emerald-400 text-emerald-800",
           )}
         >

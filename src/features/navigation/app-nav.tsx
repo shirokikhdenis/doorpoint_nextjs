@@ -84,34 +84,19 @@ export function AppNav() {
         className={`${storefrontHeaderContainerClass} py-2`}
         aria-label="Основная навигация"
       >
-        <div className="flex items-center justify-between gap-2 md:hidden">
+        <div className="flex items-center justify-between gap-2 lg:hidden">
           <button
             type="button"
             aria-expanded={isMobileMenuOpen}
             aria-controls="mobile-primary-nav"
             onClick={() => setIsMobileMenuOpen((current) => !current)}
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-zinc-300 bg-white text-zinc-800 transition hover:border-zinc-400 hover:bg-zinc-50"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-zinc-300 bg-white text-zinc-800 transition hover:border-zinc-400 hover:bg-zinc-50"
           >
             <span className="sr-only">{isMobileMenuOpen ? "Закрыть меню" : "Открыть меню"}</span>
             <span className="text-lg leading-none">{isMobileMenuOpen ? "✕" : "☰"}</span>
           </button>
 
           <div className="min-w-0 flex-1">{headerActions}</div>
-        </div>
-
-        <div className="hidden items-center gap-3 md:flex lg:hidden">
-          <div className="flex min-w-0 flex-1 items-center justify-center gap-0.5">
-            {links.map((link) => (
-              <NavItem
-                key={link.href}
-                href={link.href}
-                label={link.label}
-                isActive={isLinkActive(link.href)}
-                className={siteNavLinkClass(isLinkActive(link.href))}
-              />
-            ))}
-          </div>
-          {headerActions}
         </div>
 
         <div className={`hidden items-center gap-8 lg:grid ${storefrontHeaderTripleGridClass}`}>
@@ -132,7 +117,7 @@ export function AppNav() {
       </nav>
 
       {isMobileMenuOpen ? (
-        <div id="mobile-primary-nav" className="border-t border-zinc-200 bg-white md:hidden">
+        <div id="mobile-primary-nav" className="border-t border-zinc-200 bg-white lg:hidden">
           <div className={`${storefrontHeaderContainerClass} flex flex-col py-2`}>
             {links.map((link) => (
               <NavItem

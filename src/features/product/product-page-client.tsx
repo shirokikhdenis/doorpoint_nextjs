@@ -23,7 +23,6 @@ import {
 } from "@/features/product/product-utils";
 import { useCatalogBackHref } from "@/features/product/use-catalog-back-href";
 import { ProductPricingBlock } from "@/features/product/product-pricing-block";
-import { ProductPrometStock } from "@/features/product/product-promet-stock";
 import { ProductManufacturerLogo } from "@/features/product/product-manufacturer-logo";
 import { ProductPageSkeleton } from "@/features/product/product-page-skeleton";
 import { useProductPage } from "@/features/product/use-product-page";
@@ -175,12 +174,6 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
               ) : null}
             </p>
             <h1 className="text-2xl font-semibold">{pageTitle}</h1>
-            <ProductPrometStock
-              slug={product.slug}
-              manufacturerName={product.manufacturerName}
-              manufacturerId={page.selectedVariant?.manufacturerId || product.manufacturerId}
-              variantSku={page.selectedVariant?.sku || page.variantSku}
-            />
             <ProductAddToExhibition
               productId={product.id}
               categorySlug={product.categorySlug}

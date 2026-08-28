@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useSyncExternalStore } from "react";
 import {
   AddCartItemOptions,
   CartItem,
@@ -16,6 +16,10 @@ export function useCart() {
     cartStore.getSnapshot,
     () => emptyCart,
   );
+
+  useEffect(() => {
+    cartStore.rehydrate();
+  }, []);
 
   const totalQuantity = useMemo(
     () => items.reduce((sum, item) => sum + item.quantity, 0),

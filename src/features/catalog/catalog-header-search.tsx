@@ -22,7 +22,7 @@ export function CatalogHeaderSearch({ className }: CatalogHeaderSearchProps) {
       placeholder="Поиск"
       aria-label="Поиск по каталогу"
       className={cn(
-        "min-w-0 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-800 outline-none transition placeholder:text-zinc-400 focus:border-zinc-400",
+        "min-w-0 rounded-md border border-zinc-300 bg-white px-3 py-2 text-base text-zinc-800 outline-none transition placeholder:text-zinc-400 focus:border-zinc-400 lg:py-1.5 lg:text-sm",
         className,
       )}
     />

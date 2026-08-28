@@ -20,9 +20,9 @@ export function AppTopBar() {
     <div className="bg-white print:hidden">
       <div className={`${storefrontHeaderContainerClass} py-3 lg:py-4`}>
         <div
-          className={`grid items-center gap-4 lg:gap-8 lg:grid ${storefrontHeaderTripleGridClass}`}
+          className={`flex flex-col items-center gap-3 lg:grid lg:items-center lg:gap-8 ${storefrontHeaderTripleGridClass}`}
         >
-          <div className="order-2 space-y-2 text-center lg:order-1 lg:text-left">
+          <div className="order-2 hidden space-y-2 text-center lg:order-1 lg:block lg:text-left">
             <p className="text-xs leading-snug text-zinc-500 sm:text-sm">{SITE_ADDRESS_SHORT}</p>
             <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 lg:justify-start">
               <TrackedPhoneLink className={`text-sm ${contactLinkClass}`}>
@@ -54,10 +54,17 @@ export function AppTopBar() {
                 alt=""
                 width={220}
                 height={62}
-                className="h-14 w-auto max-w-[min(100%,12.5rem)] object-contain sm:h-16 sm:max-w-[14rem]"
+                className="h-12 w-auto max-w-[min(100%,11rem)] object-contain sm:h-16 sm:max-w-[14rem]"
                 priority
               />
             </Link>
+          </div>
+
+          <div className="order-3 flex items-center justify-center gap-3 lg:hidden">
+            <TrackedPhoneLink className={`text-sm ${contactLinkClass}`}>
+              {SITE_PHONE_DISPLAY}
+            </TrackedPhoneLink>
+            <SiteSocialLinks variant="header" />
           </div>
 
           <p className="order-3 hidden min-w-0 text-right text-sm leading-snug text-zinc-600 lg:block">

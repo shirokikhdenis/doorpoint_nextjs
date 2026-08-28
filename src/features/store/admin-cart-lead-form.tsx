@@ -108,7 +108,7 @@ export function AdminCartLeadForm({
       className="mt-8 scroll-mt-24 print:hidden"
       aria-labelledby="admin-cart-lead-form-title"
     >
-      <Card className="border-amber-200 bg-amber-50/40 shadow-sm">
+      <Card className="border border-sky-200 bg-sky-50/40 shadow-sm">
         <CardHeader>
           <CardTitle id="admin-cart-lead-form-title" className="text-xl">
             Создать заявку
@@ -129,12 +129,80 @@ export function AdminCartLeadForm({
         </CardHeader>
         <CardContent>
           <form className="space-y-4" onSubmit={(event) => void onSubmit(event)}>
-              <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
-                <table className="w-full min-w-[480px] text-sm">
+              <div className="space-y-2 lg:hidden">
+                <ul className="divide-y divide-zinc-100 overflow-hidden rounded-lg border border-zinc-200 bg-white">
+                  {products.map((item) => (
+                    <li
+                      key={`product-m-${item.id}-${item.name}-${item.color ?? ""}`}
+                      className="px-3 py-2.5"
+                    >
+                      <p className="break-words font-medium text-zinc-900">
+                        {formatCartItemName(
+                          item.name,
+                          item.color,
+                          item.finishName,
+                          item.glassOptionName,
+                          item.hardwareServices,
+                          item.glass,
+                        )}
+                      </p>
+                      <p className="mt-0.5 font-mono text-xs text-zinc-500">
+                        {resolveCartManufacturerArticle(item, manufacturerArticles) || "—"}
+                      </p>
+                      <p className="mt-1 text-sm tabular-nums text-zinc-700">
+                        {formatPrice(item.price)} × {item.quantity} ={" "}
+                        <span className="font-medium text-zinc-900">
+                          {formatPrice(item.price * item.quantity)}
+                        </span>
+                      </p>
+                    </li>
+                  ))}
+                  <li className="flex items-baseline justify-between gap-3 bg-zinc-50/80 px-3 py-2 text-sm">
+                    <span className="text-zinc-700">Стоимость товара</span>
+                    <span className="font-semibold tabular-nums">{formatPrice(goodsTotal)}</span>
+                  </li>
+                  {services.map((item) => (
+                    <li key={`service-m-${item.name}`} className="px-3 py-2.5">
+                      <p className="break-words font-medium text-zinc-900">{item.name}</p>
+                      <p className="mt-1 text-sm tabular-nums text-zinc-700">
+                        {formatPrice(item.price)} × {item.quantity} ={" "}
+                        <span className="font-medium text-zinc-900">
+                          {formatPrice(item.price * item.quantity)}
+                        </span>
+                      </p>
+                    </li>
+                  ))}
+                  {services.length > 0 ? (
+                    <li className="flex items-baseline justify-between gap-3 bg-zinc-50/80 px-3 py-2 text-sm">
+                      <span className="text-zinc-700">Стоимость услуг</span>
+                      <span className="font-semibold tabular-nums">{formatPrice(servicesSum)}</span>
+                    </li>
+                  ) : null}
+                  {hasServices ? (
+                    <li className="flex items-baseline justify-between gap-3 px-3 py-2.5 text-sm font-semibold text-zinc-900">
+                      <span>Стоимость под ключ</span>
+                      <span className="tabular-nums">{formatPrice(totalPrice)}</span>
+                    </li>
+                  ) : null}
+                </ul>
+              </div>
+
+              <div className="hidden overflow-x-auto rounded-lg border border-zinc-200 bg-white lg:block">
+                <table className="w-full table-fixed text-sm">
+                  <colgroup>
+                    <col />
+                    <col className="w-[9.5rem]" />
+                    <col className="w-[6.5rem]" />
+                    <col className="w-[4.5rem]" />
+                    <col className="w-[6.5rem]" />
+                  </colgroup>
                   <thead className="bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500">
                     <tr>
                       <th className="px-3 py-2 font-medium">Наименование</th>
-                      <th className="px-3 py-2 font-medium">Артикул производителя</th>
+                      <th className="px-3 py-2 font-medium">
+                        <span className="lg:hidden">Артикул</span>
+                        <span className="hidden lg:inline">Артикул производителя</span>
+                      </th>
                       <th className="px-3 py-2 font-medium">Цена</th>
                       <th className="px-3 py-2 font-medium">Кол-во</th>
                       <th className="px-3 py-2 text-right font-medium">Сумма</th>
@@ -148,7 +216,7 @@ export function AdminCartLeadForm({
                     </tr>
                     {products.map((item) => (
                       <tr key={`product-${item.id}-${item.name}-${item.color ?? ""}`}>
-                        <td className="px-3 py-2">
+                        <td className="break-words px-3 py-2">
                           <p className="font-medium text-zinc-900">
                             {formatCartItemName(
                               item.name,
@@ -187,7 +255,7 @@ export function AdminCartLeadForm({
                         </tr>
                         {services.map((item) => (
                           <tr key={`service-${item.name}`}>
-                            <td className="px-3 py-2">
+                            <td className="break-words px-3 py-2">
                               <p className="font-medium text-zinc-900">{item.name}</p>
                             </td>
                             <td className="whitespace-nowrap px-3 py-2 font-mono text-xs text-zinc-500">—</td>

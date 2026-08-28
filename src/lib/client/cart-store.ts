@@ -99,6 +99,12 @@ const persistAndNotify = (items: CartItem[]) => {
   notify();
 };
 
+const rehydrateFromStorage = () => {
+  if (typeof window === "undefined") return;
+  syncSnapshotFromStorage();
+  notify();
+};
+
 if (typeof window !== "undefined") {
   window.addEventListener("storage", (event) => {
     if (event.key !== CART_STORAGE_KEY) return;
@@ -114,6 +120,10 @@ export const cartStore = {
   },
 
   getSnapshot,
+
+  rehydrate() {
+    rehydrateFromStorage();
+  },
 
   subscribe(listener: CartListener): () => void {
     listeners.add(listener);
