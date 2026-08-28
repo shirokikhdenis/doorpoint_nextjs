@@ -1,4 +1,5 @@
 const leadRepository = require("../repositories/leadRepository");
+const interiorInstallRepository = require("../repositories/interiorInstallRepository");
 const {
   validateAdminOrderPayload,
   validateCartLeadPayload,
@@ -48,7 +49,43 @@ const listLeads = async (query = {}) => {
   const offset = query.offset;
   const search = query.search ? String(query.search).trim() : undefined;
   const items = await leadRepository.listLeads({ status, type, limit, offset, search });
-  return { ok: true, items };
+  if (type !== "admin_order" || items.length === 0) {
+    return { ok: true, items };
+  }
+
+  const scheduleRows = await interiorInstallRepository.listScheduleDatesByLeadIds(
+    items.map((item) => item.id),
+  );
+  const scheduleByLead = new Map();
+  for (const row of scheduleRows) {
+    const current = scheduleByLead.get(row.leadId) || {};
+    if (row.kind === "delivery") {
+      current.deliveryId = row.id;
+      current.deliveryDate = row.installDate;
+      current.deliveryEndDate = row.installEndDate;
+    } else {
+      current.installId = row.id;
+      current.installDate = row.installDate;
+      current.installEndDate = row.installEndDate;
+    }
+    scheduleByLead.set(row.leadId, current);
+  }
+
+  return {
+    ok: true,
+    items: items.map((item) => {
+      const schedule = scheduleByLead.get(item.id) || {};
+      return {
+        ...item,
+        installId: schedule.installId ?? null,
+        installDate: schedule.installDate ?? null,
+        installEndDate: schedule.installEndDate ?? null,
+        deliveryId: schedule.deliveryId ?? null,
+        deliveryDate: schedule.deliveryDate ?? null,
+        deliveryEndDate: schedule.deliveryEndDate ?? null,
+      };
+    }),
+  };
 };
 
 const getLeadById = async (id) => {

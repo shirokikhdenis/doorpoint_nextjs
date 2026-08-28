@@ -7,6 +7,7 @@ const csvImportService = require("@/lib/server/services/csvImportService");
 const promotionService = require("@/lib/server/services/promotionService");
 const homeProductSectionService = require("@/lib/server/services/homeProductSectionService");
 const leadService = require("@/lib/server/services/leadService");
+const interiorInstallService = require("@/lib/server/services/interiorInstallService");
 const factoryStorefrontService = require("@/lib/server/services/factoryStorefrontService");
 const doorFinishAdminService = require("@/lib/server/services/doorFinishAdminService");
 const doorHardwareAdminService = require("@/lib/server/services/doorHardwareAdminService");
@@ -385,6 +386,61 @@ const handle = async (request, context) =>
     }
     if (path[0] === "leads" && path.length === 2 && method === "DELETE") {
       const result = await leadService.deleteLead(Number(path[1]));
+      if (!result.ok) return json({ message: result.message }, result.status || 404);
+      return empty(204);
+    }
+
+    if (match(path, method, "GET", "install-brigades")) {
+      const result = await interiorInstallService.listBrigades();
+      return json({ items: result.items });
+    }
+    if (match(path, method, "POST", "install-brigades")) {
+      const result = await interiorInstallService.createBrigade(body);
+      if (!result.ok) return json({ message: result.message }, result.status || 400);
+      return json(result.item, 201);
+    }
+    if (path[0] === "install-brigades" && path.length === 2 && method === "PATCH") {
+      const result = await interiorInstallService.updateBrigade(Number(path[1]), body);
+      if (!result.ok) return json({ message: result.message }, result.status || 400);
+      return json(result.item);
+    }
+    if (path[0] === "install-brigades" && path.length === 2 && method === "DELETE") {
+      const result = await interiorInstallService.deleteBrigade(Number(path[1]));
+      if (!result.ok) return json({ message: result.message }, result.status || 404);
+      return empty(204);
+    }
+
+    if (match(path, method, "GET", "interior-installations", "for-lead")) {
+      const result = await interiorInstallService.listInstallationsForLead(query.leadId);
+      if (!result.ok) return json({ message: result.message }, result.status || 400);
+      return json({ items: result.items });
+    }
+    if (match(path, method, "GET", "interior-installations", "upcoming")) {
+      const result = await interiorInstallService.getUpcomingReminders();
+      return json({ delivery: result.delivery, install: result.install });
+    }
+    if (match(path, method, "GET", "interior-installations", "prefill")) {
+      const result = await interiorInstallService.getLeadPrefill(query.leadId);
+      if (!result.ok) return json({ message: result.message }, result.status || 400);
+      return json(result.prefill);
+    }
+    if (match(path, method, "GET", "interior-installations")) {
+      const result = await interiorInstallService.listInstallations(query);
+      if (!result.ok) return json({ message: result.message }, result.status || 400);
+      return json({ items: result.items });
+    }
+    if (match(path, method, "POST", "interior-installations")) {
+      const result = await interiorInstallService.createInstallation(body);
+      if (!result.ok) return json({ message: result.message }, result.status || 400);
+      return json(result.item, 201);
+    }
+    if (path[0] === "interior-installations" && path.length === 2 && method === "PATCH") {
+      const result = await interiorInstallService.updateInstallation(Number(path[1]), body);
+      if (!result.ok) return json({ message: result.message }, result.status || 400);
+      return json(result.item);
+    }
+    if (path[0] === "interior-installations" && path.length === 2 && method === "DELETE") {
+      const result = await interiorInstallService.deleteInstallation(Number(path[1]));
       if (!result.ok) return json({ message: result.message }, result.status || 404);
       return empty(204);
     }

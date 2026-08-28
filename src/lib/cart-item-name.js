@@ -1,3 +1,5 @@
+const { formatProductDisplayName } = require("./product-display-name");
+
 const normalizeHardwareNames = (hardwareServices) => {
   if (!hardwareServices) return "";
   if (typeof hardwareServices === "string") return hardwareServices.trim();
@@ -12,15 +14,17 @@ const normalizeHardwareNames = (hardwareServices) => {
     .join(", ");
 };
 
-const appendSuffix = (result, suffix, matchers = []) => {
-  if (!suffix) return result;
+const appendLabeledSuffix = (result, label, value, matchers = []) => {
+  const trimmed = String(value || "").trim();
+  if (!trimmed) return result;
+  const suffix = `${label}: ${trimmed}`;
   const resultLower = result.toLowerCase();
   const suffixLower = suffix.toLowerCase();
   if (resultLower.includes(suffixLower)) return result;
   for (const matcher of matchers) {
     if (matcher && resultLower.includes(String(matcher).toLowerCase())) return result;
   }
-  return result ? `${result} · ${suffix}` : suffix;
+  return result ? `${result} ${suffix}` : suffix;
 };
 
 const formatCartItemName = (
@@ -29,31 +33,27 @@ const formatCartItemName = (
   finishName,
   glassOptionName,
   hardwareServices,
+  productGlass,
 ) => {
-  const base = String(name || "").trim();
-  const colorValue = String(color || "").trim();
   const finishValue = String(finishName || "").trim();
-  const glassValue = String(glassOptionName || "").trim();
+  const glassOptionValue = String(glassOptionName || "").trim();
   const hardwareValue = normalizeHardwareNames(hardwareServices);
 
-  let result = base;
-  if (colorValue) {
-    const baseLower = result.toLowerCase();
-    const colorLower = colorValue.toLowerCase();
-    if (!baseLower.endsWith(colorLower) && !baseLower.includes(` ${colorLower}`)) {
-      result = result ? `${result} ${colorValue}` : colorValue;
-    }
-  }
+  let result = formatProductDisplayName({
+    name,
+    color,
+    glass: productGlass,
+  });
 
-  result = appendSuffix(result, finishValue ? `покрытие: ${finishValue}` : "", [
+  result = appendLabeledSuffix(result, "покрытие", finishValue, [
     finishValue,
     finishValue ? `покрытие: ${finishValue}` : "",
   ]);
-  result = appendSuffix(result, glassValue ? `стекло: ${glassValue}` : "", [
-    glassValue,
-    glassValue ? `стекло: ${glassValue}` : "",
+  result = appendLabeledSuffix(result, "стекло", glassOptionValue, [
+    glassOptionValue,
+    glassOptionValue ? `стекло: ${glassOptionValue}` : "",
   ]);
-  result = appendSuffix(result, hardwareValue ? `врезка: ${hardwareValue}` : "", [
+  result = appendLabeledSuffix(result, "врезка", hardwareValue, [
     hardwareValue,
     hardwareValue ? `врезка: ${hardwareValue}` : "",
   ]);

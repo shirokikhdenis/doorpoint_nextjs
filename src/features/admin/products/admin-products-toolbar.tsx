@@ -136,7 +136,7 @@ export function AdminProductsToolbar({
           type="search"
           value={search}
           onChange={(event) => onSearchChange(event.target.value)}
-          placeholder="SKU или название"
+          placeholder="SKU, название или артикул производителя"
           aria-label="Поиск товаров"
           className="w-56 rounded-md border border-zinc-200 bg-white px-2.5 py-1 text-xs text-zinc-800 placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none"
         />

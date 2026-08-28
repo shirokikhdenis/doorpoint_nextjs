@@ -33,14 +33,30 @@ const validateCartItems = (rawItems) => {
   }
 
   const items = rawItems
-    .map((item) => ({
-      id: Number(item?.id),
-      name: String(item?.name || "").trim().slice(0, 500),
-      sku: String(item?.sku || "").trim().slice(0, 120),
-      color: String(item?.color || "").trim().slice(0, 120),
-      price: Math.max(0, Math.round(Number(item?.price) || 0)),
-      quantity: Math.min(99, Math.max(1, Math.round(Number(item?.quantity) || 0))),
-    }))
+    .map((item) => {
+      const normalized = {
+        id: Number(item?.id),
+        name: String(item?.name || "").trim().slice(0, 500),
+        sku: String(item?.sku || "").trim().slice(0, 120),
+        color: String(item?.color || "").trim().slice(0, 120),
+        glass: String(item?.glass || "").trim().slice(0, 120),
+        finishName: String(item?.finishName || "").trim().slice(0, 120),
+        glassOptionName: String(item?.glassOptionName || "").trim().slice(0, 120),
+        price: Math.max(0, Math.round(Number(item?.price) || 0)),
+        quantity: Math.min(99, Math.max(1, Math.round(Number(item?.quantity) || 0))),
+      };
+      if (Array.isArray(item?.hardwareServices)) {
+        normalized.hardwareServices = item.hardwareServices
+          .map((service) => ({
+            id: Number(service?.id) || 0,
+            name: String(service?.name || "").trim().slice(0, 120),
+            price: Math.max(0, Math.round(Number(service?.price) || 0)),
+          }))
+          .filter((service) => service.id > 0 && service.name)
+          .slice(0, 20);
+      }
+      return normalized;
+    })
     .filter((item) => item.id > 0 && item.name);
 
   if (!items.length) return { error: "Некорректный состав заказа" };

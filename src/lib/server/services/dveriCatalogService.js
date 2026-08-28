@@ -1,3 +1,5 @@
+const productRepository = require("../repositories/productRepository");
+
 const DVERI_EXPORT_URL = "https://dveri.com/export/json/moskva";
 const CACHE_TTL_MS = 30 * 60_000;
 
@@ -72,6 +74,9 @@ const normalizeCatalog = (raw) => {
   const colorById = new Map(
     asArray(raw.colors).map((item) => [item.id, String(item.title ?? "")]),
   );
+  const glassById = new Map(
+    asArray(raw.glasses).map((item) => [item.id, String(item.title ?? "")]),
+  );
 
   const products = asArray(raw.products).map((product) => {
     const options = normalizeOptions(product.options);
@@ -86,6 +91,7 @@ const normalizeCatalog = (raw) => {
       trademarkId: product.trademark_id ?? null,
       trademark: product.trademark_id != null ? trademarkById.get(product.trademark_id) ?? "" : "",
       color: product.color_id != null ? colorById.get(product.color_id) ?? "" : "",
+      glass: product.glass_id != null ? glassById.get(product.glass_id) ?? "" : "",
       vendorCode: String(product.vendor_code ?? ""),
       price: Number(product.price ?? 0),
       priceDealer: Number(product.price_dealer ?? 0),
@@ -119,12 +125,32 @@ const normalizeCatalog = (raw) => {
   };
 };
 
+const collectVendorCodes = (products) => {
+  const codes = new Set();
+  for (const product of Array.isArray(products) ? products : []) {
+    const baseCode = String(product.vendorCode || "").trim();
+    if (baseCode) codes.add(baseCode);
+    for (const option of product.options || []) {
+      const optionCode = String(option.vendorCode || "").trim();
+      if (optionCode) codes.add(optionCode);
+    }
+  }
+  return [...codes];
+};
+
+const attachStorefrontPrices = async (catalog) => {
+  const vendorCodes = collectVendorCodes(catalog.products);
+  const storefrontPrices = await productRepository.mapStorefrontPricesByManufacturerIds(vendorCodes);
+  return { ...catalog, storefrontPrices };
+};
+
 const getCatalog = async ({ refresh = false } = {}) => {
   if (!refresh && cache && Date.now() - cache.fetchedAt < CACHE_TTL_MS) {
+    const catalog = await attachStorefrontPrices(normalizeCatalog(cache.raw));
     return {
       ok: true,
       data: {
-        ...normalizeCatalog(cache.raw),
+        ...catalog,
         cached: true,
         fetchedAt: new Date(cache.fetchedAt).toISOString(),
       },
@@ -161,10 +187,11 @@ const getCatalog = async ({ refresh = false } = {}) => {
     }
 
     cache = { raw: payload, fetchedAt: Date.now() };
+    const catalog = await attachStorefrontPrices(normalizeCatalog(payload));
     return {
       ok: true,
       data: {
-        ...normalizeCatalog(payload),
+        ...catalog,
         cached: false,
         fetchedAt: new Date(cache.fetchedAt).toISOString(),
       },

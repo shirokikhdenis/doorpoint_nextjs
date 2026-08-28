@@ -228,6 +228,12 @@ export function useProductPage(
     return fromAttr?.trim() || "";
   }, [product]);
 
+  const cartGlassLabel = useMemo(() => {
+    if (!product) return "";
+    const fromAttr = product.attributes.find((a) => a.code === "glass")?.value;
+    return fromAttr?.trim() || "";
+  }, [product]);
+
   const selectAxisValue = useCallback(
     (code: string, value: string) => {
       if (!product) return;
@@ -283,6 +289,7 @@ export function useProductPage(
     variantAxes,
     currentAxisValues,
     cartColorLabel,
+    cartGlassLabel,
     displayedImage,
     setDisplayedImage,
     setIsManualImageSelection,

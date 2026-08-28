@@ -326,11 +326,21 @@ INT-BRAVO-0-STORMY,Браво-0,Межкомнатные двери>>>Экошп
 Для товаров производителя **Промет** остатки на витрине (пока только в режиме
 администратора) сопоставляются с API Promet по полю **`Артикул`**.
 
-У каждого **variant_sku** может быть свой артикул Promet. Заполняйте служебный
-атрибут **`variant_attr:manufacturer_id`** (или `attr:manufacturer_id` на строке
-варианта — значение уйдёт в `product_variants.attrs`, т.к. атрибут variant-scope).
+Атрибут **`manufacturer_id`** — product-scope: для погонажа и простых карточек
+без вариантов заливайте **`attr:manufacturer_id`** (значение попадёт в
+`products.attrs`).
 
-Пример — одно полотно, два размера с разными артикулами Promet:
+У каждого **variant_sku** межкомнатной двери может быть свой артикул Promet —
+используйте **`variant_attr:manufacturer_id`** на строках варианта.
+
+Пример — погонаж без вариантов:
+
+```csv
+sku,name,category,price,attr:color,attr:pogonazh_id,attr:manufacturer_id
+170-0008,Коробка телескоп 2070*70*30,Погонаж,1190,Stormy Silk,824,5621
+```
+
+Пример — полотно, два размера с разными артикулами Promet:
 
 ```csv
 sku,name,category,price,attr:manufacturer,variantSku,variant_attr:size,variant_attr:manufacturer_id
@@ -339,8 +349,8 @@ DOOR-001,,,,,DOOR-001--900x2000,900x2000,S31299209999
 ```
 
 - `attr:manufacturer` — на первой строке, «Промет»
-- `variant_attr:manufacturer_id` — **на каждой строке варианта**, артикул для lookup
-- `variantSku` — если используете явные SKU вариантов
+- `attr:manufacturer_id` — артикул на карточке товара (погонаж, аксессуары)
+- `variant_attr:manufacturer_id` — **на каждой строке варианта** с размером
 - Атрибут **не показывается** посетителям на карточке (служебный)
 
 ## 6. Чек-лист перед запуском

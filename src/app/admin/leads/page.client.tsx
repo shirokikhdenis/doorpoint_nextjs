@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { AdminCard } from "@/features/admin/ui/admin-card";
-import { AdminConfirmButton } from "@/features/admin/ui/admin-confirm-button";
 import { AdminEmptyState } from "@/features/admin/ui/admin-empty-state";
 import { AdminNotice } from "@/features/admin/ui/admin-notice";
 import { AdminPage } from "@/features/admin/ui/admin-page";
@@ -17,7 +16,10 @@ import {
   AdminTableHead,
   AdminTableRow,
 } from "@/features/admin/ui/admin-table";
+import { LeadStatusSelect } from "@/features/admin/leads/lead-status-select";
+import { formatUpcomingDateLabel } from "@/features/admin/install-calendar/calendar-utils";
 import { formatPrice } from "@/lib/client/format";
+import { LEAD_STATUS_COLORS, LEAD_STATUS_OPTIONS } from "@/lib/client/lead-status";
 import { cn } from "@/lib/utils";
 
 type LeadTab = "salon" | "website" | "measure";
@@ -31,7 +33,13 @@ type LeadListItem = {
   clientComment: string;
   totalPrice: number;
   status: string;
+  arrivalDate?: string | null;
+  measureNote?: string;
   createdAt: string;
+  installDate?: string | null;
+  installEndDate?: string | null;
+  deliveryDate?: string | null;
+  deliveryEndDate?: string | null;
 };
 
 const TAB_CONFIG: Record<
@@ -55,20 +63,6 @@ const TAB_CONFIG: Record<
   },
 };
 
-const STATUS_LABELS: Record<string, string> = {
-  new: "Новая",
-  in_progress: "В работе",
-  done: "Завершена",
-  cancelled: "Отменена",
-};
-
-const STATUS_BADGE: Record<string, string> = {
-  new: "bg-sky-100 text-sky-800",
-  in_progress: "bg-amber-100 text-amber-800",
-  done: "bg-emerald-100 text-emerald-800",
-  cancelled: "bg-zinc-100 text-zinc-600",
-};
-
 const formatDateTime = (value: string) => {
   try {
     return new Date(value).toLocaleString("ru-RU", {
@@ -83,6 +77,11 @@ const formatDateTime = (value: string) => {
   }
 };
 
+const formatScheduleDate = (from?: string | null, to?: string | null) => {
+  if (!from) return "—";
+  return formatUpcomingDateLabel(from, to || from) || "—";
+};
+
 const truncateText = (value: string, max = 80) => {
   const text = String(value || "").trim();
   if (text.length <= max) return text;
@@ -93,6 +92,44 @@ const parseTab = (value: string | null): LeadTab => {
   if (value === "website" || value === "measure") return value;
   return "salon";
 };
+
+function LeadMeasureNoteInput({
+  value,
+  disabled,
+  onSave,
+}: {
+  value: string;
+  disabled?: boolean;
+  onSave: (value: string) => void;
+}) {
+  const [draft, setDraft] = useState(value);
+
+  useEffect(() => {
+    setDraft(value);
+  }, [value]);
+
+  return (
+    <input
+      type="text"
+      value={draft}
+      disabled={disabled}
+      maxLength={300}
+      onChange={(event) => setDraft(event.target.value)}
+      onBlur={() => {
+        const next = draft.trim();
+        if (next !== value.trim()) onSave(next);
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") {
+          event.currentTarget.blur();
+        }
+      }}
+      className="h-8 w-[11rem] rounded border border-zinc-200 bg-white px-2 text-sm disabled:bg-zinc-50"
+      aria-label="Замер"
+      placeholder="Текст замера"
+    />
+  );
+}
 
 export default function AdminLeadsPage() {
   const router = useRouter();
@@ -106,7 +143,7 @@ export default function AdminLeadsPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [savingId, setSavingId] = useState<number | null>(null);
 
   const setActiveTab = (tab: LeadTab) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -158,38 +195,64 @@ export default function AdminLeadsPage() {
     };
   }, [reload]);
 
-  const handleDelete = async (item: LeadListItem) => {
-    setDeletingId(item.id);
+  const handlePatch = async (
+    item: LeadListItem,
+    patch: { status?: string; arrivalDate?: string | null; measureNote?: string },
+  ) => {
+    setSavingId(item.id);
     setError("");
+    const previous = item;
+    setItems((current) =>
+      current.map((row) => (row.id === item.id ? { ...row, ...patch } : row)),
+    );
     try {
-      const response = await fetch(`/api/admin/leads/${item.id}`, { method: "DELETE" });
-      if (response.status !== 204) {
+      const response = await fetch(`/api/admin/leads/${item.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+      if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
-        throw new Error(payload.message || "Не удалось удалить заявку");
+        throw new Error(payload.message || "Не удалось сохранить заявку");
       }
-      await reload();
+      const updated = (await response.json()) as LeadListItem;
+      setItems((current) =>
+        current.map((row) =>
+          row.id === item.id
+            ? {
+                ...row,
+                status: updated.status ?? row.status,
+                arrivalDate: updated.arrivalDate !== undefined ? updated.arrivalDate : row.arrivalDate,
+                measureNote: updated.measureNote !== undefined ? updated.measureNote : row.measureNote,
+              }
+            : row,
+        ),
+      );
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Ошибка удаления");
+      setItems((current) => current.map((row) => (row.id === item.id ? previous : row)));
+      setError(caught instanceof Error ? caught.message : "Ошибка сохранения");
     } finally {
-      setDeletingId(null);
+      setSavingId(null);
     }
   };
 
   const showContractColumn = activeTab === "salon";
   const showAmountColumn = activeTab !== "measure";
   const showCommentColumn = activeTab === "website" || activeTab === "measure";
+  const showScheduleColumns = activeTab === "salon";
 
   const tableColumns = useMemo(() => {
     const columns = ["Дата", "ФИО", "Телефон"];
     if (showContractColumn) columns.push("№ договора");
     if (showCommentColumn) columns.push("Комментарий");
     if (showAmountColumn) columns.push("Сумма");
-    columns.push("Статус");
+    columns.push("Статус", "Дата прихода", "Замер");
+    if (showScheduleColumns) columns.push("Монтаж", "Доставка");
     return columns;
-  }, [showAmountColumn, showCommentColumn, showContractColumn]);
+  }, [showAmountColumn, showCommentColumn, showContractColumn, showScheduleColumns]);
 
   return (
-    <AdminPage title="Заявки" description={tabConfig.description}>
+    <AdminPage title="Заявки" description={tabConfig.description} className="max-w-none">
       {error ? <AdminNotice variant="error">{error}</AdminNotice> : null}
 
       <div className="mb-4 flex flex-wrap gap-2">
@@ -233,10 +296,11 @@ export default function AdminLeadsPage() {
               onChange={(event) => setStatusFilter(event.target.value)}
             >
               <option value="">Все</option>
-              <option value="new">Новые</option>
-              <option value="in_progress">В работе</option>
-              <option value="done">Завершённые</option>
-              <option value="cancelled">Отменённые</option>
+              {LEAD_STATUS_OPTIONS.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
             </AdminSelectField>
           </div>
         </div>
@@ -280,29 +344,59 @@ export default function AdminLeadsPage() {
                       {formatPrice(item.totalPrice)}
                     </AdminTableCell>
                   ) : null}
-                  <AdminTableCell>
-                    <span
-                      className={cn(
-                        "inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium",
-                        STATUS_BADGE[item.status] || STATUS_BADGE.cancelled,
-                      )}
-                    >
-                      {STATUS_LABELS[item.status] || item.status}
-                    </span>
+                  <AdminTableCell
+                    style={{
+                      backgroundColor: (LEAD_STATUS_COLORS[item.status] || LEAD_STATUS_COLORS.not_issued)
+                        .background,
+                    }}
+                  >
+                    <LeadStatusSelect
+                      value={item.status}
+                      disabled={savingId === item.id}
+                      onChange={(status) => void handlePatch(item, { status })}
+                    />
                   </AdminTableCell>
+                  <AdminTableCell className="whitespace-nowrap">
+                    {item.status === "in_transit" ? (
+                      <input
+                        type="date"
+                        value={item.arrivalDate || ""}
+                        disabled={savingId === item.id}
+                        onChange={(event) =>
+                          void handlePatch(item, { arrivalDate: event.target.value || null })
+                        }
+                        className="h-8 w-[10.5rem] rounded border border-zinc-200 bg-white px-2 text-sm disabled:bg-zinc-50"
+                        aria-label="Дата прихода"
+                      />
+                    ) : (
+                      <span className="text-zinc-400">—</span>
+                    )}
+                  </AdminTableCell>
+                  <AdminTableCell>
+                    {item.status === "measure" ? (
+                      <LeadMeasureNoteInput
+                        value={item.measureNote || ""}
+                        disabled={savingId === item.id}
+                        onSave={(measureNote) => void handlePatch(item, { measureNote })}
+                      />
+                    ) : (
+                      <span className="text-zinc-400">—</span>
+                    )}
+                  </AdminTableCell>
+                  {showScheduleColumns ? (
+                    <>
+                      <AdminTableCell className="whitespace-nowrap">
+                        {formatScheduleDate(item.installDate, item.installEndDate)}
+                      </AdminTableCell>
+                      <AdminTableCell className="whitespace-nowrap">
+                        {formatScheduleDate(item.deliveryDate, item.deliveryEndDate)}
+                      </AdminTableCell>
+                    </>
+                  ) : null}
                   <AdminTableCell className="text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <Button variant="outline" size="sm" asChild>
-                        <Link href={`/admin/leads/${item.id}`}>Открыть</Link>
-                      </Button>
-                      <AdminConfirmButton
-                        confirmMessage={`Удалить заявку «${item.customerName || `№${item.id}`}»? Действие нельзя отменить.`}
-                        disabled={deletingId === item.id}
-                        onConfirm={() => handleDelete(item)}
-                      >
-                        {deletingId === item.id ? "Удаление…" : "Удалить"}
-                      </AdminConfirmButton>
-                    </div>
+                    <Button variant="outline" size="sm" asChild>
+                      <Link href={`/admin/leads/${item.id}`}>Открыть</Link>
+                    </Button>
                   </AdminTableCell>
                 </AdminTableRow>
               ))}

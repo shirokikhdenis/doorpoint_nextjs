@@ -11,6 +11,8 @@ const leadSelectFields = `
   contract_number AS "contractNumber",
   contract_date AS "contractDate",
   delivery_days AS "deliveryDays",
+  arrival_date::text AS "arrivalDate",
+  measure_note AS "measureNote",
   total_price AS "totalPrice",
   discount_kind AS "discountKind",
   discount_value AS "discountValue",
@@ -31,10 +33,12 @@ const mapLeadRow = (row) => ({
   contractNumber: String(row.contractNumber || ""),
   contractDate: row.contractDate || null,
   deliveryDays: row.deliveryDays != null ? Number(row.deliveryDays) : null,
+  arrivalDate: row.arrivalDate ? String(row.arrivalDate).slice(0, 10) : null,
+  measureNote: String(row.measureNote || ""),
   totalPrice: Number(row.totalPrice) || 0,
   discountKind: normalizeDiscountKind(row.discountKind),
   discountValue: Number(row.discountValue) || 0,
-  status: String(row.status || "new"),
+  status: String(row.status || "not_issued"),
   managerNotes: String(row.managerNotes || ""),
   clientComment: String(row.clientComment || ""),
   sourcePage: String(row.sourcePage || ""),
@@ -86,7 +90,7 @@ const createLeadWithItems = async (lead, items) => {
         discount_kind,
         discount_value
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'new', '', $9, $10, 'none', 0)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'not_issued', '', $9, $10, 'none', 0)
       RETURNING ${leadSelectFields}
       `,
       [
@@ -170,7 +174,7 @@ const listLeads = async ({ limit = 50, offset = 0, status, type, search } = {}) 
   const searchTerm = String(search || "").trim();
   if (searchTerm) {
     clauses.push(
-      `(customer_name ILIKE $${paramIndex} OR contract_number ILIKE $${paramIndex})`,
+      `(customer_name ILIKE $${paramIndex} OR contract_number ILIKE $${paramIndex} OR phone ILIKE $${paramIndex})`,
     );
     params.push(`%${searchTerm}%`);
     paramIndex += 1;
@@ -289,6 +293,10 @@ const updateLead = async (id, patch) => {
       patch.discountValue !== undefined ? patch.discountValue : current.discountValue;
     const deliveryDays =
       patch.deliveryDays !== undefined ? patch.deliveryDays : current.deliveryDays;
+    const arrivalDate =
+      patch.arrivalDate !== undefined ? patch.arrivalDate : current.arrivalDate;
+    const measureNote =
+      patch.measureNote !== undefined ? patch.measureNote : current.measureNote;
     const totals = computeLeadTotals(items, discountKind, discountValue);
 
     const updateRes = await client.query(
@@ -301,6 +309,8 @@ const updateLead = async (id, patch) => {
         discount_value = $5,
         total_price = $6,
         delivery_days = $7,
+        arrival_date = $8,
+        measure_note = $9,
         updated_at = NOW()
       WHERE id = $1
       RETURNING ${leadSelectFields}
@@ -313,6 +323,8 @@ const updateLead = async (id, patch) => {
         totals.discountValue,
         totals.total,
         deliveryDays,
+        arrivalDate,
+        measureNote,
       ],
     );
 

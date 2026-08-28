@@ -36,7 +36,7 @@ export const variantAxesLabel = (variant: Variant): string => {
 
 export const variantCartSuffix = (variant: Variant): string => {
   const axes = variant.attributes.filter((attribute) => attribute.isVariantAxis);
-  if (axes.length === 0) return variant.sku;
+  if (axes.length === 0) return "";
   return axes.map((attribute) => attribute.value).join(", ");
 };
 

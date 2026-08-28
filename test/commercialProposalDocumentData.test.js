@@ -18,12 +18,21 @@ test("formatKpPrice uses ruble formatting", () => {
   assert.match(formatKpPrice(4920), /₽/);
 });
 
-test("buildKpDisplayName appends color when missing from name", () => {
+test("buildKpDisplayName appends color and glass when missing from name", () => {
   const withColor = buildKpDisplayName({
     name: "Браво-0",
     attributes: [{ code: "color", value: "Stormy Silk" }],
   });
-  assert.equal(withColor, "Браво-0 (Stormy Silk)");
+  assert.equal(withColor, "Браво-0 Stormy Silk");
+
+  const withGlass = buildKpDisplayName({
+    name: "Браво-50",
+    attributes: [
+      { code: "color", value: "Look Art" },
+      { code: "glass", value: "Magic Fog" },
+    ],
+  });
+  assert.equal(withGlass, "Браво-50 Look Art Magic Fog");
 
   const alreadyIncluded = buildKpDisplayName({
     name: "Браво-0 Stormy Silk",

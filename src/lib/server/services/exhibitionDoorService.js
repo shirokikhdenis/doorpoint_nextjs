@@ -139,18 +139,26 @@ const buildColorOptions = (productColor, finishes) => {
   return options;
 };
 
+const { formatProductDisplayName } = require("../../product-display-name");
+
 const buildSnapshotFromProduct = (product, categoryType) => {
   const manufacturer =
     product.attributes?.find((attr) => attr.code === "manufacturer")?.value?.trim() ||
     "";
   const productColor =
     product.attributes?.find((attr) => attr.code === "color")?.value?.trim() || "";
+  const productGlass =
+    product.attributes?.find((attr) => attr.code === "glass")?.value?.trim() || "";
   const accessories = (product.accessories || []).map(mapAccessorySnapshot);
   const kitPrice = categoryType === "interior" ? product.kitPrice ?? null : null;
 
   return {
     productId: product.id,
-    productName: product.name,
+    productName: formatProductDisplayName({
+      name: product.name,
+      color: productColor,
+      glass: productGlass,
+    }),
     productSku: product.sku || "",
     manufacturerName: manufacturer,
     coatingColor: productColor,

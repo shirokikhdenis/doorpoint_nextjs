@@ -8,6 +8,7 @@ import { ProductPricingBlock } from "@/features/product/product-pricing-block";
 import { AddToCartIconButton } from "@/features/store/add-to-cart-icon-button";
 import { ProductCardBadges } from "@/features/store/product-card-badges";
 import { isPogonazhCategoryLabel } from "@/lib/client/cart-store";
+import { formatProductDisplayName } from "@/lib/client/product-display-name";
 import { toPublicImageSrc } from "@/lib/client/image-src";
 import type { ProductCard } from "@/lib/client/normalizers";
 import { productHref } from "@/lib/client/product-url";
@@ -34,7 +35,11 @@ export function CatalogProductCard({
   const primaryImage = toPublicImageSrc(item.image);
   const hoverImage = toPublicImageSrc(item.hoverImage);
   const cardImage = showHover && hoverImage ? hoverImage : primaryImage;
-  const displayName = item.color ? `${item.name} ${item.color}` : item.name;
+  const displayName = formatProductDisplayName({
+    name: item.name,
+    color: item.color,
+    glass: item.glass,
+  });
   const imageHeightClass = catalogCardImageHeightClass(imageHeight);
 
   return (
@@ -94,7 +99,9 @@ export function buildCatalogCartItem(item: ProductCard) {
     price: item.price,
     quantity: 1,
     ...(item.sku?.trim() ? { sku: item.sku.trim() } : {}),
+    ...(item.manufacturerId?.trim() ? { manufacturerId: item.manufacturerId.trim() } : {}),
     ...(item.color?.trim() ? { color: item.color.trim() } : {}),
+    ...(item.glass?.trim() ? { glass: item.glass.trim() } : {}),
     ...(isPogonazhCategoryLabel(item.category, item.categorySlug)
       ? { noProductLink: true, hideCartImage: true }
       : {}),

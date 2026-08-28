@@ -49,6 +49,7 @@ export function CartLeadForm({ items, totalPrice, onSubmitted }: CartLeadFormPro
             name: item.name,
             sku: item.sku,
             color: item.color,
+            glass: item.glass,
             finishName: item.finishName,
             glassOptionName: item.glassOptionName,
             hardwareServices: item.hardwareServices,

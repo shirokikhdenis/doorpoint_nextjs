@@ -53,7 +53,7 @@ export const GET = async (request, context) =>
       return json({
         found: false,
         reason: "no_manufacturer_id",
-        message: "Заполните variant_attr:manufacturer_id (Артикул Promet) для варианта",
+        message: "Заполните attr:manufacturer_id (артикул Promet) на товаре или variant_attr:manufacturer_id на варианте",
       });
     }
 

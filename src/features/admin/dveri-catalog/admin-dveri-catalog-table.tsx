@@ -9,11 +9,14 @@ import {
   AdminTableRow,
 } from "@/features/admin/ui/admin-table";
 import { cn } from "@/lib/utils";
-import { formatPrice } from "./dveri-catalog-utils";
-import type { DveriCatalogProduct } from "./types";
+import { computeRetailPrice, formatPrice, formatStorefrontPriceRange, lookupStorefrontPrice, resolveCategoryPricingRule, resolveProductStorefrontPrices } from "./dveri-catalog-utils";
+import type { DveriCatalogCategory, DveriCatalogProduct, DveriPricingRulesState } from "./types";
 
 type AdminDveriCatalogTableProps = {
   rows: DveriCatalogProduct[];
+  categories: DveriCatalogCategory[];
+  pricingRules: DveriPricingRulesState;
+  storefrontPrices?: Record<string, number>;
   expandedProductId: number | string | null;
   onToggleProduct: (productId: number | string) => void;
   onBack: () => void;
@@ -40,14 +43,53 @@ function ProductLink({ product, className }: { product: DveriCatalogProduct; cla
   );
 }
 
+function RetailPriceCell({
+  dealerPrice,
+  categoryId,
+  categories,
+  pricingRules,
+}: {
+  dealerPrice: number;
+  categoryId: number | null;
+  categories: DveriCatalogCategory[];
+  pricingRules: DveriPricingRulesState;
+}) {
+  const rule = resolveCategoryPricingRule(categoryId, categories, pricingRules);
+  const retail = computeRetailPrice(dealerPrice, rule);
+  return <span className="tabular-nums">{retail != null ? formatPrice(retail) : "—"}</span>;
+}
+
+function StorefrontPriceCell({
+  product,
+  vendorCode,
+  storefrontPrices,
+}: {
+  product?: DveriCatalogProduct;
+  vendorCode?: string;
+  storefrontPrices?: Record<string, number>;
+}) {
+  const prices = product
+    ? resolveProductStorefrontPrices(product, storefrontPrices)
+    : vendorCode
+      ? [lookupStorefrontPrice(vendorCode, storefrontPrices)].filter((price): price is number => price != null)
+      : [];
+
+  return <span className="tabular-nums text-zinc-700">{formatStorefrontPriceRange(prices)}</span>;
+}
+
 export function AdminDveriCatalogTable({
   rows,
+  categories,
+  pricingRules,
+  storefrontPrices,
   expandedProductId,
   onToggleProduct,
   onBack,
   detailProduct,
 }: AdminDveriCatalogTableProps) {
   if (detailProduct) {
+    const categoryRule = resolveCategoryPricingRule(detailProduct.categoryId, categories, pricingRules);
+
     return (
       <div className="space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-3 px-4 pt-4">
@@ -79,6 +121,12 @@ export function AdminDveriCatalogTable({
                 <AdminTableCell header className="text-right">
                   Дилер
                 </AdminTableCell>
+                <AdminTableCell header className="text-right">
+                  Калькулируемая
+                </AdminTableCell>
+                <AdminTableCell header className="text-right">
+                  Цена на витрине
+                </AdminTableCell>
                 <AdminTableCell header>Статус</AdminTableCell>
               </AdminTableRow>
             </AdminTableHead>
@@ -90,6 +138,12 @@ export function AdminDveriCatalogTable({
                   <AdminTableCell className="text-right tabular-nums">{formatPrice(opt.priceFinal)}</AdminTableCell>
                   <AdminTableCell className="text-right tabular-nums">
                     {formatPrice(opt.priceDealerFinal)}
+                  </AdminTableCell>
+                  <AdminTableCell className="text-right font-medium tabular-nums text-admin-text">
+                    {formatPrice(computeRetailPrice(opt.priceDealerFinal, categoryRule))}
+                  </AdminTableCell>
+                  <AdminTableCell className="text-right tabular-nums">
+                    <StorefrontPriceCell vendorCode={opt.vendorCode} storefrontPrices={storefrontPrices} />
                   </AdminTableCell>
                   <AdminTableCell>{opt.label || "—"}</AdminTableCell>
                 </AdminTableRow>
@@ -123,6 +177,12 @@ export function AdminDveriCatalogTable({
           <AdminTableCell header className="hidden text-right md:table-cell">
             Дилер
           </AdminTableCell>
+          <AdminTableCell header className="text-right">
+            Калькулируемая
+          </AdminTableCell>
+          <AdminTableCell header className="text-right">
+            Цена на витрине
+          </AdminTableCell>
           <AdminTableCell header className="hidden md:table-cell">
             Статус
           </AdminTableCell>
@@ -154,6 +214,17 @@ export function AdminDveriCatalogTable({
               <AdminTableCell className="text-right tabular-nums">{formatPrice(product.priceFinal)}</AdminTableCell>
               <AdminTableCell className="hidden text-right tabular-nums md:table-cell">
                 {formatPrice(product.priceDealerFinal)}
+              </AdminTableCell>
+              <AdminTableCell className="text-right font-medium tabular-nums text-admin-text">
+                <RetailPriceCell
+                  dealerPrice={product.priceDealerFinal}
+                  categoryId={product.categoryId}
+                  categories={categories}
+                  pricingRules={pricingRules}
+                />
+              </AdminTableCell>
+              <AdminTableCell className="text-right tabular-nums">
+                <StorefrontPriceCell product={product} storefrontPrices={storefrontPrices} />
               </AdminTableCell>
               <AdminTableCell className="hidden md:table-cell">{product.label || "—"}</AdminTableCell>
               <AdminTableCell className="hidden md:table-cell">

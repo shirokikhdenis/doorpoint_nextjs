@@ -2,6 +2,7 @@ const {
   KP_VALIDITY_DAYS,
   buildProductPageUrl,
 } = require("./kpPdfCompany");
+const { formatProductDisplayName } = require("../../product-display-name");
 
 const ENTRY_DOORS_CATEGORY_SLUG = "entry-doors";
 
@@ -48,12 +49,15 @@ const findProductAttribute = (product, code) => {
 };
 
 const buildKpDisplayName = (product) => {
-  const baseName = String(product?.name || "Товар").trim() || "Товар";
   const colorAttr = findProductAttribute(product, "color");
+  const glassAttr = findProductAttribute(product, "glass");
   const color = String(colorAttr?.value || product?.color || "").trim();
-  if (!color) return baseName;
-  if (baseName.toLowerCase().includes(color.toLowerCase())) return baseName;
-  return `${baseName} (${color})`;
+  const glass = String(glassAttr?.value || product?.glass || "").trim();
+  return formatProductDisplayName({
+    name: product?.name,
+    color,
+    glass,
+  });
 };
 
 const buildKpNumber = (productId, date = new Date()) => {

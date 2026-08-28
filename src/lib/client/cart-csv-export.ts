@@ -1,65 +1,79 @@
 import type { CartItem } from "@/lib/client/cart-store";
+import {
+  buildCartCsv,
+  resolveManufacturerIdFromProduct,
+} from "@/lib/cart-csv-export.js";
 
-const CSV_DELIMITER = ";";
+export { buildCartCsv };
 
-const escapeCsvCell = (value: string) => {
-  const text = String(value ?? "");
-  if (/[",;\n\r]/.test(text)) return `"${text.replace(/"/g, '""')}"`;
-  return text;
+type ProductArticleLookup = {
+  manufacturerId?: string;
+  sku?: string;
 };
 
-const formatCartLineName = (item: CartItem) => {
-  const name = item.name.trim();
-  const color = item.color?.trim();
-  return color ? `${name} (${color})` : name;
-};
-
-const resolveSku = (item: CartItem, skuById: Map<number, string>) =>
-  item.sku?.trim() || skuById.get(item.id)?.trim() || "";
-
-export const buildCartCsv = (items: CartItem[], skuById: Map<number, string> = new Map()) => {
-  const header = ["наименование", "артикул", "количество", "цена"];
-  const rows = items.map((item) =>
-    [
-      escapeCsvCell(formatCartLineName(item)),
-      escapeCsvCell(resolveSku(item, skuById)),
-      String(item.quantity),
-      String(Number(item.price) || 0),
-    ].join(CSV_DELIMITER),
-  );
-  return `\uFEFF${[header.join(CSV_DELIMITER), ...rows].join("\r\n")}`;
-};
-
-const fetchSkuById = async (id: number) => {
+const fetchProductArticleById = async (id: number, variantSku?: string) => {
   try {
     const response = await fetch(`/api/products/${id}`);
-    if (!response.ok) return "";
-    const data = (await response.json()) as { sku?: string };
-    return String(data.sku || "").trim();
+    if (!response.ok) return { manufacturerId: "" };
+    const data = (await response.json()) as {
+      manufacturerId?: unknown;
+      sku?: unknown;
+      variants?: Array<{ sku?: unknown; manufacturerId?: unknown }>;
+    };
+    return {
+      manufacturerId: resolveManufacturerIdFromProduct(data, variantSku),
+      sku: String(data.sku || "").trim(),
+    };
   } catch {
-    return "";
+    return { manufacturerId: "" };
   }
+};
+
+export const resolveCartManufacturerArticle = (
+  item: CartItem,
+  lookup: Map<number, string> = new Map(),
+) => {
+  const fromItem = item.manufacturerId?.trim();
+  if (fromItem) return fromItem;
+  return lookup.get(item.id)?.trim() || "";
+};
+
+export const fetchCartManufacturerArticles = async (items: CartItem[]) => {
+  const lookup = new Map<number, string>();
+
+  for (const item of items) {
+    if (item.id > 0 && item.manufacturerId?.trim()) {
+      lookup.set(item.id, item.manufacturerId.trim());
+    }
+  }
+
+  const missingIds = [
+    ...new Set(
+      items.filter((item) => item.id > 0 && !lookup.has(item.id)).map((item) => item.id),
+    ),
+  ];
+
+  await Promise.all(
+    missingIds.map(async (id) => {
+      const item = items.find((entry) => entry.id === id);
+      const { manufacturerId } = await fetchProductArticleById(id, item?.sku);
+      if (manufacturerId) lookup.set(id, manufacturerId);
+    }),
+  );
+
+  return lookup;
 };
 
 export const downloadCartCsv = async (items: CartItem[]) => {
   if (items.length === 0 || typeof window === "undefined") return;
 
-  const missingIds = [
-    ...new Set(
-      items
-        .filter((item) => item.id > 0 && !item.sku?.trim())
-        .map((item) => item.id),
-    ),
-  ];
-  const skuById = new Map<number, string>();
-  await Promise.all(
-    missingIds.map(async (id) => {
-      const sku = await fetchSkuById(id);
-      if (sku) skuById.set(id, sku);
-    }),
-  );
+  const articleLookup = await fetchCartManufacturerArticles(items);
+  const articleById = new Map<number, ProductArticleLookup>();
+  for (const [id, manufacturerId] of articleLookup) {
+    articleById.set(id, { manufacturerId });
+  }
 
-  const csv = buildCartCsv(items, skuById);
+  const csv = buildCartCsv(items, articleById);
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");

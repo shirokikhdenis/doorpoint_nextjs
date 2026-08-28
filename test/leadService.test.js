@@ -76,12 +76,28 @@ test("validateLeadStatusUpdate rejects unknown status", () => {
 
 test("validateLeadStatusUpdate accepts status and notes", () => {
   const result = validateLeadStatusUpdate({
-    status: "in_progress",
+    status: "issued",
     managerNotes: "Перезвонить завтра",
   });
   assert.equal(result.ok, true);
-  assert.equal(result.data.status, "in_progress");
+  assert.equal(result.data.status, "issued");
   assert.equal(result.data.managerNotes, "Перезвонить завтра");
+});
+
+test("validateLeadStatusUpdate accepts arrival date", () => {
+  const result = validateLeadStatusUpdate({ arrivalDate: "2026-08-31" });
+  assert.equal(result.ok, true);
+  assert.equal(result.data.arrivalDate, "2026-08-31");
+});
+
+test("validateLeadStatusUpdate accepts measure status and note", () => {
+  const result = validateLeadStatusUpdate({
+    status: "measure",
+    measureNote: "  12:00, ул. Ленина  ",
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.data.status, "measure");
+  assert.equal(result.data.measureNote, "12:00, ул. Ленина");
 });
 
 test("validateCartLeadPayload accepts valid cart lead", () => {

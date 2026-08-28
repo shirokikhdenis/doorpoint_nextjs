@@ -9,6 +9,7 @@ import {
   getAdminBreadcrumbs,
   isAdminNavItemActive,
 } from "@/features/admin/admin-nav";
+import { AdminUpcomingReminders } from "@/features/admin/admin-upcoming-reminders";
 import { useAdminTheme } from "@/features/admin/use-admin-theme";
 import { cn } from "@/lib/utils";
 
@@ -134,8 +135,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-3 border-b border-admin-border bg-[var(--admin-header-bg)] px-4 backdrop-blur sm:px-6">
-          <div className="flex min-w-0 items-center gap-3">
+        <header className="sticky top-0 z-30 flex min-h-14 shrink-0 items-center justify-between gap-3 border-b border-admin-border bg-[var(--admin-header-bg)] px-4 backdrop-blur sm:px-6">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
             <Button
               type="button"
               variant="outline"
@@ -145,7 +146,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             >
               Меню
             </Button>
-            <nav aria-label="Хлебные крошки" className="hidden min-w-0 truncate text-sm sm:block">
+            <nav aria-label="Хлебные крошки" className="hidden min-w-0 shrink-0 truncate text-sm lg:block">
               <ol className="flex flex-wrap items-center gap-1 text-admin-text-muted">
                 {breadcrumbs.map((crumb, index) => (
                   <li key={`${crumb.label}-${index}`} className="flex items-center gap-1">
@@ -161,6 +162,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                 ))}
               </ol>
             </nav>
+            <AdminUpcomingReminders />
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <Button variant="outline" size="sm" asChild>

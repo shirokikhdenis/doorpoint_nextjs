@@ -19,7 +19,14 @@ import {
   type AdminCartServiceLineState,
 } from "@/features/store/admin-cart-service-lines";
 import { useAdminSession } from "@/lib/client/use-admin-session";
-import { SITE_EMAIL, SITE_PHONE_DISPLAY, SITE_PHONE_TEL } from "@/lib/site-contact";
+import {
+  resolveCartManufacturerArticle,
+  useCartManufacturerArticles,
+} from "@/lib/client/use-cart-manufacturer-articles";
+import { SITE_EMAIL, SITE_ADDRESS, SITE_PHONE_DISPLAY, SITE_PHONE_TEL } from "@/lib/site-contact";
+import { getSiteUrl, SITE_NAME } from "@/lib/site-seo";
+
+const formatSiteUrlForPrint = () => getSiteUrl().replace(/^https?:\/\//, "");
 
 const formatToday = () => {
   try {
@@ -227,6 +234,9 @@ function AdminServiceLineControls({
         />
         <p className="hidden font-medium leading-snug text-zinc-900 print:block">{line.name}</p>
       </td>
+      <td className="whitespace-nowrap px-4 py-3 align-middle font-mono text-xs text-zinc-500 print:hidden">
+        —
+      </td>
       <td className="whitespace-nowrap px-4 py-3 align-middle font-medium">
         <div className="print:hidden">
           <input
@@ -281,12 +291,14 @@ function AdminServiceLineControls({
 }
 
 export default function CartPage() {
-  const { items, totalPrice, totalQuantity, setQuantity, removeItem, clear } = useCart();
+  const { items, totalPrice, setQuantity, removeItem, clear } = useCart();
   const { isAdmin, loading: adminLoading } = useAdminSession();
   const [isExporting, setIsExporting] = useState(false);
   const [serviceLines, setServiceLines] = useState(createInitialAdminCartServiceLines);
 
   const adminMode = !adminLoading && isAdmin;
+  const manufacturerArticles = useCartManufacturerArticles(items, adminMode);
+  const tableColSpan = adminMode ? 6 : 5;
   const serviceCartItems = useMemo(
     () => (adminMode ? toAdminServiceCartItems(serviceLines) : []),
     [adminMode, serviceLines],
@@ -300,7 +312,6 @@ export default function CartPage() {
     [adminMode, items, serviceCartItems],
   );
   const invoiceTotal = totalPrice + serviceTotal;
-  const invoiceQuantity = totalQuantity + serviceCartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   const updateServiceLine = (
     key: AdminCartServiceKey,
@@ -439,6 +450,9 @@ export default function CartPage() {
           <thead className="bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500">
             <tr>
               <th className="px-4 py-2 font-medium">Наименование</th>
+              {adminMode ? (
+                <th className="px-4 py-2 font-medium print:hidden">Артикул производителя</th>
+              ) : null}
               <th className="px-4 py-2 font-medium">Цена</th>
               <th className="px-4 py-2 font-medium">Кол-во</th>
               <th className="px-4 py-2 text-right font-medium">Сумма</th>
@@ -449,8 +463,14 @@ export default function CartPage() {
             {adminMode ? (
               <tr className="bg-zinc-50 print:bg-transparent">
                 <td
-                  colSpan={5}
-                  className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-zinc-600"
+                  colSpan={tableColSpan}
+                  className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-zinc-600 print:hidden"
+                >
+                  Товары
+                </td>
+                <td
+                  colSpan={4}
+                  className="hidden px-4 py-2 text-xs font-semibold uppercase tracking-wide text-zinc-600 print:table-cell"
                 >
                   Товары
                 </td>
@@ -473,6 +493,7 @@ export default function CartPage() {
                         item.finishName,
                         item.glassOptionName,
                         item.hardwareServices,
+                        item.glass,
                       )}
                     </Link>
                   ) : (
@@ -483,10 +504,16 @@ export default function CartPage() {
                         item.finishName,
                         item.glassOptionName,
                         item.hardwareServices,
+                        item.glass,
                       )}
                     </p>
                   )}
                 </td>
+                {adminMode ? (
+                  <td className="whitespace-nowrap px-4 py-3 align-middle font-mono text-xs text-zinc-600 print:hidden">
+                    {resolveCartManufacturerArticle(item, manufacturerArticles) || "—"}
+                  </td>
+                ) : null}
                 <td className="whitespace-nowrap px-4 py-3 align-middle font-medium">
                   {formatPrice(item.price)}
                 </td>
@@ -525,8 +552,14 @@ export default function CartPage() {
             ))}
             {adminMode ? (
               <tr className="bg-zinc-50/80 print:break-inside-avoid print:bg-transparent">
-                <td colSpan={3} className="px-4 py-2.5 text-sm font-medium text-zinc-700">
-                  Сумма товара
+                <td colSpan={4} className="px-4 py-2.5 text-sm font-medium text-zinc-700 print:hidden">
+                  Стоимость товара
+                </td>
+                <td
+                  colSpan={3}
+                  className="hidden px-4 py-2.5 text-sm font-medium text-zinc-700 print:table-cell"
+                >
+                  Стоимость товара
                 </td>
                 <td className="whitespace-nowrap px-4 py-2.5 text-right text-sm font-semibold text-zinc-900">
                   {formatPrice(totalPrice)}
@@ -539,8 +572,14 @@ export default function CartPage() {
               <>
                 <tr className="bg-zinc-50 print:bg-transparent">
                   <td
-                    colSpan={5}
-                    className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-zinc-600"
+                    colSpan={tableColSpan}
+                    className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-zinc-600 print:hidden"
+                  >
+                    Услуги
+                  </td>
+                  <td
+                    colSpan={4}
+                    className="hidden px-4 py-2 text-xs font-semibold uppercase tracking-wide text-zinc-600 print:table-cell"
                   >
                     Услуги
                   </td>
@@ -559,8 +598,14 @@ export default function CartPage() {
                     </tr>
                   ))}
                 <tr className="bg-zinc-50/80 print:break-inside-avoid print:bg-transparent">
-                  <td colSpan={3} className="px-4 py-2.5 text-sm font-medium text-zinc-700">
-                    Сумма услуг
+                  <td colSpan={4} className="px-4 py-2.5 text-sm font-medium text-zinc-700 print:hidden">
+                    Стоимость услуг
+                  </td>
+                  <td
+                    colSpan={3}
+                    className="hidden px-4 py-2.5 text-sm font-medium text-zinc-700 print:table-cell"
+                  >
+                    Стоимость услуг
                   </td>
                   <td className="whitespace-nowrap px-4 py-2.5 text-right text-sm font-semibold text-zinc-900">
                     {formatPrice(serviceTotal)}
@@ -614,25 +659,30 @@ export default function CartPage() {
         {adminMode ? (
           <>
             <p className="text-sm text-zinc-600">
-              Сумма товара:{" "}
+              Стоимость товара:{" "}
               <span className="font-medium text-zinc-900">{formatPrice(totalPrice)}</span>
             </p>
             {serviceCartItems.length > 0 ? (
               <p className="text-sm text-zinc-600">
-                Сумма услуг:{" "}
+                Стоимость услуг:{" "}
                 <span className="font-medium text-zinc-900">{formatPrice(serviceTotal)}</span>
               </p>
             ) : null}
-            <p className="text-lg font-semibold text-zinc-900">
-              Сумма под ключ: {formatPrice(invoiceTotal)}
-            </p>
+            {serviceCartItems.length > 0 ? (
+              <p className="text-lg font-semibold text-zinc-900">
+                Стоимость под ключ: {formatPrice(invoiceTotal)}
+              </p>
+            ) : null}
           </>
         ) : (
           <p className="text-lg font-semibold">Итого: {formatPrice(totalPrice)}</p>
         )}
-        <p className="hidden text-sm text-zinc-700 print:block">
-          Позиций: {invoiceItems.length} · Всего предметов: {invoiceQuantity}
-        </p>
+      </div>
+
+      <div className="mt-8 hidden border-t border-zinc-300 pt-4 text-sm text-zinc-700 print:block">
+        <p className="font-semibold text-zinc-900">{SITE_NAME}</p>
+        <p className="mt-1">{SITE_ADDRESS}</p>
+        <p className="mt-1">{formatSiteUrlForPrint()}</p>
       </div>
 
       {adminMode ? (
@@ -643,6 +693,7 @@ export default function CartPage() {
           productTotal={totalPrice}
           serviceTotal={serviceTotal}
           totalPrice={invoiceTotal}
+          manufacturerArticles={manufacturerArticles}
         />
       ) : (
         <CartLeadForm items={items} totalPrice={totalPrice} onSubmitted={clear} />

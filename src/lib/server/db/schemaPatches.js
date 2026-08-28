@@ -8,6 +8,7 @@ let productSlugLatinEnsured = false;
 let portfolioTablesEnsured = false;
 let promotionTablesEnsured = false;
 let leadTablesEnsured = false;
+let leadMeasureNoteEnsured = false;
 let servicesTablesEnsured = false;
 let seoColumnsEnsured = false;
 let catalogPageFilterDefaultsEnsured = false;
@@ -24,36 +25,91 @@ let vkSyncTablesEnsured = false;
 let vkSyncTablesEnsurePromise = null;
 let exhibitionDoorTablesEnsured = false;
 let manufacturerIdAttributeEnsured = false;
+let manufacturerIdProductScopeMigrated = false;
+let manufacturerSkuAttributeRemoved = false;
 let doorFactoryFittingBrandTablesEnsured = false;
+let interiorInstallTablesEnsured = false;
+let interiorInstallTablesEnsurePromise = null;
+let interiorInstallSpecificationEnsured = false;
 
 const ensureManufacturerIdAttribute = async () => {
-  if (manufacturerIdAttributeEnsured) return;
-  const maxOrderRes = await query(
-    `SELECT COALESCE(MAX(sort_order), 0) AS max_order FROM attribute_definitions`,
-  );
-  const sortOrder = Number(maxOrderRes.rows[0]?.max_order || 0) + 10;
-  await query(
-    `
-    INSERT INTO attribute_definitions(
-      code, name, type, unit, options, scope, is_filterable, is_visible_on_product, sort_order
-    )
-    VALUES ($1, $2, $3, $4, '[]'::jsonb, $5, FALSE, FALSE, $6)
-    ON CONFLICT (code) DO NOTHING
-    `,
-    ["manufacturer_id", "ID у производителя", "text", null, "variant", sortOrder],
-  );
+  if (!manufacturerIdAttributeEnsured) {
+    const maxOrderRes = await query(
+      `SELECT COALESCE(MAX(sort_order), 0) AS max_order FROM attribute_definitions`,
+    );
+    const sortOrder = Number(maxOrderRes.rows[0]?.max_order || 0) + 10;
+    await query(
+      `
+      INSERT INTO attribute_definitions(
+        code, name, type, unit, options, scope, is_filterable, is_visible_on_product, sort_order
+      )
+      VALUES ($1, $2, $3, $4, '[]'::jsonb, $5, FALSE, FALSE, $6)
+      ON CONFLICT (code) DO NOTHING
+      `,
+      ["manufacturer_id", "ID у производителя", "text", null, "product", sortOrder],
+    );
+    manufacturerIdAttributeEnsured = true;
+  }
+
   await query(
     `
     UPDATE attribute_definitions
     SET
-      scope = 'variant',
+      scope = 'product',
       is_filterable = FALSE,
       is_visible_on_product = FALSE,
       name = 'ID у производителя'
     WHERE code = 'manufacturer_id'
     `,
   );
-  manufacturerIdAttributeEnsured = true;
+
+  if (manufacturerIdProductScopeMigrated) return;
+
+  await query(`
+    UPDATE products p
+    SET
+      attrs = jsonb_set(
+        COALESCE(p.attrs, '{}'::jsonb),
+        '{manufacturer_id}',
+        to_jsonb(v.manufacturer_id::text),
+        true
+      ),
+      updated_at = NOW()
+    FROM (
+      SELECT DISTINCT ON (pv.product_id)
+        pv.product_id,
+        TRIM(pv.attrs->>'manufacturer_id') AS manufacturer_id
+      FROM product_variants pv
+      WHERE TRIM(COALESCE(pv.attrs->>'manufacturer_id', '')) <> ''
+      ORDER BY pv.product_id, pv.sort_order ASC, pv.id ASC
+    ) v
+    WHERE p.id = v.product_id
+      AND TRIM(COALESCE(p.attrs->>'manufacturer_id', '')) = ''
+  `);
+
+  manufacturerIdProductScopeMigrated = true;
+};
+
+/** Legacy duplicate of manufacturer_id («артикул производителя») — not used in code. */
+const removeManufacturerSkuAttribute = async () => {
+  if (manufacturerSkuAttributeRemoved) return;
+
+  await query(`
+    UPDATE products
+    SET attrs = attrs - 'manufacturer_sku', updated_at = NOW()
+    WHERE attrs ? 'manufacturer_sku'
+  `);
+  await query(`
+    UPDATE product_variants
+    SET attrs = attrs - 'manufacturer_sku', updated_at = NOW()
+    WHERE attrs ? 'manufacturer_sku'
+  `);
+  await query(`
+    DELETE FROM attribute_definitions
+    WHERE code = 'manufacturer_sku'
+  `);
+
+  manufacturerSkuAttributeRemoved = true;
 };
 
 const CATALOG_PAGE_SLUG_RENAMES = [
@@ -193,8 +249,20 @@ const ensureHomeFactoryLogoTables = async () => {
   homeFactoryLogoTablesEnsured = true;
 };
 
+const ensureLeadMeasureNoteColumn = async () => {
+  if (leadMeasureNoteEnsured) return;
+  await query(`
+    ALTER TABLE leads
+    ADD COLUMN IF NOT EXISTS measure_note TEXT NOT NULL DEFAULT ''
+  `);
+  leadMeasureNoteEnsured = true;
+};
+
 const ensureLeadTables = async () => {
-  if (leadTablesEnsured) return;
+  if (leadTablesEnsured) {
+    await ensureLeadMeasureNoteColumn();
+    return;
+  }
   await query(`
     CREATE TABLE IF NOT EXISTS leads (
       id BIGSERIAL PRIMARY KEY,
@@ -205,7 +273,7 @@ const ensureLeadTables = async () => {
       contract_number TEXT NOT NULL DEFAULT '',
       contract_date DATE,
       total_price INTEGER NOT NULL DEFAULT 0,
-      status TEXT NOT NULL DEFAULT 'new',
+      status TEXT NOT NULL DEFAULT 'not_issued',
       manager_notes TEXT NOT NULL DEFAULT '',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -260,6 +328,26 @@ const ensureLeadTables = async () => {
     ALTER TABLE leads
     ADD COLUMN IF NOT EXISTS delivery_days INTEGER
   `);
+  await query(`
+    UPDATE leads
+    SET status = CASE status
+      WHEN 'new' THEN 'not_issued'
+      WHEN 'cancelled' THEN 'not_issued'
+      WHEN 'in_progress' THEN 'issued'
+      WHEN 'done' THEN 'shipped'
+      ELSE status
+    END
+    WHERE status IN ('new', 'cancelled', 'in_progress', 'done')
+  `);
+  await query(`
+    ALTER TABLE leads
+    ALTER COLUMN status SET DEFAULT 'not_issued'
+  `);
+  await query(`
+    ALTER TABLE leads
+    ADD COLUMN IF NOT EXISTS arrival_date DATE
+  `);
+  await ensureLeadMeasureNoteColumn();
   leadTablesEnsured = true;
 };
 
@@ -666,6 +754,125 @@ const ensureDoorFactoryFittingBrandTables = async () => {
   doorFactoryFittingBrandTablesEnsured = true;
 };
 
+const addCheckConstraintIfMissing = async (tableName, constraintName, checkSql) => {
+  await query(
+    `
+    DO $$ BEGIN
+      ALTER TABLE ${tableName}
+      ADD CONSTRAINT ${constraintName}
+      CHECK (${checkSql});
+    EXCEPTION
+      WHEN duplicate_object THEN NULL;
+    END $$;
+    `,
+  );
+};
+
+const ensureInteriorInstallSpecificationColumn = async () => {
+  if (interiorInstallSpecificationEnsured) return;
+  await query(`
+    ALTER TABLE interior_installations
+    ADD COLUMN IF NOT EXISTS specification TEXT NOT NULL DEFAULT ''
+  `);
+  await query(`
+    UPDATE interior_installations
+    SET specification = doors_summary, doors_summary = ''
+    WHERE specification = '' AND doors_summary <> ''
+  `);
+  interiorInstallSpecificationEnsured = true;
+};
+
+const ensureInteriorInstallTables = async () => {
+  if (interiorInstallTablesEnsured) {
+    await ensureInteriorInstallSpecificationColumn();
+    return;
+  }
+  if (!interiorInstallTablesEnsurePromise) {
+    interiorInstallTablesEnsurePromise = (async () => {
+      await ensureLeadTables();
+      await query(`
+    CREATE TABLE IF NOT EXISTS installation_brigades (
+      id BIGSERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      color TEXT NOT NULL DEFAULT '#2563eb',
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+      await query(`
+    CREATE TABLE IF NOT EXISTS interior_installations (
+      id BIGSERIAL PRIMARY KEY,
+      install_date DATE NOT NULL,
+      lead_id BIGINT REFERENCES leads(id) ON DELETE SET NULL,
+      order_number TEXT NOT NULL DEFAULT '',
+      doors_summary TEXT NOT NULL DEFAULT '',
+      brigade_id BIGINT REFERENCES installation_brigades(id) ON DELETE RESTRICT,
+      kind TEXT NOT NULL DEFAULT 'install',
+      doors_on_site BOOLEAN NOT NULL DEFAULT FALSE,
+      customer_name TEXT NOT NULL,
+      phone TEXT NOT NULL,
+      address TEXT NOT NULL DEFAULT '',
+      notes TEXT NOT NULL DEFAULT '',
+      install_end_date DATE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+      await query(`
+    ALTER TABLE interior_installations
+    ADD COLUMN IF NOT EXISTS notes TEXT NOT NULL DEFAULT ''
+  `);
+      await query(`
+    ALTER TABLE interior_installations
+    ADD COLUMN IF NOT EXISTS install_end_date DATE
+  `);
+      await query(`
+    UPDATE interior_installations
+    SET install_end_date = install_date
+    WHERE install_end_date IS NULL
+  `);
+      await query(`
+    ALTER TABLE interior_installations
+    ALTER COLUMN install_end_date SET NOT NULL
+  `);
+      await query(`
+    ALTER TABLE interior_installations
+    ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'install'
+  `);
+      await query(`
+    ALTER TABLE interior_installations
+    ALTER COLUMN brigade_id DROP NOT NULL
+  `);
+      await addCheckConstraintIfMissing(
+        "interior_installations",
+        "interior_installations_kind_check",
+        "kind IN ('install', 'delivery')",
+      );
+      await addCheckConstraintIfMissing(
+        "interior_installations",
+        "interior_installations_kind_brigade_chk",
+        "(kind = 'install' AND brigade_id IS NOT NULL) OR (kind = 'delivery' AND brigade_id IS NULL)",
+      );
+      await query(`
+    CREATE INDEX IF NOT EXISTS idx_interior_installations_date
+    ON interior_installations(install_date, id)
+  `);
+      await query(`
+    CREATE INDEX IF NOT EXISTS idx_interior_installations_brigade
+    ON interior_installations(brigade_id, install_date)
+  `);
+      await ensureInteriorInstallSpecificationColumn();
+      interiorInstallTablesEnsured = true;
+    })().catch((error) => {
+      interiorInstallTablesEnsurePromise = null;
+      throw error;
+    });
+  }
+  await interiorInstallTablesEnsurePromise;
+};
+
 module.exports = {
   CATALOG_PAGE_SLUG_RENAMES,
   ensureProductBadgesColumn,
@@ -691,5 +898,7 @@ module.exports = {
   ensureVkSyncTables,
   ensureExhibitionDoorTables,
   ensureManufacturerIdAttribute,
+  removeManufacturerSkuAttribute,
   ensureDoorFactoryFittingBrandTables,
+  ensureInteriorInstallTables,
 };

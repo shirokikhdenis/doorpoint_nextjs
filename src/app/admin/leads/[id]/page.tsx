@@ -9,9 +9,16 @@ import { AdminConfirmButton } from "@/features/admin/ui/admin-confirm-button";
 import { AdminEmptyState } from "@/features/admin/ui/admin-empty-state";
 import { AdminNotice } from "@/features/admin/ui/admin-notice";
 import { AdminPage } from "@/features/admin/ui/admin-page";
+import {
+  formatUpcomingDateLabel,
+  scheduleCreateHref,
+  scheduleJobHref,
+} from "@/features/admin/install-calendar/calendar-utils";
 import { formatCartItemName } from "@/lib/client/cart-item-name";
 import { formatPrice } from "@/lib/client/format";
 import { computeLeadTotals, type DiscountKind } from "@/lib/client/lead-pricing";
+import { LeadStatusSelect } from "@/features/admin/leads/lead-status-select";
+import { DEFAULT_LEAD_STATUS } from "@/lib/client/lead-status";
 import { cn } from "@/lib/utils";
 
 type LeadItem = {
@@ -29,6 +36,13 @@ type ItemDraft = {
   quantity: string;
 };
 
+type ScheduleEntry = {
+  id: number;
+  kind: "install" | "delivery";
+  installDate: string;
+  installEndDate: string;
+};
+
 type LeadDetail = {
   id: number;
   type: string;
@@ -38,6 +52,8 @@ type LeadDetail = {
   contractNumber: string;
   contractDate: string | null;
   deliveryDays: number | null;
+  arrivalDate?: string | null;
+  measureNote?: string;
   clientComment: string;
   sourcePage: string;
   totalPrice: number;
@@ -51,13 +67,6 @@ type LeadDetail = {
   updatedAt: string;
   items: LeadItem[];
 };
-
-const STATUS_OPTIONS = [
-  { value: "new", label: "Новая" },
-  { value: "in_progress", label: "В работе" },
-  { value: "done", label: "Завершена" },
-  { value: "cancelled", label: "Отменена" },
-];
 
 const DISCOUNT_OPTIONS: { value: DiscountKind; label: string }[] = [
   { value: "none", label: "Без скидки" },
@@ -124,12 +133,62 @@ const parseDraftItems = (items: LeadItem[], drafts: ItemDraft[]) =>
 const isMeasureLead = (lead: LeadDetail) => lead.type === "measure_lead";
 const hasOrderItems = (lead: LeadDetail) => !isMeasureLead(lead) && lead.items.length > 0;
 
+function LeadFact({
+  label,
+  children,
+  className,
+}: {
+  label: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn("min-w-0 space-y-1", className)}>
+      <dt className="text-xs font-medium uppercase tracking-wide text-zinc-500">{label}</dt>
+      <dd className="text-sm leading-6 text-zinc-900">{children}</dd>
+    </div>
+  );
+}
+
+function LeadScheduleValue({
+  items,
+  addHref,
+  addLabel,
+}: {
+  items: ScheduleEntry[];
+  addHref: string;
+  addLabel: string;
+}) {
+  if (items.length === 0) {
+    return (
+      <Button size="sm" variant="outline" asChild>
+        <Link href={addHref}>{addLabel}</Link>
+      </Button>
+    );
+  }
+  return (
+    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+      {items.map((item, index) => (
+        <span key={item.id}>
+          {index > 0 ? <span className="text-zinc-400">, </span> : null}
+          <Link
+            href={scheduleJobHref(item)}
+            className="font-medium text-sky-700 underline-offset-2 hover:underline"
+          >
+            {formatUpcomingDateLabel(item.installDate, item.installEndDate)}
+          </Link>
+        </span>
+      ))}
+    </span>
+  );
+}
+
 export default function AdminLeadDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const [leadId, setLeadId] = useState<number | null>(null);
   const [lead, setLead] = useState<LeadDetail | null>(null);
   const [itemDrafts, setItemDrafts] = useState<ItemDraft[]>([]);
-  const [status, setStatus] = useState("new");
+  const [status, setStatus] = useState(DEFAULT_LEAD_STATUS);
   const [managerNotes, setManagerNotes] = useState("");
   const [discountKind, setDiscountKind] = useState<DiscountKind>("none");
   const [discountValue, setDiscountValue] = useState("0");
@@ -139,6 +198,10 @@ export default function AdminLeadDetailPage({ params }: { params: Promise<{ id: 
   const [deleting, setDeleting] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const [schedule, setSchedule] = useState<{ delivery: ScheduleEntry[]; install: ScheduleEntry[] }>({
+    delivery: [],
+    install: [],
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -192,6 +255,32 @@ export default function AdminLeadDetailPage({ params }: { params: Promise<{ id: 
       cancelled = true;
     };
   }, [leadId, reload]);
+
+  useEffect(() => {
+    if (!leadId) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await fetch(
+          `/api/admin/interior-installations/for-lead?leadId=${leadId}`,
+        );
+        if (!response.ok) return;
+        const json = (await response.json()) as { items?: ScheduleEntry[] };
+        const items = Array.isArray(json.items) ? json.items : [];
+        if (!cancelled) {
+          setSchedule({
+            delivery: items.filter((item) => item.kind === "delivery"),
+            install: items.filter((item) => item.kind === "install"),
+          });
+        }
+      } catch {
+        if (!cancelled) setSchedule({ delivery: [], install: [] });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [leadId]);
 
   const previewItems = useMemo(() => {
     if (!lead || isMeasureLead(lead)) return [];
@@ -340,57 +429,68 @@ export default function AdminLeadDetailPage({ params }: { params: Promise<{ id: 
       }
     >
       <AdminCard title="Клиент">
-        <dl className="grid gap-2 text-sm sm:grid-cols-2">
-          <div>
-            <dt className="text-zinc-500">ФИО</dt>
-            <dd>{lead.customerName}</dd>
-          </div>
-          <div>
-            <dt className="text-zinc-500">Телефон</dt>
-            <dd>{lead.phone}</dd>
-          </div>
+        <div className="space-y-5">
+          <dl className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2">
+            <LeadFact label="ФИО">{lead.customerName}</LeadFact>
+            <LeadFact label="Телефон">{lead.phone}</LeadFact>
+            {showContractFields ? (
+              <LeadFact label="Адрес" className="sm:col-span-2">
+                {lead.address || "—"}
+              </LeadFact>
+            ) : null}
+          </dl>
+
           {showContractFields ? (
-            <>
-              <div className="sm:col-span-2">
-                <dt className="text-zinc-500">Адрес</dt>
-                <dd>{lead.address || "—"}</dd>
-              </div>
-              <div>
-                <dt className="text-zinc-500">№ договора</dt>
-                <dd>{lead.contractNumber || "—"}</dd>
-              </div>
-              <div>
-                <dt className="text-zinc-500">Дата договора</dt>
-                <dd>{formatDate(lead.contractDate)}</dd>
-              </div>
-              <div>
-                <dt className="text-zinc-500">Срок поставки</dt>
-                <dd>{lead.deliveryDays != null ? `${lead.deliveryDays} дн.` : "—"}</dd>
-              </div>
-            </>
+            <dl className="grid grid-cols-1 gap-x-8 gap-y-4 border-t border-zinc-100 pt-5 sm:grid-cols-2 lg:grid-cols-4">
+              <LeadFact label="№ договора">{lead.contractNumber || "—"}</LeadFact>
+              <LeadFact label="Дата договора">{formatDate(lead.contractDate)}</LeadFact>
+              <LeadFact label="Срок поставки">
+                {lead.deliveryDays != null ? `${lead.deliveryDays} дн.` : "—"}
+              </LeadFact>
+              <LeadFact label="Дата прихода">{formatDate(lead.arrivalDate || null)}</LeadFact>
+            </dl>
           ) : null}
-          {showPublicMeta && lead.clientComment ? (
-            <div className="sm:col-span-2">
-              <dt className="text-zinc-500">Комментарий клиента</dt>
-              <dd className="whitespace-pre-wrap">{lead.clientComment}</dd>
-            </div>
+
+          {showPublicMeta && (lead.clientComment || lead.sourcePage) ? (
+            <dl className="grid grid-cols-1 gap-x-8 gap-y-4 border-t border-zinc-100 pt-5">
+              {lead.clientComment ? (
+                <LeadFact label="Комментарий клиента">
+                  <span className="whitespace-pre-wrap">{lead.clientComment}</span>
+                </LeadFact>
+              ) : null}
+              {lead.sourcePage ? (
+                <LeadFact label="Страница отправки">
+                  <a
+                    href={lead.sourcePage}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="break-all text-sky-700 underline-offset-2 hover:underline"
+                  >
+                    {lead.sourcePage}
+                  </a>
+                </LeadFact>
+              ) : null}
+            </dl>
           ) : null}
-          {showPublicMeta && lead.sourcePage ? (
-            <div className="sm:col-span-2">
-              <dt className="text-zinc-500">Страница отправки</dt>
-              <dd>
-                <a
-                  href={lead.sourcePage}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="break-all text-sky-700 underline-offset-2 hover:underline"
-                >
-                  {lead.sourcePage}
-                </a>
-              </dd>
-            </div>
-          ) : null}
-        </dl>
+
+          <dl className="grid grid-cols-1 gap-4 border-t border-zinc-100 pt-5 sm:grid-cols-3">
+            <LeadFact label="Замер">{lead.measureNote?.trim() || "—"}</LeadFact>
+            <LeadFact label="Доставка">
+              <LeadScheduleValue
+                items={schedule.delivery}
+                addHref={scheduleCreateHref("delivery", lead.id)}
+                addLabel="Добавить доставку"
+              />
+            </LeadFact>
+            <LeadFact label="Монтаж">
+              <LeadScheduleValue
+                items={schedule.install}
+                addHref={scheduleCreateHref("install", lead.id)}
+                addLabel="Добавить монтаж"
+              />
+            </LeadFact>
+          </dl>
+        </div>
       </AdminCard>
 
       <form onSubmit={(event) => void onSave(event)} className="space-y-6">
@@ -555,19 +655,13 @@ export default function AdminLeadDetailPage({ params }: { params: Promise<{ id: 
               <label className="text-sm text-zinc-600" htmlFor="lead-status">
                 Статус
               </label>
-              <select
+              <LeadStatusSelect
                 id="lead-status"
-                className="w-full max-w-xs rounded border px-3 py-2 text-sm"
+                className="max-w-xs"
                 value={status}
-                onChange={(event) => setStatus(event.target.value)}
                 disabled={saving}
-              >
-                {STATUS_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+                onChange={setStatus}
+              />
             </div>
             <div className="space-y-2">
               <label className="text-sm text-zinc-600" htmlFor="lead-notes">

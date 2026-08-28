@@ -1,9 +1,19 @@
 import { cn } from "@/lib/utils";
 
-export function AdminTable({ children, className }: { children: React.ReactNode; className?: string }) {
+export function AdminTable({
+  children,
+  className,
+  tableClassName,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  tableClassName?: string;
+}) {
   return (
     <div className={cn("overflow-x-auto border border-admin-border", className)}>
-      <table className="min-w-full divide-y divide-admin-border text-sm">{children}</table>
+      <table className={cn("min-w-full divide-y divide-admin-border text-sm", tableClassName)}>
+        {children}
+      </table>
     </div>
   );
 }
@@ -35,16 +45,19 @@ export function AdminTableCell({
   className,
   header,
   colSpan,
+  style,
 }: {
   children?: React.ReactNode;
   className?: string;
   header?: boolean;
   colSpan?: number;
+  style?: React.CSSProperties;
 }) {
   const Tag = header ? "th" : "td";
   return (
     <Tag
       colSpan={colSpan}
+      style={style}
       className={cn(
         header ? "px-4 py-3" : "px-4 py-3 align-middle text-admin-text-secondary",
         className,

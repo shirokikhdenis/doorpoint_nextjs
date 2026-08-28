@@ -141,7 +141,7 @@ export function AdminProductsFilters({
               type="search"
               value={search}
               onChange={(event) => onSearchChange(event.target.value)}
-              placeholder="SKU или название, например BRAVO"
+              placeholder="SKU, название или артикул производителя"
               className={fieldClass}
             />
           </label>

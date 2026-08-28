@@ -11,7 +11,10 @@ export type CartItem = {
   price: number;
   quantity: number;
   sku?: string;
+  /** Артикул производителя (`attr:manufacturer_id`, на варианте — `variant_attr:manufacturer_id`). */
+  manufacturerId?: string;
   color?: string;
+  glass?: string;
   finishId?: number;
   finishName?: string;
   glassOptionId?: number;
@@ -23,7 +26,7 @@ export type CartItem = {
 
 export type CartLineRef = Pick<
   CartItem,
-  "id" | "name" | "color" | "finishId" | "glassOptionId" | "hideCartImage"
+  "id" | "name" | "color" | "glass" | "finishId" | "glassOptionId" | "hideCartImage"
 > & {
   hardwareServiceKey?: string;
 };

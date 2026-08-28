@@ -336,7 +336,7 @@ const seedAttributes = async (client) => {
       name: "ID у производителя",
       type: "text",
       unit: null,
-      scope: "variant",
+      scope: "product",
       isFilterable: false,
       isVisibleOnProduct: false,
     },

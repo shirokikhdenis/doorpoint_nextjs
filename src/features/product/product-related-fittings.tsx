@@ -87,16 +87,9 @@ export function ProductRelatedFittings({ relatedFittings, cardsPerRow }: Product
   const items = relatedFittings.items;
   if (items.length === 0) return null;
 
-  const mentionsRosette = items.some((item) => item.group === "fixator");
-
   return (
     <section className="mt-10">
       <h2 className="text-xl font-semibold">Сопутствующая фурнитура</h2>
-      <p className="mt-1 text-sm text-zinc-500">
-        Подобрано по производителю и артикулу цвета фурнитуры
-        {mentionsRosette ? " (для фиксатора — также по розетке)" : ""}
-        , с учётом типа замка и петель.
-      </p>
       <div className={`mt-5 ${catalogGridClass(cardsPerRow ?? 6)}`}>
         {items.map((item) => (
           <RelatedFittingCard key={item.id} item={item} />

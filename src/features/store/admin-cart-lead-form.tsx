@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { CartItem } from "@/lib/client/cart-types";
 import { formatCartItemName } from "@/lib/client/cart-item-name";
+import { resolveCartManufacturerArticle } from "@/lib/client/use-cart-manufacturer-articles";
 import { formatPrice } from "@/lib/client/format";
 
 type AdminCartLeadFormProps = {
@@ -17,6 +18,7 @@ type AdminCartLeadFormProps = {
   productTotal?: number;
   serviceTotal?: number;
   totalPrice: number;
+  manufacturerArticles?: Map<number, string>;
   onSubmitted?: () => void;
 };
 
@@ -29,6 +31,7 @@ export function AdminCartLeadForm({
   productTotal,
   serviceTotal,
   totalPrice,
+  manufacturerArticles,
   onSubmitted,
 }: AdminCartLeadFormProps) {
   const router = useRouter();
@@ -45,6 +48,7 @@ export function AdminCartLeadForm({
   const services = serviceItems ?? [];
   const goodsTotal = productTotal ?? items.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const servicesSum = serviceTotal ?? 0;
+  const hasServices = services.length > 0;
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -70,6 +74,10 @@ export function AdminCartLeadForm({
             name: item.name,
             sku: item.sku,
             color: item.color,
+            glass: item.glass,
+            finishName: item.finishName,
+            glassOptionName: item.glassOptionName,
+            hardwareServices: item.hardwareServices,
             price: item.price,
             quantity: item.quantity,
           })),
@@ -106,8 +114,17 @@ export function AdminCartLeadForm({
             Создать заявку
           </CardTitle>
           <CardDescription>
-            Режим администратора. Заявка сохранится в CRM на сумму под ключ{" "}
-            <span className="font-medium text-zinc-900">{formatPrice(totalPrice)}</span>.
+            {hasServices ? (
+              <>
+                Режим администратора. Заявка сохранится в CRM на стоимость под ключ{" "}
+                <span className="font-medium text-zinc-900">{formatPrice(totalPrice)}</span>.
+              </>
+            ) : (
+              <>
+                Режим администратора. Заявка сохранится в CRM на стоимость товара{" "}
+                <span className="font-medium text-zinc-900">{formatPrice(goodsTotal)}</span>.
+              </>
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -117,6 +134,7 @@ export function AdminCartLeadForm({
                   <thead className="bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500">
                     <tr>
                       <th className="px-3 py-2 font-medium">Наименование</th>
+                      <th className="px-3 py-2 font-medium">Артикул производителя</th>
                       <th className="px-3 py-2 font-medium">Цена</th>
                       <th className="px-3 py-2 font-medium">Кол-во</th>
                       <th className="px-3 py-2 text-right font-medium">Сумма</th>
@@ -124,7 +142,7 @@ export function AdminCartLeadForm({
                   </thead>
                   <tbody className="divide-y divide-zinc-100">
                     <tr className="bg-zinc-50">
-                      <td colSpan={4} className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-zinc-600">
+                      <td colSpan={5} className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-zinc-600">
                         Товары
                       </td>
                     </tr>
@@ -138,8 +156,12 @@ export function AdminCartLeadForm({
                               item.finishName,
                               item.glassOptionName,
                               item.hardwareServices,
+                              item.glass,
                             )}
                           </p>
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-2 font-mono text-xs text-zinc-600">
+                          {resolveCartManufacturerArticle(item, manufacturerArticles) || "—"}
                         </td>
                         <td className="whitespace-nowrap px-3 py-2">{formatPrice(item.price)}</td>
                         <td className="px-3 py-2">{item.quantity}</td>
@@ -149,8 +171,8 @@ export function AdminCartLeadForm({
                       </tr>
                     ))}
                     <tr className="bg-zinc-50/80">
-                      <td colSpan={3} className="px-3 py-2 text-sm font-medium text-zinc-700">
-                        Сумма товара
+                      <td colSpan={4} className="px-3 py-2 text-sm font-medium text-zinc-700">
+                        Стоимость товара
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-right text-sm font-semibold">
                         {formatPrice(goodsTotal)}
@@ -159,7 +181,7 @@ export function AdminCartLeadForm({
                     {services.length > 0 ? (
                       <>
                         <tr className="bg-zinc-50">
-                          <td colSpan={4} className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-zinc-600">
+                          <td colSpan={5} className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-zinc-600">
                             Услуги
                           </td>
                         </tr>
@@ -168,6 +190,7 @@ export function AdminCartLeadForm({
                             <td className="px-3 py-2">
                               <p className="font-medium text-zinc-900">{item.name}</p>
                             </td>
+                            <td className="whitespace-nowrap px-3 py-2 font-mono text-xs text-zinc-500">—</td>
                             <td className="whitespace-nowrap px-3 py-2">{formatPrice(item.price)}</td>
                             <td className="px-3 py-2">{item.quantity}</td>
                             <td className="whitespace-nowrap px-3 py-2 text-right">
@@ -176,8 +199,8 @@ export function AdminCartLeadForm({
                           </tr>
                         ))}
                         <tr className="bg-zinc-50/80">
-                          <td colSpan={3} className="px-3 py-2 text-sm font-medium text-zinc-700">
-                            Сумма услуг
+                          <td colSpan={4} className="px-3 py-2 text-sm font-medium text-zinc-700">
+                            Стоимость услуг
                           </td>
                           <td className="whitespace-nowrap px-3 py-2 text-right text-sm font-semibold">
                             {formatPrice(servicesSum)}
@@ -185,14 +208,16 @@ export function AdminCartLeadForm({
                         </tr>
                       </>
                     ) : null}
-                    <tr>
-                      <td colSpan={3} className="px-3 py-2.5 text-sm font-semibold text-zinc-900">
-                        Сумма под ключ
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-2.5 text-right text-sm font-semibold text-zinc-900">
-                        {formatPrice(totalPrice)}
-                      </td>
-                    </tr>
+                    {hasServices ? (
+                      <tr>
+                        <td colSpan={4} className="px-3 py-2.5 text-sm font-semibold text-zinc-900">
+                          Стоимость под ключ
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-2.5 text-right text-sm font-semibold text-zinc-900">
+                          {formatPrice(totalPrice)}
+                        </td>
+                      </tr>
+                    ) : null}
                   </tbody>
                 </table>
               </div>

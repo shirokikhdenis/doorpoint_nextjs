@@ -27,6 +27,7 @@ import { ProductPrometStock } from "@/features/product/product-promet-stock";
 import { ProductManufacturerLogo } from "@/features/product/product-manufacturer-logo";
 import { ProductPageSkeleton } from "@/features/product/product-page-skeleton";
 import { useProductPage } from "@/features/product/use-product-page";
+import { formatProductDisplayName } from "@/lib/client/product-display-name";
 import { ImageLightbox } from "@/features/store/image-lightbox";
 import { MeasureLeadForm } from "@/features/store/measure-lead-form";
 import { TrackedPhoneLink } from "@/features/store/tracked-phone-link";
@@ -69,10 +70,20 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
   const price = basePrice + finishDelta + glassDelta + hardwareDelta;
   const kitPrice = computeInteriorKitPrice(price, product.kitPricing);
   const relatedFittings = product.relatedFittings ?? { items: [] };
-  const cartName = page.selectedVariant
-    ? `${product.name} (${variantCartSuffix(page.selectedVariant)})`
+  const cartVariantSuffix = page.selectedVariant
+    ? variantCartSuffix(page.selectedVariant)
+    : "";
+  const cartName = cartVariantSuffix
+    ? `${product.name} (${cartVariantSuffix})`
     : product.name;
+  const pageTitle = formatProductDisplayName({
+    name: product.name,
+    color: page.cartColorLabel,
+    glass: page.cartGlassLabel,
+  });
   const cartSku = page.selectedVariant?.sku?.trim() || product.sku?.trim() || undefined;
+  const cartManufacturerId =
+    page.selectedVariant?.manufacturerId?.trim() || product.manufacturerId?.trim() || undefined;
   const exhibitionCoatingColor =
     page.selectedFinish?.name?.trim() || page.cartColorLabel?.trim() || "";
   const categoryHref = productCategoryCatalogHref(product.categorySlug);
@@ -163,7 +174,7 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
                 </>
               ) : null}
             </p>
-            <h1 className="text-2xl font-semibold">{product.name}</h1>
+            <h1 className="text-2xl font-semibold">{pageTitle}</h1>
             <ProductPrometStock
               slug={product.slug}
               manufacturerName={product.manufacturerName}
@@ -218,9 +229,11 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
                 productId={product.id}
                 cartName={cartName}
                 cartColorLabel={page.cartColorLabel}
+                cartGlassLabel={page.cartGlassLabel}
                 cartImage={image}
                 price={price}
                 sku={cartSku}
+                manufacturerId={cartManufacturerId}
                 finishId={page.selectedFinish?.id}
                 finishName={page.selectedFinish?.name}
                 glassOptionId={page.selectedGlassOption?.id}

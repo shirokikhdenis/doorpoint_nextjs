@@ -53,9 +53,11 @@ export type ProductGlassOption = { id: number; label: string };
 export type ProductCard = {
   id: number;
   sku?: string;
+  manufacturerId?: string;
   slug?: string;
   name: string;
   color?: string;
+  glass?: string;
   image?: string;
   /** Второе фото (hover) из product_images, sort_order второй. */
   hoverImage?: string;
@@ -372,9 +374,11 @@ export const normalizeProductsResponse = (value: unknown): ProductCard[] => {
   return asArray<Record<string, unknown>>(source.items).map((item) => ({
     id: Number(item.id) || 0,
     sku: item.sku ? String(item.sku) : undefined,
+    manufacturerId: item.manufacturerId ? String(item.manufacturerId).trim() || undefined : undefined,
     slug: item.slug ? String(item.slug) : undefined,
     name: String(item.name || ""),
     color: item.color ? String(item.color) : undefined,
+    glass: item.glass ? String(item.glass) : undefined,
     image: normalizeOptionalImage(item.image),
     hoverImage: normalizeOptionalImage(item.hoverImage),
     category: item.category ? String(item.category) : undefined,

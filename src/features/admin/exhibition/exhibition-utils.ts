@@ -1,3 +1,4 @@
+import { formatProductDisplayName } from "@/lib/client/product-display-name";
 import { CATEGORY_LABELS } from "./constants";
 import type {
   ExhibitionDoorRow,
@@ -18,12 +19,11 @@ const trimAttrValue = (value: unknown): string => {
 export function formatProductSearchLabel(
   row: Pick<ProductSearchRow, "name" | "color" | "glass">,
 ): string {
-  const parts = [row.name.trim()];
-  const color = trimAttrValue(row.color);
-  const glass = trimAttrValue(row.glass);
-  if (color) parts.push(color);
-  if (glass) parts.push(glass);
-  return parts.join(", ");
+  return formatProductDisplayName({
+    name: row.name,
+    color: row.color,
+    glass: row.glass,
+  });
 }
 
 export function mapApiRowToProductSearch(row: {

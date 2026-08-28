@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { AdminDveriCatalogFilters } from "@/features/admin/dveri-catalog/admin-dveri-catalog-filters";
 import { AdminDveriCatalogMeta } from "@/features/admin/dveri-catalog/admin-dveri-catalog-meta";
 import { AdminDveriCatalogPagination } from "@/features/admin/dveri-catalog/admin-dveri-catalog-pagination";
+import { AdminDveriCatalogPricingSettings } from "@/features/admin/dveri-catalog/admin-dveri-catalog-pricing-settings";
+import { AdminDveriCatalogPriceReconcile } from "@/features/admin/dveri-catalog/admin-dveri-catalog-price-reconcile";
 import { AdminDveriCatalogTable } from "@/features/admin/dveri-catalog/admin-dveri-catalog-table";
 import {
   DEFAULT_PAGE_SIZE,
@@ -15,6 +17,7 @@ import {
   getProductById,
 } from "@/features/admin/dveri-catalog/dveri-catalog-utils";
 import { useDveriCatalog } from "@/features/admin/dveri-catalog/use-dveri-catalog";
+import { useDveriPricingRules } from "@/features/admin/dveri-catalog/use-dveri-pricing-rules";
 import type { DveriSortKey } from "@/features/admin/dveri-catalog/types";
 import { AdminCard } from "@/features/admin/ui/admin-card";
 import { AdminEmptyState } from "@/features/admin/ui/admin-empty-state";
@@ -23,6 +26,14 @@ import { AdminPage } from "@/features/admin/ui/admin-page";
 
 export default function AdminDveriCatalogPage() {
   const { raw, loading, error, load } = useDveriCatalog();
+  const {
+    rules: pricingRules,
+    ready: pricingRulesReady,
+    setDefaultRule,
+    setCategoryRule,
+    addCategoryRule,
+    removeCategoryRule,
+  } = useDveriPricingRules();
 
   const [categoryId, setCategoryId] = useState<number | null>(null);
   const [trademarkId, setTrademarkId] = useState<number | null>(null);
@@ -157,12 +168,35 @@ export default function AdminDveriCatalogPage() {
             <AdminDveriCatalogMeta raw={raw} filteredCount={filteredProducts.length} />
           </AdminCard>
 
+          <AdminDveriCatalogPricingSettings
+            categories={raw.categories}
+            rules={pricingRules}
+            ready={pricingRulesReady}
+            onDefaultRuleChange={setDefaultRule}
+            onCategoryRuleChange={setCategoryRule}
+            onAddCategoryRule={addCategoryRule}
+            onRemoveCategoryRule={removeCategoryRule}
+          />
+
+          <AdminCard title="Сверка цен">
+            <AdminDveriCatalogPriceReconcile
+              categories={raw.categories}
+              products={raw.products}
+              pricingRules={pricingRules}
+              pricingRulesReady={pricingRulesReady}
+              storefrontPrices={raw.storefrontPrices}
+            />
+          </AdminCard>
+
           <AdminCard title={detailProduct ? "Варианты размеров" : "Товары"}>
             {pageRows.length === 0 && !detailProduct ? (
               <AdminEmptyState title="Ничего не найдено" description="Измените фильтры или поиск." />
             ) : (
               <AdminDveriCatalogTable
                 rows={pageRows}
+                categories={raw.categories}
+                pricingRules={pricingRules}
+                storefrontPrices={raw.storefrontPrices}
                 expandedProductId={expandedProductId}
                 onToggleProduct={toggleProduct}
                 onBack={() => setExpandedProductId(null)}

@@ -11,9 +11,11 @@ type ProductAddToCartProps = {
   productId: number;
   cartName: string;
   cartColorLabel: string;
+  cartGlassLabel?: string;
   cartImage: string;
   price: number;
   sku?: string;
+  manufacturerId?: string;
   finishId?: number;
   finishName?: string;
   glassOptionId?: number;
@@ -27,9 +29,11 @@ export function ProductAddToCart({
   productId,
   cartName,
   cartColorLabel,
+  cartGlassLabel = "",
   cartImage,
   price,
   sku,
+  manufacturerId,
   finishId,
   finishName,
   glassOptionId,
@@ -67,7 +71,9 @@ export function ProductAddToCart({
       price,
       quantity: 1,
       ...(sku ? { sku } : {}),
+      ...(manufacturerId?.trim() ? { manufacturerId: manufacturerId.trim() } : {}),
       ...(cartColorLabel.trim() ? { color: cartColorLabel.trim() } : {}),
+      ...(cartGlassLabel.trim() ? { glass: cartGlassLabel.trim() } : {}),
       ...(finishId ? { finishId, finishName: finishName?.trim() || "" } : {}),
       ...(glassOptionId
         ? { glassOptionId, glassOptionName: glassOptionName?.trim() || "" }

@@ -1,6 +1,9 @@
 const { query, withTransaction } = require("../db/postgres");
 const attributeRepository = require("./attributeRepository");
-const { loadRelatedFittingsForHandle } = require("../domain/fittingsRelated");
+const {
+  FITTINGS_ROOT_SLUG,
+  loadRelatedFittingsForHandle,
+} = require("../domain/fittingsRelated");
 const {
   INTERIOR_DOORS_CATEGORY_SLUG,
   computeInteriorKitPrice,
@@ -24,10 +27,75 @@ const {
   ensureLatinProductSlugs,
   ensureSeoColumns,
   ensureManufacturerIdAttribute,
+  removeManufacturerSkuAttribute,
 } = require("../db/schemaPatches");
 
-const HIDDEN_PRODUCT_ATTR_CODES = new Set(["pogonazh_id"]);
+const HIDDEN_PRODUCT_ATTR_CODES = new Set(["pogonazh_id", "manufacturer_id"]);
 const VARIANT_NON_AXIS_CODES = new Set(["manufacturer_id"]);
+
+const dedupeColorVariantEntries = (entries) => {
+  const byColor = new Map();
+  for (const entry of entries) {
+    const key = entry.color.trim() || `__id_${entry.id}`;
+    const existing = byColor.get(key);
+    if (!existing || entry.isCurrent) {
+      byColor.set(key, entry);
+    }
+  }
+  return Array.from(byColor.values()).sort((a, b) => a.id - b.id);
+};
+
+const mapColorVariantRow = (row, numericId, labelFallback) => {
+  const rawColor = String(row.color || "").trim();
+  const color =
+    rawColor || (typeof labelFallback === "function" ? labelFallback(row) : "") || "";
+  return {
+    id: Number(row.id),
+    slug: row.slug || null,
+    color,
+    image: row.image || "",
+    isCurrent: Number(row.id) === numericId,
+  };
+};
+
+/** Подпись чипа цвета фурнитуры: handle_color_code, иначе суффикс name после model_key. */
+const mapFittingsColorVariantRow = (row, numericId, modelKey) => {
+  const handleColorCode = String(row.handleColorCode || "").trim();
+  const color = handleColorCode || fittingsColorLabelFromName(row.name, modelKey);
+  return {
+    id: Number(row.id),
+    slug: row.slug || null,
+    color,
+    image: row.image || "",
+    isCurrent: Number(row.id) === numericId,
+  };
+};
+
+/** Подпись чипа цвета, если handle_color_code пуст — суффикс названия после model_key. */
+const fittingsColorLabelFromName = (productName, modelKey) => {
+  const name = String(productName || "").trim();
+  const key = String(modelKey || "").trim();
+  if (!name) return "";
+  if (key && name.length > key.length) {
+    const prefix = name.slice(0, key.length);
+    if (prefix.toLowerCase() === key.toLowerCase()) {
+      const suffix = name.slice(key.length).trim();
+      if (suffix) return suffix;
+    }
+  }
+  return name;
+};
+
+/** В таблице админки manufacturer_id: сначала products.attrs, иначе из вариантов. */
+const mergeVariantAttrsForProductsTable = (productAttrs, row) => {
+  const merged = { ...ensureAttrs(productAttrs) };
+  const fromProduct = String(merged.manufacturer_id || "").trim();
+  const manufacturerIdFromVariants = String(row.manufacturerIdFromVariants || "").trim();
+  if (!fromProduct && manufacturerIdFromVariants) {
+    merged.manufacturer_id = manufacturerIdFromVariants;
+  }
+  return merged;
+};
 
 /**
  * Репозиторий товаров на новой схеме (JSONB attrs + единое дерево categories).
@@ -215,9 +283,27 @@ const parseSearchTerms = (search) =>
     .map((term) => term.trim())
     .filter(Boolean);
 
+/** Совпадение по артикулу производителя: products.attrs и product_variants.attrs. */
+const buildManufacturerIdSearchMatchSql = (patternParam) => `(
+  TRIM(COALESCE(p.attrs->>'manufacturer_id', '')) ILIKE ${patternParam}
+  OR EXISTS (
+    SELECT 1
+    FROM product_variants pv
+    WHERE pv.product_id = p.id
+      AND pv.is_active = TRUE
+      AND TRIM(COALESCE(pv.attrs->>'manufacturer_id', '')) ILIKE ${patternParam}
+  )
+)`;
+
+const buildAdminProductSearchMatchSql = (patternParam) => `(
+  p.name ILIKE ${patternParam}
+  OR p.sku ILIKE ${patternParam}
+  OR ${buildManufacturerIdSearchMatchSql(patternParam).slice(1, -1)}
+)`;
+
 /**
  * Поиск по каталогу: каждое слово из запроса должно встретиться хотя бы в одном
- * из полей — name, sku или любом текстовом значении attrs (цвет, оттенок, коллекция…).
+ * из полей — name, sku, attrs (цвет, коллекция…), артикул производителя (товар/вариант).
  * Так «браво-22 snow» находит карточку с name «Браво-22» и оттенком «Snow Art».
  */
 const buildCatalogSearchSql = (search, addParam) => {
@@ -234,6 +320,7 @@ const buildCatalogSearchSql = (search, addParam) => {
         FROM jsonb_each_text(p.attrs) AS search_attr(key, value)
         WHERE search_attr.value ILIKE ${pattern}
       )
+      OR ${buildManufacturerIdSearchMatchSql(pattern).slice(1, -1)}
     )`;
   });
 
@@ -368,6 +455,7 @@ const listProducts = async (filters) => {
   await ensureProductBadgesColumn();
   await ensureProductSaleColumns();
   await ensureLatinProductSlugs();
+  await ensureManufacturerIdAttribute();
   const params = [];
   const addParam = (value) => {
     params.push(value);
@@ -408,6 +496,14 @@ const listProducts = async (filters) => {
       p.attrs->>'pogonazh_id' AS "_pogonazhIdRaw",
       COALESCE(parent.id, c.id) AS "_rootCategoryId",
       p.attrs->>'color' AS color,
+      p.attrs->>'glass' AS glass,
+      NULLIF(TRIM(p.attrs->>'manufacturer_id'), '') AS "manufacturerIdFromProduct",
+      (
+        SELECT string_agg(DISTINCT TRIM(pv.attrs->>'manufacturer_id'), ', ' ORDER BY TRIM(pv.attrs->>'manufacturer_id'))
+        FROM product_variants pv
+        WHERE pv.product_id = p.id
+          AND TRIM(COALESCE(pv.attrs->>'manufacturer_id', '')) <> ''
+      ) AS "manufacturerIdFromVariants",
       (
         SELECT COALESCE(
           json_agg(json_build_object('id', x.pid, 'label', x.gl) ORDER BY x.gl),
@@ -449,6 +545,10 @@ const listProducts = async (filters) => {
       slug: row.slug || null,
       name: row.name,
       color: row.color || null,
+      glass: row.glass || null,
+      manufacturerId:
+        String(row.manufacturerIdFromProduct || row.manufacturerIdFromVariants || "").trim() ||
+        null,
       glassOptions: (() => {
         let raw = row.glassOptions;
         if (raw && typeof raw === "string") {
@@ -890,6 +990,7 @@ const getProductBySlug = async (slug) => {
 const getProductById = async (id) => {
   await ensureProductBadgesColumn();
   await ensureManufacturerIdAttribute();
+  await removeManufacturerSkuAttribute();
   await ensureProductSaleColumns();
   await ensureLatinProductSlugs();
   const numericId = Number(id);
@@ -984,41 +1085,53 @@ const getProductById = async (id) => {
   // без стекла (чтобы не смешивать «Орех без вставки» с «Белый + стекло»).
   let colorVariants = [];
   if (row.modelKey) {
-    const colorRes = await query(
-      `
-      SELECT
-        p.id,
-        p.slug,
-        p.attrs->>'color' AS color,
-        ${productImageSubquery} AS image
-      FROM products p
-      WHERE p.model_key = $1
-        AND p.name = $2
-        AND p.is_active = TRUE
-        AND (
-          ($3::text IS NULL AND COALESCE(NULLIF(TRIM(p.attrs->>'glass'), ''), '') = '')
-          OR ($3::text IS NOT NULL AND COALESCE(NULLIF(TRIM(p.attrs->>'glass'), ''), '') = $3::text)
-        )
-      ORDER BY p.id
-      `,
-      [row.modelKey, row.name, colorGlassDb],
-    );
-    colorVariants = colorRes.rows.map((r) => ({
-      id: Number(r.id),
-      slug: r.slug || null,
-      color: r.color || "",
-      image: r.image || "",
-      isCurrent: Number(r.id) === numericId,
-    }));
-    const byColor = new Map();
-    for (const entry of colorVariants) {
-      const key = entry.color.trim() || `__id_${entry.id}`;
-      const existing = byColor.get(key);
-      if (!existing || entry.isCurrent) {
-        byColor.set(key, entry);
-      }
+    if (taxonomy.categorySlug === FITTINGS_ROOT_SLUG) {
+      const fittingsRes = await query(
+        `
+        SELECT
+          p.id,
+          p.slug,
+          p.name,
+          p.attrs->>'handle_color_code' AS "handleColorCode",
+          ${productImageSubquery} AS image
+        FROM products p
+        WHERE p.model_key = $1
+          AND p.is_active = TRUE
+          AND (
+            ($2::text IS NULL AND COALESCE(NULLIF(TRIM(p.attrs->>'glass'), ''), '') = '')
+            OR ($2::text IS NOT NULL AND COALESCE(NULLIF(TRIM(p.attrs->>'glass'), ''), '') = $2::text)
+          )
+        ORDER BY p.id
+        `,
+        [row.modelKey, colorGlassDb],
+      );
+      colorVariants = dedupeColorVariantEntries(
+        fittingsRes.rows.map((r) => mapFittingsColorVariantRow(r, numericId, row.modelKey)),
+      );
+    } else {
+      const colorRes = await query(
+        `
+        SELECT
+          p.id,
+          p.slug,
+          p.attrs->>'color' AS color,
+          ${productImageSubquery} AS image
+        FROM products p
+        WHERE p.model_key = $1
+          AND p.name = $2
+          AND p.is_active = TRUE
+          AND (
+            ($3::text IS NULL AND COALESCE(NULLIF(TRIM(p.attrs->>'glass'), ''), '') = '')
+            OR ($3::text IS NOT NULL AND COALESCE(NULLIF(TRIM(p.attrs->>'glass'), ''), '') = $3::text)
+          )
+        ORDER BY p.id
+        `,
+        [row.modelKey, row.name, colorGlassDb],
+      );
+      colorVariants = dedupeColorVariantEntries(
+        colorRes.rows.map((r) => mapColorVariantRow(r, numericId)),
+      );
     }
-    colorVariants = Array.from(byColor.values()).sort((a, b) => a.id - b.id);
   }
 
   // Соседи по стеклу: та же модель, при заполненном цвете — только тот же цвет.
@@ -1227,7 +1340,15 @@ const getProductById = async (id) => {
     kitPricing,
     kitPrice,
     badges: resolveProductBadges(row.badges),
-    manufacturerId: String(productAttrs.manufacturer_id ?? "").trim() || null,
+    manufacturerId: (() => {
+      const fromProduct = String(productAttrs.manufacturer_id ?? "").trim();
+      if (fromProduct) return fromProduct;
+      for (const variant of variants) {
+        const fromVariant = String(variant.manufacturerId || "").trim();
+        if (fromVariant) return fromVariant;
+      }
+      return null;
+    })(),
     seoTitle: row.seoTitle || null,
     seoDescription: row.seoDescription || null,
   };
@@ -1408,7 +1529,7 @@ const listProductAttributeDistinctValues = async ({
   ];
   if (String(search || "").trim()) {
     const t = String(search).trim();
-    whereParts.push(`(p.name ILIKE ${addParam(`%${t}%`)} OR p.sku ILIKE ${addParam(`%${t}%`)})`);
+    whereParts.push(buildAdminProductSearchMatchSql(addParam(`%${t}%`)));
   }
   if (categoryId) {
     whereParts.push(
@@ -1464,7 +1585,7 @@ const buildProductsTableWhere = ({
 
   if (String(search || "").trim()) {
     const t = String(search).trim();
-    whereParts.push(`(p.name ILIKE ${addParam(`%${t}%`)} OR p.sku ILIKE ${addParam(`%${t}%`)})`);
+    whereParts.push(buildAdminProductSearchMatchSql(addParam(`%${t}%`)));
   }
   if (categoryId) {
     whereParts.push(
@@ -1563,6 +1684,8 @@ const listProductsTable = async ({
   await ensureProductBadgesColumn();
   await ensureProductSaleColumns();
   await ensureSeoColumns();
+  await ensureManufacturerIdAttribute();
+  await removeManufacturerSkuAttribute();
   const safePage = Math.max(1, Number(page) || 1);
   const safeLimit = Math.min(500, Math.max(1, Number(limit) || 100));
   const offset = (safePage - 1) * safeLimit;
@@ -1644,6 +1767,12 @@ const listProductsTable = async ({
       COALESCE(parent.name IS NULL, FALSE) AS "categoryIsRoot",
       CASE WHEN parent.id IS NOT NULL THEN c.name ELSE '' END AS subcategory,
       (SELECT COUNT(*)::int FROM product_variants pv WHERE pv.product_id = p.id) AS "variantsCount",
+      (
+        SELECT string_agg(DISTINCT TRIM(pv.attrs->>'manufacturer_id'), ', ' ORDER BY TRIM(pv.attrs->>'manufacturer_id'))
+        FROM product_variants pv
+        WHERE pv.product_id = p.id
+          AND TRIM(COALESCE(pv.attrs->>'manufacturer_id', '')) <> ''
+      ) AS "manufacturerIdFromVariants",
       (SELECT COUNT(*)::int FROM product_images pi WHERE pi.product_id = p.id) AS "imagesCount",
       ${productImageSubquery} AS "primaryImageUrl",
       COALESCE(
@@ -1714,7 +1843,7 @@ const listProductsTable = async ({
       isActive: row.isActive !== false,
       displayOrder: Number(row.displayOrder) || 0,
       badges: normalizeProductBadges(row.badges),
-      attributes: ensureAttrs(row.attrs),
+      attributes: mergeVariantAttrsForProductsTable(row.attrs, row),
       variantsCount: Number(row.variantsCount || 0),
       imagesCount: Number(row.imagesCount || 0),
       primaryImageUrl: row.primaryImageUrl || "",
@@ -2901,6 +3030,60 @@ const listVariantSkusForProductSkus = async (productSkus) => {
   return new Set(res.rows.map((row) => String(row.sku)));
 };
 
+/**
+ * Цены на витрине по артикулу производителя (`products.attrs` или `product_variants.attrs`).
+ * Берём COALESCE(variant.price, product.price) — как на карточке товара; product.price уже с учётом акции.
+ */
+const mapStorefrontPricesByManufacturerIds = async (manufacturerIds) => {
+  const normalized = [
+    ...new Set(
+      (Array.isArray(manufacturerIds) ? manufacturerIds : [])
+        .map((value) => String(value || "").trim())
+        .filter(Boolean),
+    ),
+  ];
+  if (normalized.length === 0) return {};
+
+  const res = await query(
+    `
+    SELECT manufacturer_id, MIN(price)::int AS price
+    FROM (
+      SELECT
+        TRIM(p.attrs->>'manufacturer_id') AS manufacturer_id,
+        p.price AS price
+      FROM products p
+      WHERE p.is_active = TRUE
+        AND TRIM(COALESCE(p.attrs->>'manufacturer_id', '')) <> ''
+        AND TRIM(p.attrs->>'manufacturer_id') = ANY($1::text[])
+
+      UNION ALL
+
+      SELECT
+        TRIM(pv.attrs->>'manufacturer_id') AS manufacturer_id,
+        COALESCE(pv.price, p.price) AS price
+      FROM product_variants pv
+      INNER JOIN products p ON p.id = pv.product_id
+      WHERE p.is_active = TRUE
+        AND pv.is_active = TRUE
+        AND TRIM(COALESCE(pv.attrs->>'manufacturer_id', '')) <> ''
+        AND TRIM(pv.attrs->>'manufacturer_id') = ANY($1::text[])
+    ) src
+    WHERE manufacturer_id <> ''
+    GROUP BY manufacturer_id
+    `,
+    [normalized],
+  );
+
+  const out = {};
+  for (const row of res.rows) {
+    const code = String(row.manufacturer_id || "").trim();
+    const price = Number(row.price);
+    if (!code || !Number.isFinite(price) || price <= 0) continue;
+    out[code] = price;
+  }
+  return out;
+};
+
 module.exports = {
   listProducts,
   listFilterMeta,
@@ -2924,6 +3107,7 @@ module.exports = {
   listSkusBySkuList,
   listVariantSkusBySkuList,
   listVariantSkusForProductSkus,
+  mapStorefrontPricesByManufacturerIds,
   patchProductBadges,
   patchProductSale,
   patchProductDisplayOrder,

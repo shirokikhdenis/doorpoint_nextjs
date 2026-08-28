@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { PRODUCT_BADGE_HIT } from "@/lib/client/product-badges";
+import { formatProductDisplayName } from "@/lib/client/product-display-name";
 import { toPublicImageSrc } from "@/lib/client/image-src";
 import {
   ActiveStatusBadge,
@@ -319,6 +320,11 @@ export function AdminProductsTable({
             rows.map((row) => {
               const selected = selectedIds.has(row.id);
               const imageSrc = compact ? "" : toPublicImageSrc(row.primaryImageUrl || row.imageUrls[0]);
+              const displayName = formatProductDisplayName({
+                name: row.name,
+                color: row.attributes?.color,
+                glass: row.attributes?.glass,
+              });
               return (
                 <tr
                   key={row.id}
@@ -365,7 +371,7 @@ export function AdminProductsTable({
                           onSaved={onSaved}
                           className="block w-full truncate"
                         >
-                          {row.name}
+                          {displayName}
                         </AdminProductEditor>
                       ) : (
                         <div className="flex items-start gap-2">
@@ -392,7 +398,7 @@ export function AdminProductsTable({
                               onSaved={onSaved}
                               className="line-clamp-2"
                             >
-                              {row.name}
+                              {displayName}
                             </AdminProductEditor>
                             {row.slug ? (
                               <Link

@@ -1,4 +1,6 @@
-const LEAD_STATUSES = ["new", "in_progress", "done", "cancelled"];
+const LEAD_STATUSES = ["not_issued", "measure", "issued", "in_transit", "in_stock", "shipped"];
+const MEASURE_NOTE_MAX_LENGTH = 300;
+const DEFAULT_LEAD_STATUS = "not_issued";
 const ADMIN_ORDER_TYPE = "admin_order";
 const CART_LEAD_TYPE = "cart_lead";
 const MEASURE_LEAD_TYPE = "measure_lead";
@@ -42,6 +44,7 @@ const normalizeLeadItem = (item, index) => {
     String(item?.finishName || "").trim(),
     String(item?.glassOptionName || "").trim(),
     item?.hardwareServices,
+    String(item?.glass || "").trim(),
   );
   if (!name) return { error: `Позиция ${index + 1}: укажите наименование` };
   if (!Number.isFinite(price) || price < 0) {
@@ -247,6 +250,22 @@ const validateLeadPatch = (body) => {
     data.deliveryDays = deliveryDaysResult.value;
   }
 
+  if (body?.arrivalDate !== undefined) {
+    const arrivalResult = parseContractDate(body.arrivalDate);
+    if (arrivalResult?.error) {
+      return { ok: false, message: "Некорректная дата прихода" };
+    }
+    data.arrivalDate = arrivalResult.value;
+  }
+
+  if (body?.measureNote !== undefined) {
+    const measureNote = String(body.measureNote ?? "").trim();
+    if (measureNote.length > MEASURE_NOTE_MAX_LENGTH) {
+      return { ok: false, message: `Текст замера: не больше ${MEASURE_NOTE_MAX_LENGTH} символов` };
+    }
+    data.measureNote = measureNote;
+  }
+
   if (Object.keys(data).length === 0) {
     return { ok: false, message: "Нет данных для обновления" };
   }
@@ -260,6 +279,7 @@ const validateLeadPatch = (body) => {
 
 module.exports = {
   LEAD_STATUSES,
+  DEFAULT_LEAD_STATUS,
   LEAD_TYPES,
   ADMIN_ORDER_TYPE,
   CART_LEAD_TYPE,
