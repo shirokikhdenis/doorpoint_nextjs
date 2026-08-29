@@ -49,6 +49,7 @@ const resolveImagePreset = (relativeSubdir) => {
   if (subdir === "factories/logos" || subdir.startsWith("factories/logos/")) return "logo";
   if (subdir === "factories/doors" || subdir.startsWith("factories/doors/")) return "storefrontLabel";
   if (subdir === "portfolio" || subdir.startsWith("portfolio/")) return "portfolio";
+  if (subdir === "arma-photos" || subdir.startsWith("arma-photos/")) return "portfolio";
   if (subdir === "storefront" || subdir.startsWith("storefront/")) return "storefrontLabel";
   return "storefrontLabel";
 };

@@ -742,6 +742,73 @@ const ensureExhibitionDoorTables = async () => {
   exhibitionDoorTablesEnsured = true;
 };
 
+let armaPhotoTagTablesEnsured = false;
+
+const ensureArmaPhotoTagTables = async () => {
+  if (armaPhotoTagTablesEnsured) return;
+  await query(`
+    CREATE TABLE IF NOT EXISTS arma_photo_tag_categories (
+      id BIGSERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_arma_photo_tag_categories_name_lower
+    ON arma_photo_tag_categories (LOWER(name))
+  `);
+  await query(`
+    CREATE TABLE IF NOT EXISTS arma_photo_tags (
+      id BIGSERIAL PRIMARY KEY,
+      category_id BIGINT NOT NULL REFERENCES arma_photo_tag_categories(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_arma_photo_tags_category_name_lower
+    ON arma_photo_tags (category_id, LOWER(name))
+  `);
+  await query(`
+    CREATE TABLE IF NOT EXISTS arma_photo_tag_links (
+      photo_id TEXT NOT NULL,
+      tag_id BIGINT NOT NULL REFERENCES arma_photo_tags(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (photo_id, tag_id)
+    )
+  `);
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_arma_photo_tag_links_tag
+    ON arma_photo_tag_links (tag_id)
+  `);
+
+  const existing = await query(`SELECT COUNT(*)::int AS count FROM arma_photo_tag_categories`);
+  if (Number(existing.rows[0]?.count || 0) === 0) {
+    const seeded = await query(
+      `
+      INSERT INTO arma_photo_tag_categories (name, sort_order)
+      VALUES ('Цвет', 10), ('Остекление', 20), ('Количество створок', 30)
+      RETURNING id, name
+      `,
+    );
+    const idByName = Object.fromEntries(seeded.rows.map((row) => [row.name, Number(row.id)]));
+    await query(
+      `
+      INSERT INTO arma_photo_tags (category_id, name, sort_order)
+      VALUES
+        ($1, 'черный', 10),
+        ($2, 'со стеклопакетом', 10),
+        ($3, 'двухстворчатая', 10)
+      `,
+      [idByName["Цвет"], idByName["Остекление"], idByName["Количество створок"]],
+    );
+  }
+
+  armaPhotoTagTablesEnsured = true;
+};
+
 const ensureDoorFactoryFittingBrandTables = async () => {
   if (doorFactoryFittingBrandTablesEnsured) return;
   await query(`
@@ -897,6 +964,7 @@ module.exports = {
   ensureHomeFactoryLogoTables,
   ensureVkSyncTables,
   ensureExhibitionDoorTables,
+  ensureArmaPhotoTagTables,
   ensureManufacturerIdAttribute,
   removeManufacturerSkuAttribute,
   ensureDoorFactoryFittingBrandTables,

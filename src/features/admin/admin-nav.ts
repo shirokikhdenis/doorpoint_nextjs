@@ -53,6 +53,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
     label: "Контент",
     items: [
       { href: "/admin/portfolio", label: "Портфолио" },
+      { href: "/admin/arma-photos", label: "Арма фото" },
       { href: "/admin/testimonials", label: "Отзывы" },
       { href: "/admin/services", label: "Услуги" },
     ],
@@ -94,6 +95,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin/related-fittings": "Сопутствующая фурнитура",
   "/admin/frontend-cards": "Фронтенд-карточки",
   "/admin/portfolio": "Портфолио",
+  "/admin/arma-photos": "Арма фото",
   "/admin/testimonials": "Отзывы",
   "/admin/services": "Услуги",
   "/admin/attributes": "Атрибуты",
