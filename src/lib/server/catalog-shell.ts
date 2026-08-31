@@ -5,6 +5,7 @@ import {
   buildCatalogApiQuery,
   catalogQueryObjectFromQueryString,
   flattenSearchParams,
+  hasExplicitCatalogAttrParams,
   parseCatalogFilterStateFromSearchParams,
 } from "@/features/catalog/catalog-filter-utils";
 import type { CatalogFilterState } from "@/features/catalog/catalog-types";
@@ -51,7 +52,7 @@ const loadCatalogShell = cache(
     const metaRaw = await getCachedFilterMeta(catalogPage);
     const meta = normalizeCatalogMeta(metaRaw);
 
-    if (flat.catalogLabel) {
+    if (flat.catalogLabel && !hasExplicitCatalogAttrParams(flat)) {
       const labelId = Number(flat.catalogLabel);
       const label = meta.labels.find((entry) => entry.id === labelId);
       if (label) {

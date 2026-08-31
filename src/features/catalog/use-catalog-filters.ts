@@ -19,8 +19,10 @@ import type { CatalogFilterState, NumericRange } from "@/features/catalog/catalo
 import type { CatalogLabel, CatalogMeta } from "@/lib/client/normalizers";
 import {
   catalogHrefFromFilters,
+  catalogHrefsEquivalent,
   catalogPageFromPathname,
   hrefWithoutPage,
+  replaceCatalogHref,
 } from "@/lib/catalog-url";
 import { manufacturerSlugFromPathname } from "@/lib/catalog-page-paths";
 import { manufacturerSlug } from "@/lib/factory-slug";
@@ -108,6 +110,7 @@ export function useCatalogFilters(meta: CatalogMeta, options?: UseCatalogFilters
   const searchDebounceInitializedRef = useRef(false);
   const metaRef = useRef(meta);
   metaRef.current = meta;
+  const writingUrlRef = useRef(false);
 
   const notifyUserFilterChange = useCallback(() => {
     clearCatalogReturnPayload();
@@ -350,44 +353,26 @@ export function useCatalogFilters(meta: CatalogMeta, options?: UseCatalogFilters
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const params = new URLSearchParams(window.location.search);
-    const fromUrl: Record<string, string[]> = {};
-    params.forEach((value, key) => {
-      if (!key.startsWith("attr_") || key.endsWith("_min") || key.endsWith("_max")) return;
-      const code = key.slice(5);
-      const values = value
-        .split(",")
-        .map((item) => item.trim())
-        .filter(Boolean);
-      if (values.length) fromUrl[code] = values;
-    });
+    if (writingUrlRef.current) {
+      writingUrlRef.current = false;
+      return;
+    }
     const pathManufacturer = manufacturerSlugFromPathname(pathname || window.location.pathname);
-    if (Object.keys(fromUrl).length === 0 && !pathManufacturer) return;
-    // URL navigation is the external source of truth for direct/back-forward filter state.
+    if (!pathManufacturer) return;
+    // Keep manufacturer from `/catalog/{vitrine}/{factory}` without wiping other attrs.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setAttrSelections((prev) => {
-      const next = { ...fromUrl };
-      if (pathManufacturer) {
-        const current = prev.manufacturer || [];
-        const matching = current.filter((name) => manufacturerSlug(name) === pathManufacturer);
-        if (matching.length) {
-          next.manufacturer = matching;
-        } else {
-          const fromTree = (metaRef.current.manufacturerCollectionTree || []).find(
-            (entry) => manufacturerSlug(entry.manufacturer) === pathManufacturer,
-          );
-          if (fromTree?.manufacturer) next.manufacturer = [fromTree.manufacturer];
-        }
+      const current = prev.manufacturer || [];
+      if (current.some((name) => manufacturerSlug(name) === pathManufacturer)) {
+        return prev;
       }
-      const same =
-        Object.keys(next).length === Object.keys(prev).length &&
-        Object.entries(next).every(([code, values]) => {
-          const current = prev[code] || [];
-          return current.length === values.length && current.every((v, i) => v === values[i]);
-        });
-      return same ? prev : next;
+      const fromTree = (metaRef.current.manufacturerCollectionTree || []).find(
+        (entry) => manufacturerSlug(entry.manufacturer) === pathManufacturer,
+      );
+      if (!fromTree?.manufacturer) return prev;
+      return { ...prev, manufacturer: [fromTree.manufacturer] };
     });
-  }, [catalogPage, pathname, searchParams]);
+  }, [catalogPage, pathname]);
 
   useEffect(() => {
     if (!pathname) return;
@@ -445,23 +430,25 @@ export function useCatalogFilters(meta: CatalogMeta, options?: UseCatalogFilters
   useEffect(() => {
     if (typeof window === "undefined") return;
     window.sessionStorage.setItem("lastCatalogPage", catalogPage);
-    const matching = meta.labels.find((l) => labelMatchesSelections(l, attrSelections));
-    const nextBase = catalogHrefFromFilters(catalogPage, filterState, {
-      catalogLabelId: matching?.id,
-    });
+    const nextBase = catalogHrefFromFilters(catalogPage, filterState);
     const cur = window.location.pathname + window.location.search;
     const pageFromUrl = Math.floor(
       Number(new URLSearchParams(window.location.search).get("page")) || 1,
     );
     const nextUrl =
-      pageFromUrl > 1 && hrefWithoutPage(cur) === hrefWithoutPage(nextBase)
-        ? catalogHrefFromFilters(catalogPage, filterState, {
-            catalogLabelId: matching?.id,
-            page: pageFromUrl,
-          })
+      pageFromUrl > 1 && catalogHrefsEquivalent(hrefWithoutPage(cur), hrefWithoutPage(nextBase))
+        ? catalogHrefFromFilters(catalogPage, filterState, { page: pageFromUrl })
         : nextBase;
-    if (nextUrl !== cur) router.replace(nextUrl, { scroll: false });
-  }, [attrSelections, catalogPage, filterState, meta.labels, router, searchParams]);
+    if (catalogHrefsEquivalent(nextUrl, cur)) return;
+    const nextPath = nextUrl.split("?")[0] || nextUrl;
+    const curPath = window.location.pathname;
+    if (nextPath !== curPath) {
+      writingUrlRef.current = true;
+      router.replace(nextUrl, { scroll: false });
+      return;
+    }
+    replaceCatalogHref(nextUrl);
+  }, [catalogPage, filterState, router]);
 
   return {
     catalogPage,

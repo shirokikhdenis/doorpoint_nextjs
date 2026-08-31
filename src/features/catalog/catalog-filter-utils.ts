@@ -139,6 +139,18 @@ export const applyLabelToSelections = (label: CatalogLabel): Record<string, stri
   return next;
 };
 
+/** True when the query already lists attribute filters (not just a label shortcut). */
+export const hasExplicitCatalogAttrParams = (
+  flat: Record<string, string | undefined> | null | undefined,
+): boolean => {
+  if (!flat) return false;
+  return Object.entries(flat).some(([key, value]) => {
+    if (!key.startsWith("attr_") || key.endsWith("_min") || key.endsWith("_max")) return false;
+    if (key === "attr_manufacturer") return false;
+    return String(value || "").trim() !== "";
+  });
+};
+
 export const expandSectionsWithActiveFilters = (
   collapsed: Set<string>,
   filters: CatalogFilterState & { labels: CatalogLabel[] },

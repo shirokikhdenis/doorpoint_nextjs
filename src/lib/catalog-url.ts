@@ -16,6 +16,40 @@ export const hrefWithoutPage = (href: string): string => {
   return qs ? `${path}?${qs}` : path;
 };
 
+const normalizePathname = (pathname: string): string =>
+  pathname
+    .split("/")
+    .map((segment) => {
+      try {
+        return decodeURIComponent(segment);
+      } catch {
+        return segment;
+      }
+    })
+    .join("/");
+
+/** Compare catalog hrefs ignoring query encoding and param order. */
+export const catalogHrefsEquivalent = (left: string, right: string): boolean => {
+  const parse = (href: string) => {
+    const url = new URL(href, "http://catalog.local");
+    const pairs = [...url.searchParams.entries()].sort(([aK, aV], [bK, bV]) =>
+      aK === bK ? aV.localeCompare(bV) : aK.localeCompare(bK),
+    );
+    return { path: normalizePathname(url.pathname), pairs };
+  };
+  try {
+    const a = parse(left);
+    const b = parse(right);
+    if (a.path !== b.path || a.pairs.length !== b.pairs.length) return false;
+    return a.pairs.every(([key, value], index) => {
+      const other = b.pairs[index];
+      return other[0] === key && other[1] === value;
+    });
+  } catch {
+    return left === right;
+  }
+};
+
 /** Public catalog URL: a single manufacturer becomes `/catalog/{vitrine}/{factory}`. */
 export const catalogHrefFromFilters = (
   catalogPage: string,
@@ -45,7 +79,17 @@ export const replaceCatalogPageQuery = (page: number): void => {
   else url.searchParams.delete("page");
   const next = `${url.pathname}${url.search}`;
   const cur = `${window.location.pathname}${window.location.search}`;
-  if (next !== cur) window.history.replaceState(window.history.state, "", next);
+  if (!catalogHrefsEquivalent(next, cur)) {
+    window.history.replaceState(window.history.state, "", next);
+  }
+};
+
+/** Write catalog href into the address bar without remounting the page. */
+export const replaceCatalogHref = (nextHref: string): void => {
+  if (typeof window === "undefined") return;
+  const cur = `${window.location.pathname}${window.location.search}`;
+  if (catalogHrefsEquivalent(nextHref, cur)) return;
+  window.history.replaceState(window.history.state, "", nextHref);
 };
 
 /** Full public href: path + optional filter query. */

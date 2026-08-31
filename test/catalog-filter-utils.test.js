@@ -9,6 +9,7 @@ const {
   catalogQueryObjectFromQueryString,
   flattenSearchParams,
   parseCatalogFilterStateFromSearchParams,
+  hasExplicitCatalogAttrParams,
   attributeFiltersForSidebar,
   shouldShowCategoryFilters,
   shouldShowSubcategoryFilters,
@@ -38,6 +39,24 @@ test("labelMatchesSelections requires exact attribute match", () => {
   assert.equal(labelMatchesSelections(label, { manufacturer: ["Profildoors"] }), true);
   assert.equal(labelMatchesSelections(label, { manufacturer: ["Other"] }), false);
   assert.equal(labelMatchesSelections(label, { manufacturer: ["Profildoors", "X"] }), false);
+  assert.equal(
+    labelMatchesSelections(label, { manufacturer: ["Profildoors"], color: ["Белый"] }),
+    true,
+  );
+});
+
+test("hasExplicitCatalogAttrParams ignores manufacturer and empty values", () => {
+  assert.equal(hasExplicitCatalogAttrParams({ attr_manufacturer: "Браво" }), false);
+  assert.equal(hasExplicitCatalogAttrParams({ catalogLabel: "12" }), false);
+  assert.equal(hasExplicitCatalogAttrParams({ attr_color: "Белый" }), true);
+  assert.equal(
+    hasExplicitCatalogAttrParams({
+      catalogLabel: "12",
+      attr_color: "Белый",
+      attr_manufacturer: "Браво",
+    }),
+    true,
+  );
 });
 
 test("getEffectiveRange clamps to bounds", () => {

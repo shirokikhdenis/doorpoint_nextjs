@@ -11,7 +11,7 @@ import {
   buildCatalogReturnHrefFromFilters,
   saveCatalogReturnPayload,
 } from "@/features/catalog/session/catalog-return-storage";
-import { buildCatalogApiQuery, labelMatchesSelections } from "@/features/catalog/catalog-filter-utils";
+import { buildCatalogApiQuery } from "@/features/catalog/catalog-filter-utils";
 import { useCatalogFilters } from "@/features/catalog/use-catalog-filters";
 import { useCatalogProducts } from "@/features/catalog/use-catalog-products";
 import { MeasureLeadForm } from "@/features/store/measure-lead-form";
@@ -48,13 +48,9 @@ function CatalogPageContent({ initial }: CatalogPageClientProps) {
   const rememberScrollForProduct = useCallback(() => {
     if (typeof window === "undefined") return;
     const searchKey = buildCatalogApiQuery(filters.catalogPage, filters.filterState);
-    const matchingLabel = meta.labels.find((label) =>
-      labelMatchesSelections(label, filters.filterState.attrSelections),
-    );
     const returnHref = buildCatalogReturnHrefFromFilters(
       filters.catalogPage,
       filters.filterState,
-      matchingLabel?.id,
     );
     saveCatalogReturnPayload({
       catalogPage: filters.catalogPage,
@@ -64,7 +60,7 @@ function CatalogPageContent({ initial }: CatalogPageClientProps) {
       returnHref,
       filterState: filters.filterState,
     });
-  }, [filters.catalogPage, filters.filterState, meta.labels, page]);
+  }, [filters.catalogPage, filters.filterState, page]);
 
   const catalogSearchApi = useMemo(
     () => ({
