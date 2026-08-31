@@ -1,7 +1,11 @@
 const fs = require("fs/promises");
 const path = require("path");
 
-const getUploadsRoot = () => path.join(process.cwd(), "public", "uploads");
+const getUploadsRoot = () => {
+  const fromEnv = String(process.env.UPLOADS_ROOT || "").trim();
+  if (fromEnv) return path.resolve(fromEnv);
+  return path.resolve(process.cwd(), "public", "uploads");
+};
 
 const ensureWritableSubdir = async (subdir) => {
   const dir = path.join(getUploadsRoot(), subdir);

@@ -6,6 +6,7 @@ const fs = require("fs/promises");
 const path = require("path");
 const crypto = require("crypto");
 const { optimizeRasterBuffer, writeCardThumbBeside } = require("../imageOptimize");
+const { getUploadsRoot, ensureWritableSubdir } = require("../uploadsPath");
 
 const requiredColumns = ["sku"];
 
@@ -104,7 +105,6 @@ const hasNonEmpty = (row, key) => {
   if (value === null || value === undefined) return false;
   return String(value).trim() !== "";
 };
-const uploadsDir = path.join(process.cwd(), "public", "uploads", "products");
 const localUploadsPrefix = "/uploads/products/";
 const storeImagesLocally =
   process.env.STORE_IMAGES_LOCALLY !== undefined
@@ -402,16 +402,15 @@ const parseCategoryExpression = (value) => {
   };
 };
 
-const ensureUploadsDir = async () => {
-  await fs.mkdir(uploadsDir, { recursive: true });
-};
+const ensureUploadsDir = async () => ensureWritableSubdir("products");
 
 const isHttpUrl = (value) => /^https?:\/\//i.test(String(value || "").trim());
 
 const resolveLocalPublicPath = async (rawUrl) => {
   const trimmed = String(rawUrl || "").trim();
   if (!trimmed.startsWith("/uploads/")) return trimmed;
-  const fullPath = path.join(process.cwd(), "public", trimmed.replace(/^\//, ""));
+  const relative = trimmed.slice("/uploads/".length);
+  const fullPath = path.join(getUploadsRoot(), relative);
   try {
     await fs.access(fullPath);
     return trimmed;
@@ -442,7 +441,8 @@ const downloadImageToLocal = async (urlValue, urlCache) => {
   const optimized = await optimizeRasterBuffer(sourceBuffer, { preset: "productCard" });
   const hash = crypto.createHash("sha1").update(rawUrl).digest("hex");
   const fileName = `${hash}${optimized.extension}`;
-  const fullPath = path.join(uploadsDir, fileName);
+  const dir = await ensureUploadsDir();
+  const fullPath = path.join(dir, fileName);
   await fs.writeFile(fullPath, optimized.buffer);
   await writeCardThumbBeside(fullPath, optimized.buffer, "products");
   const localUrl = `${localUploadsPrefix}${fileName}`;

@@ -20,11 +20,31 @@ const nextConfig: NextConfig = {
     "@noble/hashes",
     "@noble/ciphers",
   ],
+  // Загрузки лежат на диске и отдаются nginx; не тащить десятки тысяч JPEG в file tracing.
+  outputFileTracingExcludes: {
+    "*": ["./public/uploads/**/*"],
+  },
   experimental: {
     // Совпадает с nginx client_max_body_size; иначе proxy обрезает multipart-загрузки.
     proxyClientMaxBodySize: "25mb",
     // Новый scroll-handler: корректнее сбрасывает прокрутку при client navigation (Next.js 16).
     appNewScrollHandler: true,
+  },
+  turbopack: {
+    ignoreIssue: [
+      {
+        path: "**/csvImportService.js",
+        title: /Overly broad patterns/,
+      },
+      {
+        path: "**/imageOptimize.js",
+        title: /Overly broad patterns/,
+      },
+      {
+        path: "**/imageUploadService.js",
+        title: /Overly broad patterns/,
+      },
+    ],
   },
   images: {
     unoptimized: true,
