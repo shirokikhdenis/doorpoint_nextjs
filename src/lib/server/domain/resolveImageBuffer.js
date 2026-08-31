@@ -1,5 +1,6 @@
 const fs = require("node:fs/promises");
 const path = require("node:path");
+const { joinUploads } = require("../uploadsPath");
 
 const PLACEHOLDER_IMAGES = new Set(["x", "-", "n/a", "na", "null", "undefined", "none"]);
 
@@ -26,7 +27,11 @@ const normalizeImageUrl = (url) => {
 
 const resolveLocalPublicPath = (publicPath) => {
   const normalized = publicPath.startsWith("/") ? publicPath.slice(1) : publicPath;
-  return path.join(process.cwd(), "public", ...normalized.split("/"));
+  const parts = normalized.split("/").filter(Boolean);
+  if (parts[0] === "uploads") {
+    return joinUploads(...parts.slice(1));
+  }
+  return path.join(/*turbopackIgnore: true*/ process.cwd(), "public", ...parts);
 };
 
 const detectImageKind = (buffer) => {

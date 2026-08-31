@@ -108,7 +108,7 @@ const cardThumbOutputPath = (sourceFullPath) => {
   const dir = path.dirname(sourceFullPath);
   const ext = path.extname(sourceFullPath);
   const base = path.basename(sourceFullPath, ext).replace(/\.card$/i, "");
-  return path.join(dir, `${base}${CARD_THUMB_INFIX}${CARD_THUMB_EXTENSION}`);
+  return path.join(/*turbopackIgnore: true*/ dir, `${base}${CARD_THUMB_INFIX}${CARD_THUMB_EXTENSION}`);
 };
 
 const shouldGenerateCardThumbForSubdir = (relativeSubdir) => {

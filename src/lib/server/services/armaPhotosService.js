@@ -12,7 +12,7 @@ const {
   mapLocalFileToPhoto,
   groupTagsByCategory,
 } = require("../domain/armaPhotos");
-const { getUploadsRoot, ensureWritableSubdir } = require("../uploadsPath");
+const { joinUploads, ensureWritableSubdir } = require("../uploadsPath");
 const armaPhotoTagRepository = require("../repositories/armaPhotoTagRepository");
 const {
   optimizeRasterBuffer,
@@ -22,9 +22,9 @@ const {
 
 const CONVERTIBLE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"]);
 
-const getArmaPhotosDir = () => path.join(getUploadsRoot(), ARMA_PHOTOS_UPLOAD_SUBDIR);
+const getArmaPhotosDir = () => joinUploads(ARMA_PHOTOS_UPLOAD_SUBDIR);
 
-const getManifestPath = (dir) => path.join(dir, ARMA_PHOTOS_MANIFEST_NAME);
+const getManifestPath = (dir) => path.join(/*turbopackIgnore: true*/ dir, ARMA_PHOTOS_MANIFEST_NAME);
 
 const sortPhotos = (photos) =>
   [...photos].sort((a, b) => {
@@ -164,7 +164,7 @@ const savePhotoBuffer = async (dir, photo, usedNames) => {
 
   const desiredName = `${path.parse(photo.name).name}${outputExt}`;
   const fileName = uniqueArmaPhotoFilename(desiredName, usedNames);
-  await fs.writeFile(path.join(dir, fileName), outputBuffer);
+  await fs.writeFile(path.join(/*turbopackIgnore: true*/ dir, fileName), outputBuffer);
 
   return {
     fileName,
@@ -263,7 +263,7 @@ const convertLocalHeicWithYandexPreviews = async ({ onProgress } = {}) => {
         { ...remote, name: `${stem}.jpg`, imageUrl: remote.previewUrl },
         usedNames,
       );
-      await fs.unlink(path.join(dir, fileName)).catch(() => {});
+      await fs.unlink(path.join(/*turbopackIgnore: true*/ dir, fileName)).catch(() => {});
       const row = manifest.find((item) => item.fileName === fileName);
       if (row) {
         row.fileName = entry.fileName;

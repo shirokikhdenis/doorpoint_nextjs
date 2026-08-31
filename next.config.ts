@@ -33,6 +33,18 @@ const nextConfig: NextConfig = {
   turbopack: {
     ignoreIssue: [
       {
+        path: "**/uploadsPath.js",
+        title: /Overly broad patterns/,
+      },
+      {
+        path: "**/resolveImageBuffer.js",
+        title: /Overly broad patterns/,
+      },
+      {
+        path: "**/portfolioService.js",
+        title: /Overly broad patterns/,
+      },
+      {
         path: "**/csvImportService.js",
         title: /Overly broad patterns/,
       },
@@ -43,6 +55,10 @@ const nextConfig: NextConfig = {
       {
         path: "**/imageUploadService.js",
         title: /Overly broad patterns/,
+      },
+      {
+        path: "**/next.config.ts",
+        title: /Encountered unexpected file in NFT list/,
       },
     ],
   },

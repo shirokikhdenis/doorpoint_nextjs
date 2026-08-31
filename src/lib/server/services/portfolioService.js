@@ -1,7 +1,6 @@
 const fs = require("fs/promises");
-const path = require("path");
 const portfolioRepository = require("../repositories/portfolioRepository");
-const { getUploadsRoot } = require("../uploadsPath");
+const { joinUploads } = require("../uploadsPath");
 const { saveFilesToSubdir } = require("./imageUploadService");
 
 const toPublicItem = (project) => ({
@@ -57,7 +56,7 @@ const deleteProject = async (id) => {
   const deleted = await portfolioRepository.deleteProject(id);
   if (!deleted) return null;
 
-  const dir = path.join(getUploadsRoot(), "portfolio", String(deleted.id));
+  const dir = joinUploads("portfolio", String(deleted.id));
   await fs.rm(dir, { recursive: true, force: true }).catch(() => {});
 
   for (const imageUrl of deleted.imageUrls) {
@@ -86,8 +85,8 @@ const deleteImage = async (imageId) => {
 const deleteFileByPublicUrl = async (imageUrl) => {
   const raw = String(imageUrl || "").trim();
   if (!raw.startsWith("/uploads/portfolio/")) return;
-  const relative = raw.replace(/^\/+/, "");
-  const fullPath = path.join(process.cwd(), "public", relative);
+  const relative = raw.replace(/^\/uploads\//, "");
+  const fullPath = joinUploads(...relative.split("/").filter(Boolean));
   await fs.unlink(fullPath).catch(() => {});
 };
 

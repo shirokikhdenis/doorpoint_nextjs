@@ -6,7 +6,7 @@ const fs = require("fs/promises");
 const path = require("path");
 const crypto = require("crypto");
 const { optimizeRasterBuffer, writeCardThumbBeside } = require("../imageOptimize");
-const { getUploadsRoot, ensureWritableSubdir } = require("../uploadsPath");
+const { joinUploads, ensureWritableSubdir } = require("../uploadsPath");
 
 const requiredColumns = ["sku"];
 
@@ -410,7 +410,7 @@ const resolveLocalPublicPath = async (rawUrl) => {
   const trimmed = String(rawUrl || "").trim();
   if (!trimmed.startsWith("/uploads/")) return trimmed;
   const relative = trimmed.slice("/uploads/".length);
-  const fullPath = path.join(getUploadsRoot(), relative);
+  const fullPath = joinUploads(...relative.split("/").filter(Boolean));
   try {
     await fs.access(fullPath);
     return trimmed;
@@ -442,7 +442,7 @@ const downloadImageToLocal = async (urlValue, urlCache) => {
   const hash = crypto.createHash("sha1").update(rawUrl).digest("hex");
   const fileName = `${hash}${optimized.extension}`;
   const dir = await ensureUploadsDir();
-  const fullPath = path.join(dir, fileName);
+  const fullPath = path.join(/*turbopackIgnore: true*/ dir, fileName);
   await fs.writeFile(fullPath, optimized.buffer);
   await writeCardThumbBeside(fullPath, optimized.buffer, "products");
   const localUrl = `${localUploadsPrefix}${fileName}`;

@@ -3,12 +3,15 @@ const path = require("path");
 
 const getUploadsRoot = () => {
   const fromEnv = String(process.env.UPLOADS_ROOT || "").trim();
-  if (fromEnv) return path.resolve(fromEnv);
-  return path.resolve(process.cwd(), "public", "uploads");
+  if (fromEnv) return path.resolve(/*turbopackIgnore: true*/ fromEnv);
+  return path.resolve(/*turbopackIgnore: true*/ process.cwd(), "public", "uploads");
 };
 
+const joinUploads = (...segments) =>
+  path.join(/*turbopackIgnore: true*/ getUploadsRoot(), ...segments.filter(Boolean));
+
 const ensureWritableSubdir = async (subdir) => {
-  const dir = path.join(getUploadsRoot(), subdir);
+  const dir = joinUploads(subdir);
   try {
     await fs.mkdir(dir, { recursive: true });
     await fs.access(dir, fs.constants.W_OK);
@@ -25,5 +28,6 @@ const ensureWritableSubdir = async (subdir) => {
 
 module.exports = {
   getUploadsRoot,
+  joinUploads,
   ensureWritableSubdir,
 };

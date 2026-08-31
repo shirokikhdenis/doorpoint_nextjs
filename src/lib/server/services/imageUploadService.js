@@ -23,7 +23,8 @@ const resolveUploadDir = async (relativeSubdir) => {
   }
 
   const root = await ensureWritableSubdir(parts[0]);
-  const dir = parts.length === 1 ? root : path.join(root, ...parts.slice(1));
+  const dir =
+    parts.length === 1 ? root : path.join(/*turbopackIgnore: true*/ root, ...parts.slice(1));
   await fs.mkdir(dir, { recursive: true });
 
   return {
@@ -78,7 +79,7 @@ const saveFilesToSubdir = async (relativeSubdir, fileEntries, options = {}) => {
     }
 
     const fileName = `${Date.now()}-${randomUUID()}${outputExt}`;
-    const fullPath = path.join(dir, fileName);
+    const fullPath = path.join(/*turbopackIgnore: true*/ dir, fileName);
     await fs.writeFile(fullPath, outputBuffer);
     if (outputExt !== SVG_EXTENSION) {
       await writeCardThumbBeside(fullPath, outputBuffer, relativeSubdir);
