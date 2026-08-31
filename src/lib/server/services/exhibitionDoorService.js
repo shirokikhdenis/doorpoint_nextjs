@@ -139,7 +139,7 @@ const buildColorOptions = (productColor, finishes) => {
   return options;
 };
 
-const { formatProductDisplayName, INTERIOR_DOORS_CATEGORY_SLUG } = require("../../product-display-name");
+const { formatProductDisplayName } = require("../../product-display-name");
 
 const buildSnapshotFromProduct = (product, categoryType) => {
   const manufacturer =
