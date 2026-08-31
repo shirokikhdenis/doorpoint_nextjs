@@ -11,7 +11,7 @@ import {
 } from "@/lib/seo-copy";
 import {
   absoluteUrl,
-  defaultOpenGraph,
+  siteOpenGraphFields,
   SITE_TITLE,
 } from "@/lib/site-seo";
 
@@ -80,9 +80,6 @@ export async function buildProductMetadata(ref: string): Promise<Metadata> {
     const slug = String(product.slug || ref).trim() || ref;
     const productPath = `/product/${encodeURIComponent(slug)}`;
 
-    const ogBase = defaultOpenGraph();
-    const { type: _ogType, ...ogWithoutType } = ogBase;
-
     return {
       title,
       description,
@@ -98,7 +95,7 @@ export async function buildProductMetadata(ref: string): Promise<Metadata> {
         canonical: absoluteUrl(productPath),
       },
       openGraph: {
-        ...ogWithoutType,
+        ...siteOpenGraphFields(),
         title,
         description,
         url: absoluteUrl(productPath),

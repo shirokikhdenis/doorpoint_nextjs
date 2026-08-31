@@ -35,11 +35,16 @@ export const absoluteUrl = (path: string): string => {
 
 export const buildPageTitle = (pageTitle: string): string => `${pageTitle} — ${SITE_TITLE}`;
 
-export const defaultOpenGraph = (): NonNullable<Metadata["openGraph"]> => ({
-  type: "website",
-  locale: "ru_RU",
+/** Shared OG fields without `type` (product pages set og:type via metadata.other). */
+export const siteOpenGraphFields = () => ({
+  locale: "ru_RU" as const,
   siteName: SITE_NAME,
   images: [{ url: SITE_OG_IMAGE_PATH, alt: SITE_NAME }],
+});
+
+export const defaultOpenGraph = (): NonNullable<Metadata["openGraph"]> => ({
+  type: "website",
+  ...siteOpenGraphFields(),
 });
 
 export const YANDEX_METRIKA_GOALS = {
