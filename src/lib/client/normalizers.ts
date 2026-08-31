@@ -60,7 +60,6 @@ export type ProductCard = {
   glass?: string;
   /** Атрибут manufacturer (фабрика). */
   manufacturer?: string;
-  categorySlug?: string;
   image?: string;
   /** Второе фото (hover) из product_images, sort_order второй. */
   hoverImage?: string;
@@ -383,7 +382,6 @@ export const normalizeProductsResponse = (value: unknown): ProductCard[] => {
     color: item.color ? String(item.color) : undefined,
     glass: item.glass ? String(item.glass) : undefined,
     manufacturer: item.manufacturer ? String(item.manufacturer).trim() || undefined : undefined,
-    categorySlug: item.categorySlug ? String(item.categorySlug) : undefined,
     image: normalizeOptionalImage(item.image),
     hoverImage: normalizeOptionalImage(item.hoverImage),
     category: item.category ? String(item.category) : undefined,
