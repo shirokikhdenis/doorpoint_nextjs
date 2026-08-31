@@ -2,15 +2,31 @@ import type { CatalogFilterState } from "@/features/catalog/catalog-types";
 import type { CatalogReturnPayload } from "@/features/catalog/session/catalog-session-types";
 import {
   buildCatalogApiQuery,
-  buildCatalogFilterQuery,
   parseCatalogFilterStateFromSearchParams,
 } from "@/features/catalog/catalog-filter-utils";
 import { catalogPageFromPathname } from "@/lib/catalog-page-paths";
 import { resolveCatalogPageSlug as resolveLegacyCatalogPageSlug } from "@/lib/catalog-page-slugs";
-import { buildCatalogPublicHref, catalogPagePath } from "@/lib/catalog-url";
+import { buildCatalogPublicHref, catalogHrefFromFilters, catalogPagePath } from "@/lib/catalog-url";
 
 const RETURN_STORAGE_KEY = "catalogReturn";
+const RETURN_HREF_KEY = "catalogReturnHref";
 const LEGACY_SCROLL_KEY = "catalogScroll";
+export const CATALOG_RETURN_CHANGE_EVENT = "catalog-return-change";
+
+const notifyCatalogReturnChanged = (): void => {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(CATALOG_RETURN_CHANGE_EVENT));
+};
+
+const readStoredReturnHref = (): string => {
+  if (typeof window === "undefined") return "";
+  try {
+    const href = String(window.sessionStorage.getItem(RETURN_HREF_KEY) || "").trim();
+    return href.startsWith("/catalog") ? href : "";
+  } catch {
+    return "";
+  }
+};
 
 const defaultFilterState = (): CatalogFilterState => ({
   search: "",
@@ -114,15 +130,8 @@ export const buildCatalogReturnHrefFromFilters = (
   catalogPage: string,
   filterState: CatalogFilterState,
   catalogLabelId?: number,
-): string => {
-  const path = catalogPagePath(catalogPage);
-  const params = new URLSearchParams(buildCatalogFilterQuery(filterState));
-  if (catalogLabelId && Number.isFinite(catalogLabelId)) {
-    params.set("catalogLabel", String(catalogLabelId));
-  }
-  const qs = params.toString();
-  return qs ? `${path}?${qs}` : path;
-};
+): string =>
+  catalogHrefFromFilters(catalogPage, filterState, { catalogLabelId });
 
 const normalizePayload = (raw: unknown): CatalogReturnPayload | null => {
   if (!raw || typeof raw !== "object") return null;
@@ -146,7 +155,6 @@ const normalizePayload = (raw: unknown): CatalogReturnPayload | null => {
         : searchKey
           ? buildCatalogReturnHrefFromSearchKey(searchKey)
           : catalogPagePath(catalogPage);
-  if (loadedPages <= 1 && scrollY <= 0) return null;
   return {
     catalogPage,
     scrollY,
@@ -183,7 +191,8 @@ export const hasCatalogReturnRestore = (): boolean => {
   return payload.loadedPages > 1 || payload.scrollY > 0;
 };
 
-export const clearCatalogReturnPayload = (): void => {
+/** Drop scroll/pages snapshot after restore; keep the vitrine href for «Назад в каталог». */
+export const clearCatalogReturnRestore = (): void => {
   if (typeof window === "undefined") return;
   try {
     window.sessionStorage.removeItem(RETURN_STORAGE_KEY);
@@ -191,26 +200,44 @@ export const clearCatalogReturnPayload = (): void => {
   } catch {
     /* sessionStorage unavailable */
   }
+  notifyCatalogReturnChanged();
+};
+
+export const clearCatalogReturnPayload = (): void => {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.removeItem(RETURN_STORAGE_KEY);
+    window.sessionStorage.removeItem(RETURN_HREF_KEY);
+    window.sessionStorage.removeItem(LEGACY_SCROLL_KEY);
+  } catch {
+    /* sessionStorage unavailable */
+  }
+  notifyCatalogReturnChanged();
 };
 
 export const saveCatalogReturnPayload = (payload: CatalogReturnPayload): void => {
   if (typeof window === "undefined") return;
   try {
     window.sessionStorage.setItem(RETURN_STORAGE_KEY, JSON.stringify(payload));
+    if (payload.returnHref?.startsWith("/catalog")) {
+      window.sessionStorage.setItem(RETURN_HREF_KEY, payload.returnHref);
+    }
     window.sessionStorage.removeItem(LEGACY_SCROLL_KEY);
   } catch {
     /* sessionStorage unavailable */
   }
+  notifyCatalogReturnChanged();
 };
 
 export const buildCatalogReturnHref = (): string => {
+  const storedHref = readStoredReturnHref();
+  if (storedHref) return storedHref;
   const payload = readCatalogReturnPayload();
-  if (payload?.filterState && payload.returnHref) return payload.returnHref;
+  if (payload?.returnHref?.startsWith("/catalog")) return payload.returnHref;
   if (payload?.filterState) {
     return buildCatalogReturnHrefFromFilters(payload.catalogPage, payload.filterState);
   }
   if (payload?.searchKey) return buildCatalogReturnHrefFromSearchKey(payload.searchKey);
-  if (payload?.returnHref) return payload.returnHref;
   if (typeof window !== "undefined") {
     const slug = window.sessionStorage.getItem("lastCatalogPage");
     if (slug?.trim()) return catalogPagePath(slug.trim());

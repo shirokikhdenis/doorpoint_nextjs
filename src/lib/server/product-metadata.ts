@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
+import { cache } from "react";
 import { createRequire } from "node:module";
 import { toPublicImageSrc } from "@/lib/client/image-src";
 import { isPogonazhCategoryLabel } from "@/lib/pogonazh-category";
+import { formatProductDisplayName } from "@/lib/product-display-name";
+import { resolveProductVariantLabels } from "@/lib/product-variant-labels";
 import {
   buildProductSeoDescription,
   buildProductSeoTitle,
@@ -14,19 +17,12 @@ import {
 
 const require = createRequire(import.meta.url);
 const catalogService = require("@/lib/server/services/catalogService") as {
-  getProductByRef: (ref: string) => Promise<{
-    name?: string;
-    category?: string;
-    subcategory?: string;
-    categorySlug?: string;
-    subcategorySlug?: string;
-    price?: number;
-    image?: string;
-    images?: string[];
-    seoTitle?: string | null;
-    seoDescription?: string | null;
-  } | null>;
+  getProductByRef: (ref: string) => Promise<Record<string, unknown> | null>;
 };
+
+export const getCachedProductByRef = cache(async (ref: string) =>
+  catalogService.getProductByRef(ref),
+);
 
 const firstProductImage = (product: {
   image?: string;
@@ -43,30 +39,49 @@ const firstProductImage = (product: {
   return "";
 };
 
+const productDisplayName = (product: Record<string, unknown>): string => {
+  const labels = resolveProductVariantLabels(product);
+  return formatProductDisplayName({
+    name: String(product.name || "").trim(),
+    color: labels.color,
+    glass: labels.glass,
+    manufacturer: labels.manufacturer,
+    categorySlug: String(product.categorySlug || ""),
+    category: String(product.category || ""),
+  });
+};
+
 export async function buildProductMetadata(ref: string): Promise<Metadata> {
   try {
-    const product = await catalogService.getProductByRef(ref);
+    const product = await getCachedProductByRef(ref);
     if (!product?.name) {
       return { title: buildProductSeoTitle({ name: "Товар не найден" }) };
     }
 
     const isPogonazh = isPogonazhCategoryLabel(
-      product.category,
-      product.categorySlug ?? product.subcategorySlug,
+      product.category as string | undefined,
+      (product.categorySlug as string | undefined) ??
+        (product.subcategorySlug as string | undefined),
     );
+    const displayName = productDisplayName(product);
     const title = buildProductSeoTitle({
-      name: product.name,
-      seoTitleOverride: product.seoTitle,
+      name: displayName,
+      seoTitleOverride: (product.seoTitle as string | null | undefined) ?? null,
     });
     const description = buildProductSeoDescription({
-      name: product.name,
-      price: product.price,
-      category: product.category,
-      subcategory: product.subcategory,
-      seoDescriptionOverride: product.seoDescription,
+      name: displayName,
+      price: product.price as number | undefined,
+      category: product.category as string | undefined,
+      subcategory: product.subcategory as string | undefined,
+      seoDescriptionOverride:
+        (product.seoDescription as string | null | undefined) ?? null,
     });
     const image = firstProductImage(product);
-    const productPath = `/product/${encodeURIComponent(ref)}`;
+    const slug = String(product.slug || ref).trim() || ref;
+    const productPath = `/product/${encodeURIComponent(slug)}`;
+
+    const ogBase = defaultOpenGraph();
+    const { type: _ogType, ...ogWithoutType } = ogBase;
 
     return {
       title,
@@ -83,17 +98,20 @@ export async function buildProductMetadata(ref: string): Promise<Metadata> {
         canonical: absoluteUrl(productPath),
       },
       openGraph: {
-        ...defaultOpenGraph(),
+        ...ogWithoutType,
         title,
         description,
         url: absoluteUrl(productPath),
-        ...(image ? { images: [{ url: image, alt: product.name }] } : {}),
+        ...(image ? { images: [{ url: image, alt: displayName }] } : {}),
       },
       twitter: {
         card: image ? "summary_large_image" : "summary",
         title,
         description,
         ...(image ? { images: [image] } : {}),
+      },
+      other: {
+        "og:type": "product",
       },
     };
   } catch {

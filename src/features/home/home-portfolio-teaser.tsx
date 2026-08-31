@@ -37,7 +37,7 @@ export function HomePortfolioTeaser({ items, cardsPerRow = 4 }: HomePortfolioTea
           return (
             <Link
               key={item.id}
-              href="/portfolio"
+              href={`/portfolio/${item.id}`}
               prefetch={false}
               className="group overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm transition hover:border-brand/25 hover:shadow-md"
             >

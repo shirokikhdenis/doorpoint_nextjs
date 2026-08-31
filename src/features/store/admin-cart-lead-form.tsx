@@ -331,9 +331,9 @@ export function AdminCartLeadForm({
                   <Input
                     id="admin-lead-phone"
                     name="phone"
-                    type="tel"
+                    type="text"
                     autoComplete="tel"
-                    placeholder="+7 (900) 000-00-00"
+                    placeholder="Телефон или способ связи"
                     value={phone}
                     onChange={(event) => setPhone(event.target.value)}
                     required

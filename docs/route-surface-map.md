@@ -9,7 +9,6 @@ Public UI routes:
 - `/cart`
 - `/about`
 - `/contact`
-- `/door-quiz`
 
 Public API routes:
 - `/api/health`

@@ -14,7 +14,12 @@ type CatalogPageProps = {
 };
 
 export async function generateMetadata({ searchParams }: CatalogPageProps): Promise<Metadata> {
-  return buildCatalogMetadata(await searchParams, { catalogPage: CATALOG_PAGE_SLUG.all });
+  const resolved = await searchParams;
+  const initial = await getCatalogShell(resolved, { catalogPage: CATALOG_PAGE_SLUG.all });
+  return buildCatalogMetadata(resolved, {
+    catalogPage: CATALOG_PAGE_SLUG.all,
+    ogImage: initial.products[0]?.image,
+  });
 }
 
 export default async function CatalogPage({ searchParams }: CatalogPageProps) {

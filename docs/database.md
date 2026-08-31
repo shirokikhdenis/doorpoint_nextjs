@@ -197,7 +197,7 @@ product_variants.product_id      ───▶  products.id                  (CAS
 - Если страница задала `filter_codes`, `catalogService.getFilterMeta` передаёт их id в `allowedAttributeIds` — meta вернёт только разрешённые.
 
 ### `/admin` → `GET /api/admin/bootstrap`
-`adminService.listBootstrap()` отдаёт `{ categories, subcategories, attributes (+options), products (краткий список), catalogPages }`. Это и питает `/database` (живые счётчики).
+`adminService.listBootstrap()` отдаёт `{ categories, subcategories, attributes (+options), products (краткий список), catalogPages }`. Это питает админку (`/admin`).
 
 ---
 

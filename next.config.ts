@@ -27,6 +27,7 @@ const nextConfig: NextConfig = {
     appNewScrollHandler: true,
   },
   images: {
+    unoptimized: true,
     remotePatterns: [
       {
         protocol: "https",

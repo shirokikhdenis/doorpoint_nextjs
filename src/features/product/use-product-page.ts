@@ -6,6 +6,7 @@ import { suppressNextProductScrollReset } from "@/lib/client/page-scroll";
 import { serializeVariantAxes } from "@/features/product/product-utils";
 import { ProductData, Variant, normalizeProductData } from "@/lib/client/normalizers";
 import type { DoorFinishItem, DoorGlassUpgradeItem } from "@/lib/client/normalizers";
+import { resolveProductVariantLabels } from "@/lib/client/product-variant-labels";
 
 const seedProductCache = (
   cache: Map<string, ProductData>,
@@ -222,16 +223,12 @@ export function useProductPage(
 
   const cartColorLabel = useMemo(() => {
     if (!product) return "";
-    const fromChip = product.colorVariants.find((e) => e.id === product.id);
-    if (fromChip?.color?.trim()) return fromChip.color.trim();
-    const fromAttr = product.attributes.find((a) => a.code === "color")?.value;
-    return fromAttr?.trim() || "";
+    return resolveProductVariantLabels(product).color;
   }, [product]);
 
   const cartGlassLabel = useMemo(() => {
     if (!product) return "";
-    const fromAttr = product.attributes.find((a) => a.code === "glass")?.value;
-    return fromAttr?.trim() || "";
+    return resolveProductVariantLabels(product).glass;
   }, [product]);
 
   const selectAxisValue = useCallback(

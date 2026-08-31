@@ -1,13 +1,20 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { buildCatalogReturnHref } from "@/features/catalog/session/catalog-return-storage";
+import {
+  buildCatalogReturnHref,
+  CATALOG_RETURN_CHANGE_EVENT,
+} from "@/features/catalog/session/catalog-return-storage";
 
 const DEFAULT_CATALOG_HREF = "/catalog";
 
 const subscribeCatalogReturn = (onStoreChange: () => void) => {
   window.addEventListener("storage", onStoreChange);
-  return () => window.removeEventListener("storage", onStoreChange);
+  window.addEventListener(CATALOG_RETURN_CHANGE_EVENT, onStoreChange);
+  return () => {
+    window.removeEventListener("storage", onStoreChange);
+    window.removeEventListener(CATALOG_RETURN_CHANGE_EVENT, onStoreChange);
+  };
 };
 
 const getCatalogBackHrefSnapshot = () => buildCatalogReturnHref();

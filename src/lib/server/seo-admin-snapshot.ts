@@ -229,7 +229,7 @@ export const getSeoAdminSnapshot = async (): Promise<SeoAdminSnapshot> => {
     technical: {
       sitemapUrl: absoluteUrl("/sitemap.xml"),
       robotsHost: absoluteUrl("/"),
-      robotsDisallow: ["/admin/", "/api/", "/cart", "/database", "/door-quiz"],
+      robotsDisallow: ["/admin/", "/api/", "/cart"],
       adminIndexed: false,
     },
   };

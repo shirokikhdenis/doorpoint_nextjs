@@ -44,6 +44,7 @@ export type CatalogSessionAction =
       searchKey: string;
       products: ProductCard[];
       total: number;
+      page?: number;
     }
   | { type: "USER_FILTER_CHANGE"; searchKey: string }
   | { type: "VITRINE_CHANGE"; catalogPage: string; searchKey: string }

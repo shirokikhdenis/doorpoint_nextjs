@@ -26,7 +26,12 @@ export async function generateMetadata({
 }: CatalogSlugPageProps): Promise<Metadata> {
   const { slug } = await params;
   const catalogPage = resolveCatalogPageSlug(slug);
-  return buildCatalogMetadata(await searchParams, { catalogPage });
+  const resolved = await searchParams;
+  const initial = await getCatalogShell(resolved, { catalogPage });
+  return buildCatalogMetadata(resolved, {
+    catalogPage,
+    ogImage: initial.products[0]?.image,
+  });
 }
 
 export default async function CatalogSlugPage({ params, searchParams }: CatalogSlugPageProps) {

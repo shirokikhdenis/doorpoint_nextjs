@@ -4,18 +4,24 @@ const portfolioRepository = require("../repositories/portfolioRepository");
 const { getUploadsRoot } = require("../uploadsPath");
 const { saveFilesToSubdir } = require("./imageUploadService");
 
+const toPublicItem = (project) => ({
+  id: project.id,
+  title: project.title,
+  description: project.description,
+  sortOrder: project.sortOrder,
+  coverImage: project.images[0]?.imageUrl || "",
+  images: project.images.map((img) => img.imageUrl),
+});
+
 const listPublicPortfolio = async () => {
   const projects = await portfolioRepository.listProjects();
-  return projects
-    .filter((project) => project.images.length > 0)
-    .map((project) => ({
-      id: project.id,
-      title: project.title,
-      description: project.description,
-      sortOrder: project.sortOrder,
-      coverImage: project.images[0]?.imageUrl || "",
-      images: project.images.map((img) => img.imageUrl),
-    }));
+  return projects.filter((project) => project.images.length > 0).map(toPublicItem);
+};
+
+const getPublicProject = async (id) => {
+  const project = await portfolioRepository.getProjectById(id);
+  if (!project || project.images.length === 0) return null;
+  return toPublicItem(project);
 };
 
 const listAdminPortfolio = () => portfolioRepository.listProjects();
@@ -87,6 +93,7 @@ const deleteFileByPublicUrl = async (imageUrl) => {
 
 module.exports = {
   listPublicPortfolio,
+  getPublicProject,
   listAdminPortfolio,
   createProject,
   updateProject,

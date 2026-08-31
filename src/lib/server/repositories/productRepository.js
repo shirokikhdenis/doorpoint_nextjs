@@ -19,7 +19,7 @@ const {
   withSaleBasePrice,
 } = require("../domain/salePricing");
 const saleSettingsRepository = require("./saleSettingsRepository");
-const { allocateUniqueSlug } = require("../domain/productSlug");
+const { allocateUniqueSlug, findRedirectProductId } = require("../domain/productSlug");
 const {
   ensureProductBadgesColumn,
   ensureProductSaleColumns,
@@ -985,7 +985,11 @@ const getProductBySlug = async (slug) => {
     `SELECT id FROM products WHERE slug = $1 AND is_active = TRUE LIMIT 1`,
     [raw],
   );
-  if (res.rows.length === 0) return null;
+  if (res.rows.length === 0) {
+    const redirectedId = await findRedirectProductId(raw);
+    if (!redirectedId) return null;
+    return getProductById(redirectedId);
+  }
   return getProductById(Number(res.rows[0].id));
 };
 

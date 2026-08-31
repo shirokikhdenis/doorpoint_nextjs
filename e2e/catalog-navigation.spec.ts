@@ -32,6 +32,8 @@ test.describe("Catalog navigation", () => {
     await clickLoadMore(page);
     await waitForCatalogReady(page);
 
+    await expect(page).toHaveURL(/[?&]page=2(?:&|$)/);
+
     const countAfterLoadMore = await getVisibleCardCount(page);
     expect(countAfterLoadMore).toBeGreaterThan(countBeforeLoadMore);
 
@@ -52,6 +54,28 @@ test.describe("Catalog navigation", () => {
 
     const totalTextAfter = await getResultsCountText(page);
     expect(totalTextAfter).toContain(totalTextBefore.split(" из ")[1] || "");
+  });
+
+  test("backToCatalogKeepsFiltersWithoutScroll", async ({ page }) => {
+    await page.goto("/catalog?search=E2E");
+    await waitForCatalogReady(page);
+
+    const productLink = page
+      .getByTestId("catalog-product-card")
+      .first()
+      .locator('a[href*="/product/"]')
+      .first();
+    if (!(await productLink.isVisible().catch(() => false))) {
+      test.skip(true, "Need E2E products — run node scripts/seed-e2e-catalog.js");
+    }
+    await productLink.click();
+    await page.waitForURL(/\/product\//);
+
+    const back = page.getByTestId("product-back-to-catalog");
+    await expect(back).toHaveAttribute("href", /search=E2E/);
+    await back.click();
+    await waitForCatalogReady(page);
+    await expect(page).toHaveURL(/search=E2E/);
   });
 
   test("filterAfterReturn", async ({ page }) => {
@@ -223,5 +247,19 @@ test.describe("Catalog navigation", () => {
     await expect(page.getByTestId("catalog-filter-on-sale")).toHaveAttribute("aria-pressed", "true");
     const scrollY = await getScrollY(page);
     expect(scrollY).toBeLessThan(100);
+  });
+
+  test("ssrPaginationLinks", async ({ page }) => {
+    await page.goto("/catalog");
+    await waitForCatalogReady(page);
+    const pagination = page.getByTestId("catalog-pagination");
+    if (!(await pagination.isVisible().catch(() => false))) {
+      test.skip(true, "Need a second catalog page — run node scripts/seed-e2e-catalog.js");
+    }
+    const page2 = pagination.getByRole("link", { name: "2" });
+    await expect(page2).toHaveAttribute("href", /[?&]page=2(?:&|$)/);
+    await page2.click();
+    await waitForCatalogReady(page);
+    await expect(page).toHaveURL(/[?&]page=2(?:&|$)/);
   });
 });

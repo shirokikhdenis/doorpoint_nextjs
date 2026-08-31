@@ -1,9 +1,18 @@
 const INTERIOR_DOORS_CATEGORY_SLUG = "interior-doors";
 const BRAVO_MANUFACTURER = "браво";
+const MEANINGLESS_TOKENS = new Set(["да", "нет", "-", "—", "x", "n/a", "na", "none"]);
+
+const stripTrailingStars = (value) => String(value || "").trim().replace(/\*+\s*$/g, "").trim();
+
+const isMeaningfulToken = (value) => {
+  const trimmed = String(value || "").trim();
+  if (!trimmed) return false;
+  return !MEANINGLESS_TOKENS.has(trimmed.toLowerCase());
+};
 
 const appendToken = (result, token) => {
-  const value = String(token || "").trim();
-  if (!value) return result;
+  const value = stripTrailingStars(token);
+  if (!isMeaningfulToken(value)) return result;
 
   const resultLower = result.toLowerCase();
   const valueLower = value.toLowerCase();
@@ -40,7 +49,7 @@ const formatProductDisplayName = ({
   categorySlug,
   category,
 } = {}) => {
-  let result = String(name || "").trim() || "—";
+  let result = stripTrailingStars(name) || "—";
   result = appendToken(result, color);
   if (isBravoInteriorDoor({ manufacturer, categorySlug, category })) {
     result = appendToken(result, glass);
@@ -51,6 +60,8 @@ const formatProductDisplayName = ({
 module.exports = {
   INTERIOR_DOORS_CATEGORY_SLUG,
   appendToken,
+  stripTrailingStars,
+  isMeaningfulToken,
   isBravoInteriorDoor,
   formatProductDisplayName,
 };

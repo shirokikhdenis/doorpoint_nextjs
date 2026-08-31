@@ -31,7 +31,7 @@ const catalogSessionReducer = (state, action) => {
         searchKey: action.searchKey,
         products: action.products,
         total: action.total,
-        page: 1,
+        page: action.page ?? 1,
         status: state.restore ? "restoring" : "idle",
         error: "",
         restoreScrollApplied: false,

@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useReducer, useRef } from "react";
 import { catalogPageLimit } from "@/features/catalog/catalog-constants";
 import { dedupeProductsById } from "@/features/catalog/catalog-filter-utils";
 import {
-  clearCatalogReturnPayload,
+  clearCatalogReturnRestore,
   readCatalogReturnPayload,
 } from "@/features/catalog/session/catalog-return-storage";
 import { catalogSessionReducer } from "@/features/catalog/session/catalog-session-reducer.js";
@@ -21,6 +21,7 @@ import {
   normalizeProductsResponse,
 } from "@/lib/client/normalizers";
 import { isDesktopCatalogViewport, scrollToInstant, scrollToTopInstant } from "@/lib/client/page-scroll";
+import { replaceCatalogPageQuery } from "@/lib/catalog-url";
 import type { CatalogShellInitial } from "@/lib/server/catalog-shell";
 
 type UseCatalogSessionOptions = {
@@ -54,6 +55,7 @@ const buildBootstrapState = (
       ...createInitialCatalogSessionState(catalogPage, initial.queryString),
       products: initial.products,
       total: initial.total,
+      page: initial.page || 1,
       status: "idle",
     };
   }
@@ -90,7 +92,7 @@ export function useCatalogSession({
     query: matchesInitialShell(initial, query, catalogPage) && initial
       ? initial.queryString
       : "",
-    page: matchesInitialShell(initial, query, catalogPage) ? 1 : 0,
+    page: matchesInitialShell(initial, query, catalogPage) ? (initial?.page || 1) : 0,
   });
 
   const isRestoringReturn =
@@ -109,7 +111,6 @@ export function useCatalogSession({
     const loadedPages = Math.min(25, Math.max(1, payload.loadedPages));
     const scrollY = Math.max(0, payload.scrollY);
     if (loadedPages <= 1 && scrollY <= 0) {
-      clearCatalogReturnPayload();
       return;
     }
 
@@ -237,6 +238,7 @@ export function useCatalogSession({
       searchKey: shell.queryString,
       products: shell.products,
       total: shell.total,
+      page: shell.page || 1,
     });
 
     if (pendingRestore) {
@@ -246,7 +248,7 @@ export function useCatalogSession({
       });
     }
 
-    lastFetchedRef.current = { query: shell.queryString, page: 1 };
+    lastFetchedRef.current = { query: shell.queryString, page: shell.page || 1 };
   }, [query, catalogPage]);
 
   useEffect(() => {
@@ -379,7 +381,7 @@ export function useCatalogSession({
           requestAnimationFrame(() => scrollToInstant(scrollY));
         });
       }
-      clearCatalogReturnPayload();
+      clearCatalogReturnRestore();
       restoreTargetRef.current = null;
       dispatch({ type: "RESTORE_SCROLL_APPLIED" });
     };
@@ -403,9 +405,16 @@ export function useCatalogSession({
 
   const setPage = (next: number | ((current: number) => number)) => {
     const value = typeof next === "function" ? next(state.page) : next;
-    if (value > state.page) {
-      dispatch({ type: "LOAD_MORE" });
+    if (value <= state.page) return;
+    if (
+      state.status === "loading" ||
+      state.status === "restoring" ||
+      state.status === "loading_more"
+    ) {
+      return;
     }
+    dispatch({ type: "LOAD_MORE" });
+    replaceCatalogPageQuery(state.page + 1);
   };
 
   return {

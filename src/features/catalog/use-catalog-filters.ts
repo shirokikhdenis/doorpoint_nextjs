@@ -18,10 +18,12 @@ import { clearCatalogReturnPayload } from "@/features/catalog/session/catalog-re
 import type { CatalogFilterState, NumericRange } from "@/features/catalog/catalog-types";
 import type { CatalogLabel, CatalogMeta } from "@/lib/client/normalizers";
 import {
-  buildCatalogFilterQuery,
+  catalogHrefFromFilters,
   catalogPageFromPathname,
-  catalogPagePath,
+  hrefWithoutPage,
 } from "@/lib/catalog-url";
+import { manufacturerSlugFromPathname } from "@/lib/catalog-page-paths";
+import { manufacturerSlug } from "@/lib/factory-slug";
 import { catalogPageSupportsOnSaleFilter } from "@/lib/catalog-page-slugs";
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -104,6 +106,8 @@ export function useCatalogFilters(meta: CatalogMeta, options?: UseCatalogFilters
   );
   const filterDefaultsPendingRef = useRef(true);
   const searchDebounceInitializedRef = useRef(false);
+  const metaRef = useRef(meta);
+  metaRef.current = meta;
 
   const notifyUserFilterChange = useCallback(() => {
     clearCatalogReturnPayload();
@@ -357,19 +361,33 @@ export function useCatalogFilters(meta: CatalogMeta, options?: UseCatalogFilters
         .filter(Boolean);
       if (values.length) fromUrl[code] = values;
     });
-    if (Object.keys(fromUrl).length === 0) return;
+    const pathManufacturer = manufacturerSlugFromPathname(pathname || window.location.pathname);
+    if (Object.keys(fromUrl).length === 0 && !pathManufacturer) return;
     // URL navigation is the external source of truth for direct/back-forward filter state.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setAttrSelections((prev) => {
+      const next = { ...fromUrl };
+      if (pathManufacturer) {
+        const current = prev.manufacturer || [];
+        const matching = current.filter((name) => manufacturerSlug(name) === pathManufacturer);
+        if (matching.length) {
+          next.manufacturer = matching;
+        } else {
+          const fromTree = (metaRef.current.manufacturerCollectionTree || []).find(
+            (entry) => manufacturerSlug(entry.manufacturer) === pathManufacturer,
+          );
+          if (fromTree?.manufacturer) next.manufacturer = [fromTree.manufacturer];
+        }
+      }
       const same =
-        Object.keys(fromUrl).length === Object.keys(prev).length &&
-        Object.entries(fromUrl).every(([code, values]) => {
+        Object.keys(next).length === Object.keys(prev).length &&
+        Object.entries(next).every(([code, values]) => {
           const current = prev[code] || [];
           return current.length === values.length && current.every((v, i) => v === values[i]);
         });
-      return same ? prev : fromUrl;
+      return same ? prev : next;
     });
-  }, [catalogPage, searchParams]);
+  }, [catalogPage, pathname, searchParams]);
 
   useEffect(() => {
     if (!pathname) return;
@@ -401,7 +419,6 @@ export function useCatalogFilters(meta: CatalogMeta, options?: UseCatalogFilters
       return;
     }
     // Keep browser history navigation in sync with the controlled sale checkbox.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setOnSale(searchParams.get("onSale") === "1");
   }, [searchParams, catalogPage]);
 
@@ -429,14 +446,22 @@ export function useCatalogFilters(meta: CatalogMeta, options?: UseCatalogFilters
     if (typeof window === "undefined") return;
     window.sessionStorage.setItem("lastCatalogPage", catalogPage);
     const matching = meta.labels.find((l) => labelMatchesSelections(l, attrSelections));
-    const path = catalogPagePath(catalogPage);
-    const params = new URLSearchParams(buildCatalogFilterQuery(filterState));
-    if (matching) params.set("catalogLabel", String(matching.id));
-    const qs = params.toString();
-    const nextUrl = qs ? `${path}?${qs}` : path;
+    const nextBase = catalogHrefFromFilters(catalogPage, filterState, {
+      catalogLabelId: matching?.id,
+    });
     const cur = window.location.pathname + window.location.search;
+    const pageFromUrl = Math.floor(
+      Number(new URLSearchParams(window.location.search).get("page")) || 1,
+    );
+    const nextUrl =
+      pageFromUrl > 1 && hrefWithoutPage(cur) === hrefWithoutPage(nextBase)
+        ? catalogHrefFromFilters(catalogPage, filterState, {
+            catalogLabelId: matching?.id,
+            page: pageFromUrl,
+          })
+        : nextBase;
     if (nextUrl !== cur) router.replace(nextUrl, { scroll: false });
-  }, [attrSelections, catalogPage, filterState, meta.labels, router]);
+  }, [attrSelections, catalogPage, filterState, meta.labels, router, searchParams]);
 
   return {
     catalogPage,

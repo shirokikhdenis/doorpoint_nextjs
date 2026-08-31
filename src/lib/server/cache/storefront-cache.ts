@@ -17,6 +17,10 @@ const promotionService = require("@/lib/server/services/promotionService") as {
   listActivePromotions: () => Promise<unknown[]>;
 };
 
+const portfolioService = require("@/lib/server/services/portfolioService") as {
+  listPublicPortfolio: () => Promise<unknown[]>;
+};
+
 export const STOREFRONT_API_CACHE_CONTROL =
   "public, s-maxage=60, stale-while-revalidate=120";
 
@@ -61,6 +65,8 @@ const fetchHomePageData = async () => homePageService.getHomePageData();
 
 const fetchActivePromotions = async () => promotionService.listActivePromotions();
 
+const fetchPublicPortfolio = async () => portfolioService.listPublicPortfolio();
+
 const getCachedCatalogPagesInner = unstable_cache(
   fetchCatalogPages,
   ["storefront", "catalog-pages"],
@@ -88,6 +94,12 @@ const getCachedActivePromotionsInner = unstable_cache(
   { tags: ["promotions"], revalidate: 180 },
 );
 
+const getCachedPortfolioInner = unstable_cache(
+  fetchPublicPortfolio,
+  ["storefront", "portfolio"],
+  { tags: ["portfolio"], revalidate: 120 },
+);
+
 export async function getCachedCatalogPages() {
   return getCachedCatalogPagesInner();
 }
@@ -113,4 +125,17 @@ export async function getCachedHomePageData() {
 
 export async function getCachedActivePromotions() {
   return getCachedActivePromotionsInner();
+}
+
+export async function getCachedPortfolio() {
+  return getCachedPortfolioInner() as Promise<
+    Array<{
+      id: number;
+      title: string;
+      description: string;
+      sortOrder?: number;
+      coverImage: string;
+      images: string[];
+    }>
+  >;
 }

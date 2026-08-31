@@ -10,6 +10,8 @@ const { formatCartItemName } = require("../../cart-item-name");
 
 const normalizePhone = (value) => String(value || "").replace(/[^\d+]/g, "").trim();
 
+const normalizeAdminPhone = (value) => String(value ?? "").trim().slice(0, 120);
+
 const parseContractDate = (value) => {
   if (value === undefined || value === null || value === "") return { value: null };
   const raw = String(value).trim();
@@ -80,9 +82,9 @@ const validateAdminOrderPayload = (body) => {
     return { ok: false, message: "Укажите ФИО (минимум 2 символа)" };
   }
 
-  const phone = normalizePhone(body?.phone);
-  if (phone.replace(/\D/g, "").length < 10) {
-    return { ok: false, message: "Укажите корректный телефон" };
+  const phone = normalizeAdminPhone(body?.phone);
+  if (phone.length < 2) {
+    return { ok: false, message: "Укажите телефон" };
   }
 
   const contractDateResult = parseContractDate(body?.contractDate);
@@ -290,6 +292,7 @@ module.exports = {
   CART_LEAD_TYPE,
   MEASURE_LEAD_TYPE,
   normalizePhone,
+  normalizeAdminPhone,
   parseContractDate,
   parseDeliveryDays,
   normalizeLeadItem,

@@ -66,3 +66,35 @@ test("formatProductDisplayName skips duplicate tokens", () => {
 test("formatProductDisplayName returns dash for empty name", () => {
   assert.equal(formatProductDisplayName({ name: "" }), "—");
 });
+
+test("formatProductDisplayName strips trailing stars from the name", () => {
+  assert.equal(
+    formatProductDisplayName({
+      name: "Эмма 250**",
+      color: "Белый",
+    }),
+    "Эмма 250 Белый",
+  );
+});
+
+test("formatProductDisplayName skips Да/Нет glass tokens", () => {
+  assert.equal(
+    formatProductDisplayName({
+      name: "Мадрид",
+      color: "",
+      glass: "Нет",
+      manufacturer: "Браво",
+      categorySlug: "interior-doors",
+    }),
+    "Мадрид",
+  );
+  assert.equal(
+    formatProductDisplayName({
+      name: "Росса 4",
+      glass: "Да",
+      manufacturer: "Браво",
+      categorySlug: "interior-doors",
+    }),
+    "Росса 4",
+  );
+});

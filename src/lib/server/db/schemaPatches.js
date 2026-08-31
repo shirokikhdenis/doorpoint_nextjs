@@ -1,10 +1,11 @@
 const { query } = require("./postgres");
-const { backfillMissingProductSlugs, rebuildAllProductSlugs } = require("../domain/productSlug");
+const { backfillMissingProductSlugs, rebuildAllProductSlugs, productNeedsGlassInSlug } = require("../domain/productSlug");
 
 let productBadgesColumnEnsured = false;
 let productSaleColumnsEnsured = false;
 let productSlugColumnEnsured = false;
 let productSlugLatinEnsured = false;
+let productSlugGlassEnsured = false;
 let portfolioTablesEnsured = false;
 let promotionTablesEnsured = false;
 let leadTablesEnsured = false;
@@ -176,14 +177,40 @@ const ensureProductSlugColumn = async () => {
   productSlugColumnEnsured = true;
 };
 
+const ensureProductSlugRedirectsTable = async () => {
+  await query(`
+    CREATE TABLE IF NOT EXISTS product_slug_redirects (
+      old_slug TEXT PRIMARY KEY,
+      product_id BIGINT NOT NULL REFERENCES products(id) ON DELETE CASCADE
+    )
+  `);
+};
+
 const ensureLatinProductSlugs = async () => {
-  if (productSlugLatinEnsured) return;
   await ensureProductSlugColumn();
-  const check = await query(`SELECT id FROM products WHERE slug ~ '[а-яёА-ЯЁ]' LIMIT 1`);
-  if (check.rows.length > 0) {
+  await ensureProductSlugRedirectsTable();
+  if (!productSlugLatinEnsured) {
+    const check = await query(`SELECT id FROM products WHERE slug ~ '[а-яёА-ЯЁ]' LIMIT 1`);
+    if (check.rows.length > 0) {
+      await rebuildAllProductSlugs();
+    }
+    productSlugLatinEnsured = true;
+  }
+  await ensureGlassInProductSlugs();
+};
+
+const ensureGlassInProductSlugs = async () => {
+  if (productSlugGlassEnsured) return;
+  await ensureProductSlugColumn();
+  await ensureProductSlugRedirectsTable();
+  const rowsRes = await query(`SELECT name, attrs, slug FROM products`);
+  const needsRebuild = rowsRes.rows.some((row) =>
+    productNeedsGlassInSlug(row.name, row.attrs, row.slug),
+  );
+  if (needsRebuild) {
     await rebuildAllProductSlugs();
   }
-  productSlugLatinEnsured = true;
+  productSlugGlassEnsured = true;
 };
 
 const ensurePortfolioTables = async () => {

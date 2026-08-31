@@ -1,67 +1,61 @@
 const { query } = require("../db/postgres");
+const { slugifyPart } = require("../../slugify-part");
+const { isMeaningfulToken, stripTrailingStars } = require("../../product-display-name");
 
-const CYRILLIC_TO_LATIN = [
-  ["щ", "sch"],
-  ["ш", "sh"],
-  ["ч", "ch"],
-  ["ц", "ts"],
-  ["ю", "yu"],
-  ["я", "ya"],
-  ["ё", "yo"],
-  ["ж", "zh"],
-  ["х", "kh"],
-  ["ъ", ""],
-  ["ь", ""],
-  ["э", "e"],
-  ["ы", "y"],
-  ["а", "a"],
-  ["б", "b"],
-  ["в", "v"],
-  ["г", "g"],
-  ["д", "d"],
-  ["е", "e"],
-  ["з", "z"],
-  ["и", "i"],
-  ["й", "y"],
-  ["к", "k"],
-  ["л", "l"],
-  ["м", "m"],
-  ["н", "n"],
-  ["о", "o"],
-  ["п", "p"],
-  ["р", "r"],
-  ["с", "s"],
-  ["т", "t"],
-  ["у", "u"],
-  ["ф", "f"],
-];
-
-const transliterateCyrillic = (value) => {
-  let out = String(value || "").toLowerCase().replace(/ё/g, "е");
-  for (const [from, to] of CYRILLIC_TO_LATIN) {
-    out = out.split(from).join(to);
+const parseAttrs = (raw) => {
+  if (raw && typeof raw === "object") return raw;
+  if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === "object" ? parsed : {};
+    } catch {
+      return {};
+    }
   }
-  return out;
+  return {};
 };
 
-const slugifyPart = (value) =>
-  transliterateCyrillic(value)
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim()
-    .replace(/\s+/g, "-")
-    .replace(/[^a-z0-9-]+/gi, "")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
+const slugPartIfMeaningful = (value) => {
+  const trimmed = stripTrailingStars(value);
+  if (!isMeaningfulToken(trimmed)) return "";
+  return slugifyPart(trimmed);
+};
 
-/** ЧПУ вида `bravo-22-snow-art` из названия и attrs (цвет / стекло). */
+/** ЧПУ: имя + цвет + стекло (Да/Нет и прочий мусор в slug не попадают). */
 const buildProductSlug = (name, attrs = {}) => {
-  const parts = [slugifyPart(name)];
-  const color = String(attrs.color ?? "").trim();
-  const glass = String(attrs.glass ?? "").trim();
-  if (color) parts.push(slugifyPart(color));
-  else if (glass) parts.push(slugifyPart(glass));
+  const parts = [slugifyPart(stripTrailingStars(name))];
+  const colorPart = slugPartIfMeaningful(attrs.color);
+  const glassPart = slugPartIfMeaningful(attrs.glass);
+  if (colorPart) parts.push(colorPart);
+  if (glassPart && glassPart !== colorPart) parts.push(glassPart);
   return parts.filter(Boolean).join("-");
+};
+
+const slugIncludesGlassPart = (slug, glassPart) => {
+  const current = String(slug || "");
+  if (!glassPart || !current) return false;
+  if (current === glassPart) return true;
+  if (current.endsWith(`-${glassPart}`)) return true;
+  const escaped = glassPart.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`-${escaped}-\\d+$`).test(current);
+};
+
+const productNeedsGlassInSlug = (name, attrs, slug) => {
+  const glassPart = slugPartIfMeaningful(parseAttrs(attrs).glass);
+  if (!glassPart) return false;
+  return !slugIncludesGlassPart(slug, glassPart);
+};
+
+const nextUniqueSlug = (base, used, fallback) => {
+  const root = base || fallback;
+  let slug = root;
+  let suffix = 2;
+  while (used.has(slug)) {
+    slug = `${root}-${suffix}`;
+    suffix += 1;
+  }
+  used.add(slug);
+  return slug;
 };
 
 const allocateUniqueSlug = async (client, name, attrs, excludeId = null) => {
@@ -100,58 +94,74 @@ const backfillMissingProductSlugs = async () => {
 
   let updated = 0;
   for (const row of rowsRes.rows) {
-    const attrs =
-      row.attrs && typeof row.attrs === "object"
-        ? row.attrs
-        : typeof row.attrs === "string"
-          ? JSON.parse(row.attrs)
-          : {};
-    let base = buildProductSlug(row.name, attrs) || `product-${row.id}`;
-    let slug = base;
-    let suffix = 2;
-    while (used.has(slug)) {
-      slug = `${base}-${suffix}`;
-      suffix += 1;
-    }
-    used.add(slug);
+    const slug = nextUniqueSlug(
+      buildProductSlug(row.name, parseAttrs(row.attrs)),
+      used,
+      `product-${row.id}`,
+    );
     await query(`UPDATE products SET slug = $2 WHERE id = $1`, [row.id, slug]);
     updated += 1;
   }
   return updated;
 };
 
-/** Пересобрать slug в латинице (одноразово после смены правил slugify). */
+const recordSlugRedirect = async (oldSlug, productId, newSlug) => {
+  const from = String(oldSlug || "").trim();
+  const to = String(newSlug || "").trim();
+  if (!from || !to || from === to) return;
+  await query(`DELETE FROM product_slug_redirects WHERE old_slug = $1`, [to]);
+  await query(
+    `
+    INSERT INTO product_slug_redirects (old_slug, product_id)
+    VALUES ($1, $2)
+    ON CONFLICT (old_slug) DO UPDATE SET product_id = EXCLUDED.product_id
+    `,
+    [from, productId],
+  );
+};
+
+/** Пересобрать slug (латиница / цвет+стекло). Двухфазно, чтобы не бить UNIQUE. */
 const rebuildAllProductSlugs = async () => {
-  const rowsRes = await query(`SELECT id, name, attrs FROM products ORDER BY id`);
+  const rowsRes = await query(`SELECT id, name, attrs, slug FROM products ORDER BY id`);
   if (rowsRes.rows.length === 0) return 0;
+
+  for (const row of rowsRes.rows) {
+    await query(`UPDATE products SET slug = $2 WHERE id = $1`, [row.id, `tmp-${row.id}`]);
+  }
 
   const used = new Set();
   let updated = 0;
   for (const row of rowsRes.rows) {
-    const attrs =
-      row.attrs && typeof row.attrs === "object"
-        ? row.attrs
-        : typeof row.attrs === "string"
-          ? JSON.parse(row.attrs)
-          : {};
-    let base = buildProductSlug(row.name, attrs) || `product-${row.id}`;
-    let slug = base;
-    let suffix = 2;
-    while (used.has(slug)) {
-      slug = `${base}-${suffix}`;
-      suffix += 1;
-    }
-    used.add(slug);
+    const slug = nextUniqueSlug(
+      buildProductSlug(row.name, parseAttrs(row.attrs)),
+      used,
+      `product-${row.id}`,
+    );
+    await query(`DELETE FROM product_slug_redirects WHERE old_slug = $1`, [slug]);
     await query(`UPDATE products SET slug = $2 WHERE id = $1`, [row.id, slug]);
+    await recordSlugRedirect(row.slug, row.id, slug);
     updated += 1;
   }
   return updated;
+};
+
+const findRedirectProductId = async (oldSlug) => {
+  const raw = String(oldSlug || "").trim();
+  if (!raw) return null;
+  const res = await query(
+    `SELECT product_id AS id FROM product_slug_redirects WHERE old_slug = $1 LIMIT 1`,
+    [raw],
+  );
+  const id = Number(res.rows[0]?.id);
+  return Number.isInteger(id) && id > 0 ? id : null;
 };
 
 module.exports = {
   slugifyPart,
   buildProductSlug,
+  productNeedsGlassInSlug,
   allocateUniqueSlug,
   backfillMissingProductSlugs,
   rebuildAllProductSlugs,
+  findRedirectProductId,
 };

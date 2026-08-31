@@ -4,6 +4,7 @@ const {
   buildManufacturerSubcategoryCatalogHref,
   buildEntryFactoryCatalogLinks,
 } = require("../domain/subcategoryRelatedDoors");
+const { slugifyPart } = require("../domain/productSlug");
 const MANUFACTURER_ATTR_CODE = "manufacturer";
 
 const catalogPagePath = (slug) => {
@@ -27,9 +28,9 @@ const buildManufacturerCatalogHref = (manufacturer, catalogPageSlug = "all") => 
   const name = String(manufacturer || "").trim();
   const path = catalogPagePath(catalogPageSlug);
   if (!name) return path;
-  const params = new URLSearchParams();
-  params.set(`attr_${MANUFACTURER_ATTR_CODE}`, name);
-  return `${path}?${params.toString()}`;
+  const slug = slugifyPart(name) || "factory";
+  if (!slug) return path;
+  return `${path}/${encodeURIComponent(slug)}`;
 };
 
 const getManufacturerCollectionsPage = async (sectionId, manufacturerSlugValue) =>

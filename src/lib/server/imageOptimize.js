@@ -60,22 +60,22 @@ const shouldSkipExtension = (ext) => SKIP_EXTENSIONS.has(String(ext || "").toLow
 
 const optimizeRasterBuffer = async (buffer, { preset = "storefrontLabel" } = {}) => {
   const { maxEdge, quality } = resolvePresetConfig(preset);
-  const output = await sharp(buffer)
+  const jpeg = await sharp(buffer)
     .rotate()
-    .flatten({ background: { r: 255, g: 255, b: 255 } })
     .resize(maxEdge, maxEdge, {
       fit: "inside",
       withoutEnlargement: true,
     })
+    .flatten({ background: { r: 255, g: 255, b: 255 } })
     .jpeg({ quality, mozjpeg: true })
     .toBuffer({ resolveWithObject: true });
 
   return {
-    buffer: output.data,
+    buffer: jpeg.data,
     extension: ".jpg",
     contentType: "image/jpeg",
-    width: output.info.width,
-    height: output.info.height,
+    width: jpeg.info.width,
+    height: jpeg.info.height,
     maxEdge,
   };
 };

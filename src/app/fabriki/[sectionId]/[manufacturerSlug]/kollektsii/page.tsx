@@ -2,10 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createRequire } from "node:module";
-import {
-  CollectionLabelCard,
-  type CollectionLabelItem,
-} from "@/features/collections/collection-label-card";
+import { CollectionLabelCard, type CollectionLabelItem } from "@/features/collections/collection-label-card";
+import { StorefrontBreadcrumbs } from "@/features/store/storefront-breadcrumbs";
 import { factoryLabelCardGridClass, storefrontPageContainerClass } from "@/features/store/storefront-ui";
 import { absoluteUrl, defaultOpenGraph } from "@/lib/site-seo";
 import { cn } from "@/lib/utils";
@@ -67,19 +65,14 @@ export default async function ManufacturerCollectionsPage({ params }: Collection
 
   return (
     <main className={cn(storefrontPageContainerClass, "py-6")}>
-      <nav className="text-sm text-zinc-500" aria-label="Хлебные крошки">
-        <ol className="flex flex-wrap items-center gap-1.5">
-          <li>
-            <Link href="/fabriki" prefetch={false} className="transition hover:text-brand hover:underline">
-              Фабрики
-            </Link>
-          </li>
-          <li aria-hidden="true">/</li>
-          <li className="text-zinc-700">{page.section.title}</li>
-          <li aria-hidden="true">/</li>
-          <li className="font-medium text-zinc-900">{page.manufacturer}</li>
-        </ol>
-      </nav>
+      <StorefrontBreadcrumbs
+        items={[
+          { name: "Главная", href: "/" },
+          { name: "Фабрики", href: "/fabriki" },
+          { name: page.section.title },
+          { name: page.manufacturer },
+        ]}
+      />
 
       <h1 className="mt-4 text-2xl font-semibold text-zinc-900 sm:text-3xl">
         Коллекции {page.manufacturer}

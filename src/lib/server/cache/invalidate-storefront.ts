@@ -50,6 +50,7 @@ export async function invalidateStorefrontCache(scope: StorefrontCacheScope = "a
   if (scope === "all" || scope === "portfolio") {
     expireTag("portfolio");
     expireTag("home-hits");
+    revalidatePath("/portfolio");
   }
 
   if (scope === "all" || scope === "products" || scope === "promotions" || scope === "home-sections" || scope === "testimonials" || scope === "portfolio" || scope === "catalog-pages") {

@@ -62,10 +62,20 @@ test("validateAdminOrderPayload accepts valid admin order", () => {
   });
   assert.equal(result.ok, true);
   assert.equal(result.data.customerName, "Иванов Иван");
-  assert.equal(result.data.phone, "+79001234567");
+  assert.equal(result.data.phone, "+7 900 123-45-67");
   assert.equal(result.data.totalPrice, 24000);
   assert.equal(result.data.items.length, 1);
   assert.equal(result.data.items[0].manufacturerId, "5621");
+});
+
+test("validateAdminOrderPayload accepts freeform phone text", () => {
+  const result = validateAdminOrderPayload({
+    customerName: "Иванов Иван",
+    phone: "написать в Telegram @client",
+    items: [{ name: "Дверь", price: 1000, quantity: 1 }],
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.data.phone, "написать в Telegram @client");
 });
 
 test("validateAdminOrderPayload requires at least one item", () => {

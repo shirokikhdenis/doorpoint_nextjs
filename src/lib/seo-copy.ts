@@ -104,6 +104,8 @@ const formatSeoPrice = (price: number): string => {
   return `${Math.round(price).toLocaleString("ru-RU")} ₽`;
 };
 
+const PRODUCT_TITLE_BRAND_BUDGET = 50;
+
 export const buildProductSeoDescription = (input: {
   name: string;
   price?: number | null;
@@ -134,5 +136,8 @@ export const buildProductSeoTitle = (input: {
 }): string => {
   const override = String(input.seoTitleOverride ?? "").trim();
   if (override) return override;
-  return buildPageTitle(`${String(input.name || "").trim()} — купить в Архангельске`);
+  const name = String(input.name || "").trim();
+  const base = `${name} — купить в Архангельске`;
+  if (base.length > PRODUCT_TITLE_BRAND_BUDGET) return base;
+  return buildPageTitle(base);
 };

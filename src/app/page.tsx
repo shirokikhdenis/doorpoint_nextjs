@@ -7,6 +7,7 @@ import { HomeProductHits } from "@/features/home/home-product-hits";
 import { HomePromotions, type HomePromoCard } from "@/features/home/home-promotions";
 import { HomeTestimonials } from "@/features/home/home-testimonials";
 import { LocalBusinessJsonLd } from "@/features/store/local-business-json-ld";
+import { WebsiteJsonLd } from "@/features/store/website-json-ld";
 import { MeasureLeadForm } from "@/features/store/measure-lead-form";
 import { storefrontPageContainerClass } from "@/features/store/storefront-ui";
 import {
@@ -89,6 +90,7 @@ export default async function HomePage() {
   return (
     <>
       <LocalBusinessJsonLd />
+      <WebsiteJsonLd />
       <main className={cn(storefrontPageContainerClass, "space-y-12 py-6 lg:space-y-16 lg:py-8")}>
         <HomeHero />
         <HomePromotions banners={promotionBanners} cards={promoCards} />

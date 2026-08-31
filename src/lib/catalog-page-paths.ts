@@ -21,3 +21,18 @@ export const catalogPageFromPathname = (pathname: string): string => {
   const segment = decodeURIComponent(normalized.slice(prefix.length).split("/")[0] || "");
   return resolveCatalogPageSlug(segment || CATALOG_PAGE_SLUG.all);
 };
+
+/** Second `/catalog/{vitrine}/{factory}` segment, or empty. */
+export const manufacturerSlugFromPathname = (pathname: string): string => {
+  const normalized = String(pathname || "").replace(/\/+$/, "") || "/";
+  const prefix = "/catalog/";
+  if (!normalized.startsWith(prefix)) return "";
+  const rest = normalized.slice(prefix.length);
+  const parts = rest.split("/").filter(Boolean);
+  if (parts.length < 2) return "";
+  try {
+    return decodeURIComponent(parts[1] || "");
+  } catch {
+    return parts[1] || "";
+  }
+};
