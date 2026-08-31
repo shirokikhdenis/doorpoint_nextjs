@@ -498,6 +498,7 @@ const listProducts = async (filters) => {
       p.attrs->>'color' AS color,
       p.attrs->>'glass' AS glass,
       NULLIF(TRIM(p.attrs->>'manufacturer_id'), '') AS "manufacturerIdFromProduct",
+      NULLIF(TRIM(p.attrs->>'manufacturer'), '') AS manufacturer,
       (
         SELECT string_agg(DISTINCT TRIM(pv.attrs->>'manufacturer_id'), ', ' ORDER BY TRIM(pv.attrs->>'manufacturer_id'))
         FROM product_variants pv
@@ -549,6 +550,7 @@ const listProducts = async (filters) => {
       manufacturerId:
         String(row.manufacturerIdFromProduct || row.manufacturerIdFromVariants || "").trim() ||
         null,
+      manufacturer: row.manufacturer || null,
       glassOptions: (() => {
         let raw = row.glassOptions;
         if (raw && typeof raw === "string") {

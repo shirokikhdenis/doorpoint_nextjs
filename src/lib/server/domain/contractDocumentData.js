@@ -76,7 +76,7 @@ const buildContractData = (lead) => {
           item?.hardwareServices,
           item?.glass,
         ),
-        sku: String(item?.sku || "").trim() || "—",
+        sku: String(item?.manufacturerId || item?.sku || "").trim() || "—",
         color: String(item?.color || "").trim() || "—",
         quantity,
         priceFormatted,

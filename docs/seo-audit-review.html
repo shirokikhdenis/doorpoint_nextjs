@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Комментарии к SEO-аудиту doorpoint29.ru</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bitter:ital,wght@0,400;0,600;0,700&family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+  <style>
+    :root {
+      --ground: #f2f3f1;
+      --surface: #ffffff;
+      --surface-sunk: #e8eae8;
+      --ink: #1c2429;
+      --ink-soft: #4c585f;
+      --ink-faint: #7c878d;
+      --rule: #d2d6d4;
+      --accent: #2f5d7c;
+      --accent-soft: #dde6ec;
+      --accent-ink: #24485f;
+      --good: #3f6b52;
+      --good-soft: #dde8e1;
+      --warn: #8f6718;
+      --warn-soft: #f3e8d2;
+      --crit: #a8443a;
+      --crit-soft: #f4e0dd;
+      --shadow: 0 1px 2px rgba(28, 36, 41, .05), 0 8px 24px -12px rgba(28, 36, 41, .16);
+      --step--1: clamp(.78rem, .76rem + .12vw, .84rem);
+      --step-0: clamp(1rem, .97rem + .16vw, 1.08rem);
+      --step-1: clamp(1.2rem, 1.13rem + .34vw, 1.4rem);
+      --step-2: clamp(1.5rem, 1.36rem + .68vw, 1.95rem);
+      --step-3: clamp(2rem, 1.7rem + 1.5vw, 3rem);
+      --measure: 68ch;
+      --pad: clamp(1.1rem, 4vw, 2.6rem);
+      color-scheme: light;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--ground);
+      color: var(--ink);
+      font-family: "Golos Text", "Segoe UI", system-ui, sans-serif;
+      font-size: var(--step-0);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .wrap {
+      max-width: 78rem;
+      margin: 0 auto;
+      padding: var(--pad);
+      display: flex;
+      flex-direction: column;
+      gap: clamp(2rem, 5vw, 3.5rem);
+    }
+
+    .head {
+      padding-bottom: 2rem;
+      border-bottom: 2px solid var(--ink);
+      display: flex;
+      flex-direction: column;
+      gap: 1.2rem;
+    }
+
+    .eyebrow {
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: var(--step--1);
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--ink-faint);
+      display: flex;
+      flex-wrap: wrap;
+      gap: .4rem 1.4rem;
+    }
+
+    h1 {
+      font-family: Bitter, Georgia, serif;
+      font-weight: 700;
+      font-size: var(--step-3);
+      line-height: 1.08;
+      margin: 0;
+      text-wrap: balance;
+    }
+
+    .lede {
+      max-width: var(--measure);
+      font-size: var(--step-1);
+      line-height: 1.5;
+      color: var(--ink-soft);
+      margin: 0;
+    }
+
+    .meta {
+      font-size: var(--step--1);
+      color: var(--ink-faint);
+      font-family: "JetBrains Mono", monospace;
+    }
+
+    section { display: flex; flex-direction: column; gap: 1rem; }
+
+    h2 {
+      font-family: Bitter, Georgia, serif;
+      font-size: var(--step-2);
+      font-weight: 600;
+      line-height: 1.15;
+      margin: 0;
+      display: flex;
+      align-items: baseline;
+      gap: .8rem;
+    }
+
+    h2::before {
+      content: "";
+      flex: 0 0 auto;
+      width: .55rem;
+      height: .55rem;
+      background: var(--accent);
+      transform: translateY(-.15em);
+    }
+
+    h3 {
+      font-family: Bitter, Georgia, serif;
+      font-size: var(--step-1);
+      font-weight: 600;
+      margin: 1.2rem 0 .4rem;
+    }
+
+    p { margin: 0 0 .75rem; max-width: var(--measure); }
+    p:last-child { margin-bottom: 0; }
+
+    ul, ol {
+      margin: 0 0 .75rem;
+      padding-left: 1.4rem;
+      max-width: var(--measure);
+    }
+
+    li { margin-bottom: .35rem; }
+    li:last-child { margin-bottom: 0; }
+
+    strong { font-weight: 600; }
+
+    code {
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: .88em;
+      background: var(--surface-sunk);
+      border: 1px solid var(--rule);
+      padding: .05em .35em;
+      word-break: break-word;
+    }
+
+    .callout {
+      background: var(--warn-soft);
+      border-left: 3px solid var(--warn);
+      padding: 1rem 1.2rem;
+      max-width: var(--measure);
+    }
+
+    .callout.good {
+      background: var(--good-soft);
+      border-left-color: var(--good);
+    }
+
+    .callout.crit {
+      background: var(--crit-soft);
+      border-left-color: var(--crit);
+    }
+
+    .callout.info {
+      background: var(--accent-soft);
+      border-left-color: var(--accent);
+    }
+
+    .callout p { margin: 0; }
+
+    .table-scroll {
+      overflow-x: auto;
+      border: 1px solid var(--rule);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      font-size: var(--step--1);
+      min-width: 28rem;
+    }
+
+    th, td {
+      padding: .65rem .85rem;
+      text-align: left;
+      border-bottom: 1px solid var(--rule);
+      vertical-align: top;
+    }
+
+    th {
+      font-family: "JetBrains Mono", monospace;
+      font-size: .74rem;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+      color: var(--ink-faint);
+      font-weight: 500;
+      background: var(--surface-sunk);
+      white-space: nowrap;
+    }
+
+    tbody tr:last-child td { border-bottom: 0; }
+
+    .phase {
+      background: var(--surface);
+      border: 1px solid var(--rule);
+      box-shadow: var(--shadow);
+      padding: 1rem 1.2rem;
+    }
+
+    .phase h3 {
+      margin-top: 0;
+      color: var(--accent-ink);
+    }
+
+    .phase ol {
+      margin-bottom: 0;
+    }
+
+    footer {
+      border-top: 1px solid var(--rule);
+      padding-top: 1.2rem;
+      font-size: var(--step--1);
+      color: var(--ink-faint);
+      font-family: "JetBrains Mono", monospace;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+
+    <header class="head">
+      <div class="eyebrow">
+        <span>doorpoint29.ru</span>
+        <span>Дверная Точка</span>
+        <span>31 августа 2026</span>
+      </div>
+      <h1>Комментарии к SEO-аудиту<br>doorpoint29.ru</h1>
+      <p class="lede">
+        Разбор внешнего аудита с сверкой по коду проекта. Без внесения изменений в код —
+        только оценка точности выводов, приоритетов и расхождений с текущей реализацией.
+      </p>
+      <p class="meta">Источник: seo-doorpoint29 (1).html · проект: test_nextjs</p>
+    </header>
+
+    <section>
+      <h2>Общая оценка документа</h2>
+      <p>
+        Аудит написан грамотно: есть цифры, приоритеты, план работ и честные «границы проверки».
+        Для doorpoint29.ru это не абстрактный чеклист, а в целом попадание в реальные узкие места проекта.
+        Ниже — что в нём точно, что спорно или устарело, и на что смотреть в первую очередь.
+      </p>
+    </section>
+
+    <section>
+      <h2>Что в аудите сильное</h2>
+      <p><strong>Логика приоритетов верная.</strong> Сначала технические дыры (дубли title, краулинг каталога, SSR портфолио), потом структура спроса, потом доверие и контент. Для локального магазина дверей это правильный порядок.</p>
+      <p><strong>Пункты 01, 02, 03 — главные и подтверждаются кодом.</strong></p>
+      <ol>
+        <li><strong>Дубли title (01)</strong> — <code>buildProductSeoTitle</code> берёт только <code>product.name</code>, а на странице <code>h1</code> строится через <code>formatProductDisplayName</code> с цветом и стеклом. Метаданные и видимый заголовок расходятся — это реальная проблема для вариантов одной модели.</li>
+        <li><strong>Пагинация (02)</strong> — в каталоге кнопка «Показать ещё» без ссылок; робот видит ~20 товаров, остальное только через sitemap без внутренних ссылок. Диагноз верный.</li>
+        <li><strong>Портфолио (03)</strong> — страница полностью клиентская (<code>use client</code> + <code>fetch("/api/portfolio")</code>), в HTML при первом ответе по сути «Загрузка…». Для Яндекса это слабое место.</li>
+      </ol>
+      <p><strong>Пункт 06 по сути верный</strong>, но формулировка грубовата: страницы <code>/fabriki/.../kollektsii</code> сами по себе индексируемые, с title и canonical. Проблема в другом:</p>
+      <ul>
+        <li>ссылки «Все модели Браво» ведут на фильтр каталога (<code>?attr_manufacturer=…</code>), а такие URL закрыты <code>noindex</code>;</li>
+        <li>в sitemap есть только <code>/fabriki</code>, без страниц фабрик и коллекций.</li>
+      </ul>
+      <p><strong>Пункты 07–09</strong> — здравый коммерческий SEO: мало посадочных между «входные двери» и карточкой, слабая гео-разбивка, пустые категории. Образец <code>termo-dveri</code> в проекте как раз есть.</p>
+      <p><strong>Пункт 11 (YML)</strong> — верно: фида нет, для Директа и товарной выдачи это отдельный канал.</p>
+      <p><strong>Раздел «Что сделано правильно»</strong> в целом честный: HTTPS, метаданные, <code>noindex</code> на фильтрах, sitemap, страница услуг — это действительно фундамент.</p>
+    </section>
+
+    <section>
+      <h2>Где аудит неточен или устарел</h2>
+
+      <h3>Пункт 10 — «нет карты, нет отзывов, нет Organization»</h3>
+      <p>Здесь заметные расхождения с текущим кодом:</p>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr><th>Утверждение аудита</th><th>Факт в проекте</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>«Карта проезда в контактах — нет»</td>
+              <td>На <code>/contact</code> есть iframe Яндекс.Карт (<code>oid=51203620234</code>)</td>
+            </tr>
+            <tr>
+              <td>«Разметки рейтинга нет»</td>
+              <td>Частично верно: <code>Review</code> в schema.org нет, но блок «Отзывы клиентов» на главной есть (<code>HomeTestimonials</code>), данные из админки</td>
+            </tr>
+            <tr>
+              <td>«Organization нет»</td>
+              <td>Есть <code>LocalBusinessJsonLd</code> (<code>HomeAndConstructionBusiness</code>) на главной и в контактах</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p><strong>Вывод:</strong> проблема доверия есть, но не в нуле. Скорее:</p>
+      <ul>
+        <li>отзывы не вынесены на отдельную страницу и без <code>Review</code> schema;</li>
+        <li>нет страницы «О компании» и сертификатов дилера;</li>
+        <li>аудит мог смотреть прод без заполненных отзывов в БД.</li>
+      </ul>
+      <div class="callout warn">
+        <p>Пункт 10 стоит переформулировать: не «6 из 6 отсутствуют», а «есть база, но не хватает E-E-A-T для покупки за 40+ тыс. ₽».</p>
+      </div>
+
+      <h3>Пункт 12 — микроразметка</h3>
+      <p>Верно про неполный <code>Product</code> (нет <code>brand</code>, <code>url</code>, абсолютного <code>image</code>) и отсутствие <code>BreadcrumbList</code> на витрине.</p>
+      <p>Но «нет Organization / WebSite» — не совсем так: <code>LocalBusiness</code> / <code>HomeAndConstructionBusiness</code> уже есть. Не хватает именно <code>WebSite</code> с <code>SearchAction</code> и хлебных крошек.</p>
+
+      <h3>Пункт 06 — «фабрики в noindex»</h3>
+      <p>Точнее так: <strong>коллекции индексируются, фильтры по производителю — нет</strong>, а основной CTA с раздела фабрик ведёт как раз на noindex-фильтр. Рекомендация аудита (отдельные посадочные <code>/catalog/.../bravo</code>) по сути верная, но диагноз стоит уточнить.</p>
+    </section>
+
+    <section>
+      <h2>Важный конфликт, который аудит не замечает</h2>
+      <p>В рекомендации по пагинации (п. 02) предлагаются URL вида <code>/catalog/vhodnye-dveri?page=2</code> с canonical на себя.</p>
+      <div class="callout crit">
+        <p>В коде уже есть <code>catalogHasSeoNoise</code>: <strong>любой <code>page &gt; 1</code> получает <code>noindex, follow</code></strong>. То есть пагинацию можно сделать для робота, но тогда нужно менять и SEO-логику: либо индексировать страницы 2+, либо оставить noindex и усиливать перелинковку другим способом (карта сайта, фабрики, коллекции, хлебные крошки).</p>
+      </div>
+      <p>Без этого правка пагинации даст ссылки для краулера, но не даст индексации страниц пагинации — частичный эффект.</p>
+    </section>
+
+    <section>
+      <h2>Оценка приоритетов (если делать по этапам)</h2>
+
+      <div class="phase">
+        <h3>Этап 1 — максимальный эффект / минимум риска</h3>
+        <ol>
+          <li>Атрибуты варианта в title и description (п. 01)</li>
+          <li>Краулируемая пагинация или альтернативная перелинковка (п. 02)</li>
+          <li>SSR портфолио + отдельные URL работ (п. 03)</li>
+          <li>Чистка «Да»/«Нет»/звёздочек в названиях (п. 05)</li>
+          <li>Дополнить <code>Product</code> + хлебные крошки (п. 12)</li>
+        </ol>
+      </div>
+
+      <div class="phase">
+        <h3>Этап 2 — рост охвата</h3>
+        <ol>
+          <li>Посадочные под фабрики (не фильтры) + фабрики в sitemap (п. 06)</li>
+          <li>15–30 посадочных по частотности (п. 07) — <strong>сначала нужна семантика</strong>, как честно написано в конце аудита</li>
+          <li>Тексты на 4 категории (п. 09)</li>
+          <li>YML-фид (п. 11)</li>
+        </ol>
+      </div>
+
+      <div class="phase">
+        <h3>Этап 3 — доверие и локалка</h3>
+        <ol>
+          <li>Страница «О компании», сертификаты, отдельная страница отзывов с <code>Review</code> schema</li>
+          <li>Северодвинск / Новодвинск — только с уникальным контентом (п. 08)</li>
+          <li><code>next/image</code>, мелочи из таблицы (п. 13–14)</li>
+        </ol>
+      </div>
+    </section>
+
+    <section>
+      <h2>На что обратить внимание в цифрах</h2>
+      <ul>
+        <li><strong>34% неуникальных title</strong> — правдоподобно при текущем шаблоне; после фикса п. 01 цифра должна заметно упасть.</li>
+        <li><strong>150 мс / FCP 444 мс</strong> — хорошо для TTFB, но это не полный CrUX; п. 13 (2,9 МБ картинок на категории) на мобильном 3G может дать другую картину.</li>
+        <li><strong>Прогноз «20–28 обращений»</strong> в аудите нет — это было в плане Директа; SEO-аудит про органику, не смешивать KPI.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Чего не хватает в аудите</h2>
+      <ol>
+        <li><strong>Доступ к Вебмастеру / Search Console</strong> — без этого п. 01–02 остаются гипотезами по crawl, а не по индексу.</li>
+        <li><strong>Погонаж</strong> — в проекте отдельно закрыт от индекса; в 3135 URL это может влиять на общую картину дублей.</li>
+        <li><strong>Клиентский рендер карточки товара</strong> — <code>ProductPageClient</code> тоже <code>use client</code>; если <code>h1</code> с цветом рисуется только в браузере, для робота проблема шире, чем только title.</li>
+        <li><strong>Связка SEO ↔ Директ</strong> — YML и посадочные из п. 06–07 напрямую влияют на стоимость заявки в Директе.</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>Итог</h2>
+      <div class="callout good">
+        <p>Аудит <strong>в целом качественный и применимый</strong>: три критических пункта (дубли title, краулинг каталога, SSR портфолио) — реальные ограничения роста, их стоит делать первыми.</p>
+      </div>
+      <p><strong>Пункт 10 и частично 12</strong> стоит скорректировать по факту: карта и базовая разметка организации уже есть, отзывы — в зачатке; главный пробел — доверие (отдельная страница, schema, сертификаты, «О компании»), а не «пустой сайт».</p>
+    </section>
+
+    <section>
+      <h2>Ссылки на код (для сверки)</h2>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr><th>Тема</th><th>Файл</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Title карточки</td><td><code>src/lib/seo-copy.ts</code> → <code>buildProductSeoTitle</code></td></tr>
+            <tr><td>h1 карточки</td><td><code>src/features/product/product-page-client.tsx</code> → <code>formatProductDisplayName</code></td></tr>
+            <tr><td>Пагинация каталога</td><td><code>src/features/catalog/catalog-product-grid.tsx</code></td></tr>
+            <tr><td>noindex на page&gt;1</td><td><code>src/lib/server/catalog-metadata.ts</code> → <code>catalogHasSeoNoise</code></td></tr>
+            <tr><td>Портфолио (CSR)</td><td><code>src/app/portfolio/page.tsx</code></td></tr>
+            <tr><td>Фабрики / коллекции</td><td><code>src/app/fabriki/.../kollektsii/page.tsx</code></td></tr>
+            <tr><td>Sitemap</td><td><code>src/app/sitemap.ts</code></td></tr>
+            <tr><td>Product JSON-LD</td><td><code>src/features/product/product-json-ld.tsx</code></td></tr>
+            <tr><td>LocalBusiness</td><td><code>src/features/store/local-business-json-ld.tsx</code></td></tr>
+            <tr><td>Карта в контактах</td><td><code>src/app/contact/page.tsx</code></td></tr>
+            <tr><td>Отзывы на главной</td><td><code>src/features/home/home-testimonials.tsx</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer>
+      <span>doorpoint29.ru · комментарии к SEO-аудиту</span>
+      <span>31.08.2026</span>
+      <span>сверка с кодом test_nextjs</span>
+    </footer>
+
+  </div>
+</body>
+</html>

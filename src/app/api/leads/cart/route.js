@@ -40,6 +40,7 @@ export const POST = async (request) =>
         id: item.productId || item.id,
         name: item.name,
         sku: item.sku,
+        manufacturerId: item.manufacturerId,
         color: item.color,
         price: item.price,
         quantity: item.quantity,

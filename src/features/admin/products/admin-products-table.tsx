@@ -324,6 +324,8 @@ export function AdminProductsTable({
                 name: row.name,
                 color: row.attributes?.color,
                 glass: row.attributes?.glass,
+                manufacturer: row.attributes?.manufacturer,
+                category: row.category,
               });
               return (
                 <tr

@@ -31,7 +31,7 @@ test("buildContractData maps lead fields and item lines", () => {
     contractDate: "2026-06-15",
     totalPrice: 24000,
     items: [
-      { name: "Дверь", sku: "D1", color: "Белый", price: 12000, quantity: 2 },
+      { name: "Дверь", sku: "D1", manufacturerId: "5621", color: "Белый", price: 12000, quantity: 2 },
     ],
   });
 
@@ -39,6 +39,7 @@ test("buildContractData maps lead fields and item lines", () => {
   assert.equal(data.contractNumber, "Д-007");
   assert.equal(data.items.length, 1);
   assert.equal(data.items[0].index, 1);
+  assert.equal(data.items[0].sku, "5621");
   assert.equal(data.items[0].kolvo, 2);
   assert.equal(data.items[0].cena, data.items[0].priceFormatted);
   assert.equal(data.items[0].summa, data.items[0].lineTotalFormatted);

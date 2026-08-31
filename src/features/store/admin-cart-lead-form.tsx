@@ -73,6 +73,9 @@ export function AdminCartLeadForm({
             id: item.id,
             name: item.name,
             sku: item.sku,
+            manufacturerId: resolveCartManufacturerArticle(item, manufacturerArticles),
+            manufacturerName: item.manufacturerName,
+            categorySlug: item.categorySlug,
             color: item.color,
             glass: item.glass,
             finishName: item.finishName,
@@ -144,6 +147,8 @@ export function AdminCartLeadForm({
                           item.glassOptionName,
                           item.hardwareServices,
                           item.glass,
+                          item.manufacturerName,
+                          item.categorySlug,
                         )}
                       </p>
                       <p className="mt-0.5 font-mono text-xs text-zinc-500">
@@ -225,6 +230,8 @@ export function AdminCartLeadForm({
                               item.glassOptionName,
                               item.hardwareServices,
                               item.glass,
+                              item.manufacturerName,
+                              item.categorySlug,
                             )}
                           </p>
                         </td>

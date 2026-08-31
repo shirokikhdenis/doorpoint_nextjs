@@ -1,3 +1,6 @@
+const INTERIOR_DOORS_CATEGORY_SLUG = "interior-doors";
+const BRAVO_MANUFACTURER = "браво";
+
 const appendToken = (result, token) => {
   const value = String(token || "").trim();
   if (!value) return result;
@@ -11,15 +14,43 @@ const appendToken = (result, token) => {
   return result ? `${result} ${value}` : value;
 };
 
-/** Наименование товара с цветом и стеклом через пробел: «Браво-50 Look Art Magic Fog». */
-const formatProductDisplayName = ({ name, color, glass } = {}) => {
+const normalizeManufacturerKey = (value) => String(value || "").trim().toLowerCase();
+
+const isInteriorDoorsScope = ({ categorySlug, category } = {}) => {
+  const slug = String(categorySlug || "").trim().toLowerCase();
+  if (slug === INTERIOR_DOORS_CATEGORY_SLUG) return true;
+  const label = String(category || "").trim().toLowerCase();
+  return label.includes("межкомнат");
+};
+
+/** Межкомнатная дверь фабрики Браво — в название добавляются цвет и стекло. */
+const isBravoInteriorDoor = ({ manufacturer, categorySlug, category } = {}) =>
+  normalizeManufacturerKey(manufacturer) === BRAVO_MANUFACTURER &&
+  isInteriorDoorsScope({ categorySlug, category });
+
+/**
+ * Наименование для каталога, корзины и документов.
+ * Цвет добавляется всегда; стекло — только у межкомнатных дверей Браво.
+ */
+const formatProductDisplayName = ({
+  name,
+  color,
+  glass,
+  manufacturer,
+  categorySlug,
+  category,
+} = {}) => {
   let result = String(name || "").trim() || "—";
   result = appendToken(result, color);
-  result = appendToken(result, glass);
+  if (isBravoInteriorDoor({ manufacturer, categorySlug, category })) {
+    result = appendToken(result, glass);
+  }
   return result;
 };
 
 module.exports = {
+  INTERIOR_DOORS_CATEGORY_SLUG,
   appendToken,
+  isBravoInteriorDoor,
   formatProductDisplayName,
 };

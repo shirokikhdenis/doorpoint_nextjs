@@ -39,6 +39,8 @@ export function CatalogProductCard({
     name: item.name,
     color: item.color,
     glass: item.glass,
+    manufacturer: item.manufacturer,
+    categorySlug: item.categorySlug,
   });
   const imageHeightClass = catalogCardImageHeightClass(imageHeight);
 
@@ -100,6 +102,8 @@ export function buildCatalogCartItem(item: ProductCard) {
     quantity: 1,
     ...(item.sku?.trim() ? { sku: item.sku.trim() } : {}),
     ...(item.manufacturerId?.trim() ? { manufacturerId: item.manufacturerId.trim() } : {}),
+    ...(item.manufacturer?.trim() ? { manufacturerName: item.manufacturer.trim() } : {}),
+    ...(item.categorySlug?.trim() ? { categorySlug: item.categorySlug.trim() } : {}),
     ...(item.color?.trim() ? { color: item.color.trim() } : {}),
     ...(item.glass?.trim() ? { glass: item.glass.trim() } : {}),
     ...(isPogonazhCategoryLabel(item.category, item.categorySlug)

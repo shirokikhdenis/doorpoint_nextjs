@@ -6,10 +6,35 @@ test("formatCartItemName appends color to product name", () => {
   assert.equal(formatCartItemName("Прима-2 (190х55)", "Cream Silk"), "Прима-2 (190х55) Cream Silk");
 });
 
-test("formatCartItemName appends color and glass", () => {
+test("formatCartItemName appends color and glass for Bravo interior doors", () => {
   assert.equal(
-    formatCartItemName("Браво-50", "Look Art", "", "", undefined, "Magic Fog"),
+    formatCartItemName(
+      "Браво-50",
+      "Look Art",
+      "",
+      "",
+      undefined,
+      "Magic Fog",
+      "Браво",
+      "interior-doors",
+    ),
     "Браво-50 Look Art Magic Fog",
+  );
+});
+
+test("formatCartItemName skips glass for non-Bravo interior doors", () => {
+  assert.equal(
+    formatCartItemName(
+      "VG2 WW",
+      "Bianco",
+      "",
+      "",
+      undefined,
+      "Magic Fog",
+      "Volhovec",
+      "interior-doors",
+    ),
+    "VG2 WW Bianco",
   );
 });
 

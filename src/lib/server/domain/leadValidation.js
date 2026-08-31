@@ -45,6 +45,8 @@ const normalizeLeadItem = (item, index) => {
     String(item?.glassOptionName || "").trim(),
     item?.hardwareServices,
     String(item?.glass || "").trim(),
+    String(item?.manufacturerName || "").trim(),
+    String(item?.categorySlug || "").trim(),
   );
   if (!name) return { error: `Позиция ${index + 1}: укажите наименование` };
   if (!Number.isFinite(price) || price < 0) {
@@ -58,6 +60,9 @@ const normalizeLeadItem = (item, index) => {
       productId: Number.isInteger(productId) && productId > 0 ? productId : null,
       name,
       sku: String(item?.sku || "").trim(),
+      manufacturerId: String(item?.manufacturerId || "").trim().slice(0, 120),
+      manufacturerName: String(item?.manufacturerName || "").trim().slice(0, 120),
+      categorySlug: String(item?.categorySlug || "").trim().slice(0, 120),
       color: String(item?.color || "").trim(),
       price: Math.floor(price),
       quantity,

@@ -26,7 +26,7 @@ import { ProductPricingBlock } from "@/features/product/product-pricing-block";
 import { ProductManufacturerLogo } from "@/features/product/product-manufacturer-logo";
 import { ProductPageSkeleton } from "@/features/product/product-page-skeleton";
 import { useProductPage } from "@/features/product/use-product-page";
-import { formatProductDisplayName } from "@/lib/client/product-display-name";
+import { formatProductDisplayName, isBravoInteriorDoor } from "@/lib/client/product-display-name";
 import { ImageLightbox } from "@/features/store/image-lightbox";
 import { MeasureLeadForm } from "@/features/store/measure-lead-form";
 import { TrackedPhoneLink } from "@/features/store/tracked-phone-link";
@@ -75,11 +75,18 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
   const cartName = cartVariantSuffix
     ? `${product.name} (${cartVariantSuffix})`
     : product.name;
-  const pageTitle = formatProductDisplayName({
-    name: product.name,
-    color: page.cartColorLabel,
-    glass: page.cartGlassLabel,
-  });
+  const pageTitle = isBravoInteriorDoor({
+    manufacturer: product.manufacturerName,
+    categorySlug: product.categorySlug,
+  })
+    ? formatProductDisplayName({
+        name: product.name,
+        color: page.cartColorLabel,
+        glass: page.cartGlassLabel,
+        manufacturer: product.manufacturerName,
+        categorySlug: product.categorySlug,
+      })
+    : product.name;
   const cartSku = page.selectedVariant?.sku?.trim() || product.sku?.trim() || undefined;
   const cartManufacturerId =
     page.selectedVariant?.manufacturerId?.trim() || product.manufacturerId?.trim() || undefined;
@@ -227,6 +234,8 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
                 price={price}
                 sku={cartSku}
                 manufacturerId={cartManufacturerId}
+                manufacturerName={product.manufacturerName}
+                categorySlug={product.categorySlug}
                 finishId={page.selectedFinish?.id}
                 finishName={page.selectedFinish?.name}
                 glassOptionId={page.selectedGlassOption?.id}

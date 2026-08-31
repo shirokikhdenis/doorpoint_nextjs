@@ -38,6 +38,7 @@ const validateCartItems = (rawItems) => {
         id: Number(item?.id),
         name: String(item?.name || "").trim().slice(0, 500),
         sku: String(item?.sku || "").trim().slice(0, 120),
+        manufacturerId: String(item?.manufacturerId || "").trim().slice(0, 120),
         color: String(item?.color || "").trim().slice(0, 120),
         glass: String(item?.glass || "").trim().slice(0, 120),
         finishName: String(item?.finishName || "").trim().slice(0, 120),
@@ -123,7 +124,8 @@ const formatCartLeadText = ({ name, phone, comment, items, sourcePage }) => {
   items.forEach((item, index) => {
     const parts = [`${index + 1}. ${item.name}`];
     if (item.color) parts.push(`цвет: ${item.color}`);
-    if (item.sku) parts.push(`арт. ${item.sku}`);
+    if (item.manufacturerId) parts.push(`арт. ${item.manufacturerId}`);
+    else if (item.sku) parts.push(`арт. ${item.sku}`);
     const lineTotal = item.price * item.quantity;
     parts.push(
       `${item.quantity} шт. × ${formatMoney(item.price)} ₽ = ${formatMoney(lineTotal)} ₽`,

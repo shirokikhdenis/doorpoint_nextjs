@@ -51,12 +51,17 @@ const findProductAttribute = (product, code) => {
 const buildKpDisplayName = (product) => {
   const colorAttr = findProductAttribute(product, "color");
   const glassAttr = findProductAttribute(product, "glass");
+  const manufacturerAttr = findProductAttribute(product, "manufacturer");
   const color = String(colorAttr?.value || product?.color || "").trim();
   const glass = String(glassAttr?.value || product?.glass || "").trim();
+  const manufacturer = String(manufacturerAttr?.value || product?.manufacturerName || "").trim();
   return formatProductDisplayName({
     name: product?.name,
     color,
     glass,
+    manufacturer,
+    categorySlug: product?.categorySlug,
+    category: product?.category,
   });
 };
 

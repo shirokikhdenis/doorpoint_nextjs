@@ -2,14 +2,15 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { formatDveriProductDisplayTitle } = require("../src/lib/dveri-product-display.js");
 
-test("formatDveriProductDisplayTitle appends color and glass", () => {
+test("formatDveriProductDisplayTitle appends color and glass for Bravo", () => {
   assert.equal(
     formatDveriProductDisplayTitle({
       title: "Браво-50",
       color: "Look Art",
-      glass: "",
+      glass: "Magic Fog",
+      manufacturer: "Браво",
     }),
-    "Браво-50 Look Art",
+    "Браво-50 Look Art Magic Fog",
   );
 
   assert.equal(
@@ -17,8 +18,9 @@ test("formatDveriProductDisplayTitle appends color and glass", () => {
       title: "VG2 WW",
       color: "Bianco",
       glass: "Magic Fog",
+      manufacturer: "Volhovec",
     }),
-    "VG2 WW Bianco Magic Fog",
+    "VG2 WW Bianco",
   );
 
   assert.equal(
@@ -26,6 +28,7 @@ test("formatDveriProductDisplayTitle appends color and glass", () => {
       title: "Браво-50",
       color: "",
       glass: "",
+      manufacturer: "Браво",
     }),
     "Браво-50",
   );

@@ -34,6 +34,10 @@ const sanitizeItem = (item: Partial<CartItem>): CartItem => {
   if (sku) base.sku = sku;
   const manufacturerId = String(item.manufacturerId ?? "").trim();
   if (manufacturerId) base.manufacturerId = manufacturerId;
+  const manufacturerName = String(item.manufacturerName ?? "").trim();
+  if (manufacturerName) base.manufacturerName = manufacturerName;
+  const categorySlug = String(item.categorySlug ?? "").trim();
+  if (categorySlug) base.categorySlug = categorySlug;
   const finishId = Number(item.finishId);
   if (Number.isInteger(finishId) && finishId > 0) base.finishId = finishId;
   const finishName = String(item.finishName ?? "").trim();

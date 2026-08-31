@@ -62,11 +62,57 @@ const mapLeadItemRow = (row) => ({
   productId: row.productId != null ? Number(row.productId) : null,
   name: String(row.name || ""),
   sku: String(row.sku || ""),
+  manufacturerId: String(row.manufacturerId || "").trim(),
   color: String(row.color || ""),
   price: Number(row.price) || 0,
   quantity: Number(row.quantity) || 0,
   sortOrder: Number(row.sortOrder) || 0,
 });
+
+const leadItemSelectSql = `
+  SELECT
+    li.id,
+    li.lead_id AS "leadId",
+    li.product_id AS "productId",
+    li.name,
+    li.sku,
+    COALESCE(
+      NULLIF(TRIM(li.manufacturer_id), ''),
+      (
+        SELECT NULLIF(TRIM(pv.attrs->>'manufacturer_id'), '')
+        FROM product_variants pv
+        WHERE pv.product_id = li.product_id
+          AND TRIM(COALESCE(li.sku, '')) <> ''
+          AND TRIM(pv.sku) = TRIM(li.sku)
+          AND TRIM(COALESCE(pv.attrs->>'manufacturer_id', '')) <> ''
+        LIMIT 1
+      ),
+      (
+        SELECT NULLIF(TRIM(pv.attrs->>'manufacturer_id'), '')
+        FROM product_variants pv
+        WHERE pv.product_id = li.product_id
+          AND TRIM(COALESCE(pv.attrs->>'manufacturer_id', '')) <> ''
+        LIMIT 1
+      ),
+      NULLIF(TRIM(p.attrs->>'manufacturer_id'), '')
+    ) AS "manufacturerId",
+    li.color,
+    li.price,
+    li.quantity,
+    li.sort_order AS "sortOrder"
+  FROM lead_items li
+  LEFT JOIN products p ON p.id = li.product_id
+`;
+
+const selectLeadItemsByLeadId = async (leadId, client) => {
+  const sql = `
+    ${leadItemSelectSql}
+    WHERE li.lead_id = $1
+    ORDER BY li.sort_order ASC, li.id ASC
+  `;
+  const itemsRes = client ? await client.query(sql, [leadId]) : await query(sql, [leadId]);
+  return itemsRes.rows.map(mapLeadItemRow);
+};
 
 const createLeadWithItems = async (lead, items) => {
   await ensureLeadTables();
@@ -118,18 +164,20 @@ const createLeadWithItems = async (lead, items) => {
           product_id,
           name,
           sku,
+          manufacturer_id,
           color,
           price,
           quantity,
           sort_order
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         RETURNING
           id,
           lead_id AS "leadId",
           product_id AS "productId",
           name,
           sku,
+          manufacturer_id AS "manufacturerId",
           color,
           price,
           quantity,
@@ -140,6 +188,7 @@ const createLeadWithItems = async (lead, items) => {
           item.productId,
           item.name,
           item.sku,
+          item.manufacturerId || "",
           item.color,
           item.price,
           item.quantity,
@@ -212,28 +261,11 @@ const getLeadById = async (id) => {
   );
   if (leadRes.rows.length === 0) return null;
 
-  const itemsRes = await query(
-    `
-    SELECT
-      id,
-      lead_id AS "leadId",
-      product_id AS "productId",
-      name,
-      sku,
-      color,
-      price,
-      quantity,
-      sort_order AS "sortOrder"
-    FROM lead_items
-    WHERE lead_id = $1
-    ORDER BY sort_order ASC, id ASC
-    `,
-    [numericId],
-  );
+  const items = await selectLeadItemsByLeadId(numericId);
 
   return enrichLead({
     ...mapLeadRow(leadRes.rows[0]),
-    items: itemsRes.rows.map(mapLeadItemRow),
+    items,
   });
 };
 
@@ -267,25 +299,7 @@ const updateLead = async (id, patch) => {
       }
     }
 
-    const itemsRes = await client.query(
-      `
-      SELECT
-        id,
-        lead_id AS "leadId",
-        product_id AS "productId",
-        name,
-        sku,
-        color,
-        price,
-        quantity,
-        sort_order AS "sortOrder"
-      FROM lead_items
-      WHERE lead_id = $1
-      ORDER BY sort_order ASC, id ASC
-      `,
-      [numericId],
-    );
-    const items = itemsRes.rows.map(mapLeadItemRow);
+    const items = await selectLeadItemsByLeadId(numericId, client);
 
     const discountKind =
       patch.discountKind !== undefined ? patch.discountKind : current.discountKind;

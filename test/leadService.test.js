@@ -49,7 +49,15 @@ test("validateAdminOrderPayload accepts valid admin order", () => {
     contractNumber: "Д-001",
     contractDate: "2026-06-15",
     items: [
-      { id: 10, name: "Дверь", sku: "D-1", color: "Белый", price: 12000, quantity: 2 },
+      {
+        id: 10,
+        name: "Дверь",
+        sku: "D-1",
+        manufacturerId: "5621",
+        color: "Белый",
+        price: 12000,
+        quantity: 2,
+      },
     ],
   });
   assert.equal(result.ok, true);
@@ -57,6 +65,7 @@ test("validateAdminOrderPayload accepts valid admin order", () => {
   assert.equal(result.data.phone, "+79001234567");
   assert.equal(result.data.totalPrice, 24000);
   assert.equal(result.data.items.length, 1);
+  assert.equal(result.data.items[0].manufacturerId, "5621");
 });
 
 test("validateAdminOrderPayload requires at least one item", () => {
@@ -106,7 +115,17 @@ test("validateCartLeadPayload accepts valid cart lead", () => {
       name: "Иван",
       phone: "+7 900 123-45-67",
       comment: "Нужна доставка",
-      items: [{ id: 1, name: "Дверь", sku: "D-1", color: "Белый", price: 10000, quantity: 1 }],
+      items: [
+        {
+          id: 1,
+          name: "Дверь",
+          sku: "D-1",
+          manufacturerId: "9012",
+          color: "Белый",
+          price: 10000,
+          quantity: 1,
+        },
+      ],
     },
     { sourcePage: "https://example.com/cart" },
   );
@@ -117,6 +136,7 @@ test("validateCartLeadPayload accepts valid cart lead", () => {
   assert.equal(result.data.sourcePage, "https://example.com/cart");
   assert.equal(result.data.totalPrice, 10000);
   assert.equal(result.data.items.length, 1);
+  assert.equal(result.data.items[0].manufacturerId, "9012");
 });
 
 test("validateCartLeadPayload rejects honeypot", () => {

@@ -18,25 +18,46 @@ test("formatKpPrice uses ruble formatting", () => {
   assert.match(formatKpPrice(4920), /₽/);
 });
 
-test("buildKpDisplayName appends color and glass when missing from name", () => {
+test("buildKpDisplayName appends color and glass for Bravo interior doors", () => {
   const withColor = buildKpDisplayName({
     name: "Браво-0",
-    attributes: [{ code: "color", value: "Stormy Silk" }],
+    categorySlug: "interior-doors",
+    attributes: [
+      { code: "manufacturer", value: "Браво" },
+      { code: "color", value: "Stormy Silk" },
+    ],
   });
   assert.equal(withColor, "Браво-0 Stormy Silk");
 
   const withGlass = buildKpDisplayName({
     name: "Браво-50",
+    categorySlug: "interior-doors",
     attributes: [
+      { code: "manufacturer", value: "Браво" },
       { code: "color", value: "Look Art" },
       { code: "glass", value: "Magic Fog" },
     ],
   });
   assert.equal(withGlass, "Браво-50 Look Art Magic Fog");
 
+  const nonBravo = buildKpDisplayName({
+    name: "VG2 WW",
+    categorySlug: "interior-doors",
+    attributes: [
+      { code: "manufacturer", value: "Volhovec" },
+      { code: "color", value: "Bianco" },
+      { code: "glass", value: "Magic Fog" },
+    ],
+  });
+  assert.equal(nonBravo, "VG2 WW Bianco");
+
   const alreadyIncluded = buildKpDisplayName({
     name: "Браво-0 Stormy Silk",
-    attributes: [{ code: "color", value: "Stormy Silk" }],
+    categorySlug: "interior-doors",
+    attributes: [
+      { code: "manufacturer", value: "Браво" },
+      { code: "color", value: "Stormy Silk" },
+    ],
   });
   assert.equal(alreadyIncluded, "Браво-0 Stormy Silk");
 });

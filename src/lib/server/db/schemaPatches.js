@@ -9,6 +9,7 @@ let portfolioTablesEnsured = false;
 let promotionTablesEnsured = false;
 let leadTablesEnsured = false;
 let leadMeasureNoteEnsured = false;
+let leadItemManufacturerIdEnsured = false;
 let servicesTablesEnsured = false;
 let seoColumnsEnsured = false;
 let catalogPageFilterDefaultsEnsured = false;
@@ -258,9 +259,19 @@ const ensureLeadMeasureNoteColumn = async () => {
   leadMeasureNoteEnsured = true;
 };
 
+const ensureLeadItemManufacturerIdColumn = async () => {
+  if (leadItemManufacturerIdEnsured) return;
+  await query(`
+    ALTER TABLE lead_items
+    ADD COLUMN IF NOT EXISTS manufacturer_id TEXT NOT NULL DEFAULT ''
+  `);
+  leadItemManufacturerIdEnsured = true;
+};
+
 const ensureLeadTables = async () => {
   if (leadTablesEnsured) {
     await ensureLeadMeasureNoteColumn();
+    await ensureLeadItemManufacturerIdColumn();
     return;
   }
   await query(`
@@ -286,6 +297,7 @@ const ensureLeadTables = async () => {
       product_id INTEGER,
       name TEXT NOT NULL DEFAULT '',
       sku TEXT NOT NULL DEFAULT '',
+      manufacturer_id TEXT NOT NULL DEFAULT '',
       color TEXT NOT NULL DEFAULT '',
       price INTEGER NOT NULL DEFAULT 0,
       quantity INTEGER NOT NULL DEFAULT 1,
@@ -348,6 +360,7 @@ const ensureLeadTables = async () => {
     ADD COLUMN IF NOT EXISTS arrival_date DATE
   `);
   await ensureLeadMeasureNoteColumn();
+  await ensureLeadItemManufacturerIdColumn();
   leadTablesEnsured = true;
 };
 

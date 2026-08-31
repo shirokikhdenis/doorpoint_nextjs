@@ -344,6 +344,8 @@ function CartItemName({ item }: { item: CartItem }) {
     item.glassOptionName,
     item.hardwareServices,
     item.glass,
+    item.manufacturerName,
+    item.categorySlug,
   );
   const className = "break-words font-medium leading-snug text-zinc-900";
   if (cartItemHasProductLink(item)) {

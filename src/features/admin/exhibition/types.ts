@@ -120,4 +120,5 @@ export type ProductSearchRow = {
   primaryImageUrl?: string;
   color?: string | null;
   glass?: string | null;
+  manufacturer?: string | null;
 };

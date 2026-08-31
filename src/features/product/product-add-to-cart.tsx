@@ -16,6 +16,8 @@ type ProductAddToCartProps = {
   price: number;
   sku?: string;
   manufacturerId?: string;
+  manufacturerName?: string;
+  categorySlug?: string;
   finishId?: number;
   finishName?: string;
   glassOptionId?: number;
@@ -34,6 +36,8 @@ export function ProductAddToCart({
   price,
   sku,
   manufacturerId,
+  manufacturerName,
+  categorySlug,
   finishId,
   finishName,
   glassOptionId,
@@ -72,6 +76,8 @@ export function ProductAddToCart({
       quantity: 1,
       ...(sku ? { sku } : {}),
       ...(manufacturerId?.trim() ? { manufacturerId: manufacturerId.trim() } : {}),
+      ...(manufacturerName?.trim() ? { manufacturerName: manufacturerName.trim() } : {}),
+      ...(categorySlug?.trim() ? { categorySlug: categorySlug.trim() } : {}),
       ...(cartColorLabel.trim() ? { color: cartColorLabel.trim() } : {}),
       ...(cartGlassLabel.trim() ? { glass: cartGlassLabel.trim() } : {}),
       ...(finishId ? { finishId, finishName: finishName?.trim() || "" } : {}),

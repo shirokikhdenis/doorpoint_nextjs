@@ -13,6 +13,9 @@ export type CartItem = {
   sku?: string;
   /** Артикул производителя (`attr:manufacturer_id`, на варианте — `variant_attr:manufacturer_id`). */
   manufacturerId?: string;
+  /** Фабрика (attr:manufacturer) — для правил отображения названия. */
+  manufacturerName?: string;
+  categorySlug?: string;
   color?: string;
   glass?: string;
   finishId?: number;

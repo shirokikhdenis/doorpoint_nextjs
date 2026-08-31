@@ -34,6 +34,8 @@ const formatCartItemName = (
   glassOptionName,
   hardwareServices,
   productGlass,
+  manufacturer,
+  categorySlug,
 ) => {
   const finishValue = String(finishName || "").trim();
   const glassOptionValue = String(glassOptionName || "").trim();
@@ -43,6 +45,8 @@ const formatCartItemName = (
     name,
     color,
     glass: productGlass,
+    manufacturer,
+    categorySlug,
   });
 
   result = appendLabeledSuffix(result, "покрытие", finishValue, [

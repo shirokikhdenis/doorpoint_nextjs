@@ -25,6 +25,7 @@ type LeadItem = {
   id: number;
   name: string;
   sku: string;
+  manufacturerId?: string;
   color: string;
   price: number;
   quantity: number;
@@ -510,7 +511,7 @@ export default function AdminLeadDetailPage({ params }: { params: Promise<{ id: 
                   <thead className="bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500">
                     <tr>
                       <th className="px-4 py-2 font-medium">Наименование</th>
-                      <th className="px-4 py-2 font-medium">Артикул</th>
+                      <th className="px-4 py-2 font-medium">Артикул производителя</th>
                       <th className="w-28 px-4 py-2 font-medium">Цена, ₽</th>
                       <th className="w-24 px-4 py-2 font-medium">Кол-во</th>
                       <th className="px-4 py-2 text-right font-medium">Сумма</th>
@@ -528,7 +529,9 @@ export default function AdminLeadDetailPage({ params }: { params: Promise<{ id: 
                               {formatCartItemName(item.name, item.color)}
                             </p>
                           </td>
-                          <td className="px-4 py-3">{item.sku || "—"}</td>
+                          <td className="px-4 py-3 font-mono text-sm">
+                            {item.manufacturerId || item.sku || "—"}
+                          </td>
                           <td className="px-4 py-3">
                             <input
                               type="number"

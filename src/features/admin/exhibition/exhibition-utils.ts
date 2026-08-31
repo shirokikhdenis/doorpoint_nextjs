@@ -17,12 +17,17 @@ const trimAttrValue = (value: unknown): string => {
 };
 
 export function formatProductSearchLabel(
-  row: Pick<ProductSearchRow, "name" | "color" | "glass">,
+  row: Pick<ProductSearchRow, "name" | "color" | "glass"> & {
+    manufacturer?: string | null;
+    categoryType?: "entry" | "interior";
+  },
 ): string {
   return formatProductDisplayName({
     name: row.name,
     color: row.color,
     glass: row.glass,
+    manufacturer: row.manufacturer,
+    categorySlug: row.categoryType === "interior" ? "interior-doors" : undefined,
   });
 }
 
@@ -42,6 +47,7 @@ export function mapApiRowToProductSearch(row: {
     primaryImageUrl: row.primaryImageUrl ? String(row.primaryImageUrl) : undefined,
     color: trimAttrValue(attributes.color) || null,
     glass: trimAttrValue(attributes.glass) || null,
+    manufacturer: trimAttrValue(attributes.manufacturer) || null,
   };
 }
 
