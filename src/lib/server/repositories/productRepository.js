@@ -2789,6 +2789,37 @@ const listPublicManufacturers = async ({
   }));
 };
 
+/** Имя производителя по slug в рамках scope витрины (категории/подкатегории). */
+const findManufacturerNameBySlugInScope = async (constraints, manufacturerSlugValue) => {
+  const wanted = String(manufacturerSlugValue || "").trim().toLowerCase();
+  if (!wanted) return null;
+
+  const { manufacturerSlug } = require("../../factory-slug");
+  const { mode, pageCats, pageSubs } = buildMetaScope(constraints);
+  if (mode === "none") return null;
+
+  const bind = makeBindings();
+  const scope = buildMetaScopeSql(mode, pageCats, pageSubs, bind.addParam);
+  const res = await query(
+    `
+    SELECT DISTINCT TRIM(p.attrs->>'manufacturer') AS name
+    FROM products p
+    ${taxonomyJoin}
+    WHERE p.is_active = TRUE
+      AND ${storefrontListedProductPredicatesSql}
+      AND TRIM(COALESCE(p.attrs->>'manufacturer', '')) <> ''
+      ${scope.productScopeCondition}
+    `,
+    bind.params,
+  );
+
+  for (const row of res.rows) {
+    const name = String(row.name || "").trim();
+    if (name && manufacturerSlug(name).toLowerCase() === wanted) return name;
+  }
+  return null;
+};
+
 /** Публичный список коллекций производителя в рамках категории. */
 const listPublicCollections = async ({
   categoryRootSlug = null,
@@ -3096,6 +3127,7 @@ module.exports = {
   listManufacturerCollectionTree,
   listActiveProductSlugs,
   listPublicManufacturers,
+  findManufacturerNameBySlugInScope,
   listPublicCollections,
   listPublicManufacturerSampleImages,
   listPublicCollectionSampleImages,

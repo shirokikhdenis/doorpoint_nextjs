@@ -14,6 +14,9 @@ const { attachManufacturerBrand } = require("../domain/productManufacturerBrand"
 const { resolveFinishPickerTemplateId } = require("../domain/doorFinishPickerSettings");
 const doorFinishPickerSettingsRepository = require("../repositories/doorFinishPickerSettingsRepository");
 const doorFactoryFittingBrandRepository = require("../repositories/doorFactoryFittingBrandRepository");
+const { FACTORY_SECTIONS } = require("../../factory-sections-config");
+const { manufacturerSlug } = require("../../factory-slug");
+const factoryStorefrontService = require("./factoryStorefrontService");
 
 const HANDLES_SUBCATEGORY_SLUGS = ["handles", "ручки"];
 
@@ -340,12 +343,51 @@ const getProductByRef = async (ref) => {
 const listActiveProductSlugs = async () => productRepository.listActiveProductSlugs();
 const findCatalogPageBySlug = async (slug) => catalogPageRepository.findCatalogPageBySlug(slug);
 
+const catalogPageScopeConstraints = (page) => {
+  const pageCats = (page.categories || []).map((category) => category.slug);
+  const pageSubs = (page.subcategories || []).map((subcategory) => subcategory.slug);
+  if (pageCats.length > 0 && pageSubs.length > 0) {
+    return { scopeCategories: pageCats, scopeSubcategories: pageSubs, scopeOr: true };
+  }
+  if (pageCats.length > 0) return { scopeCategories: pageCats };
+  if (pageSubs.length > 0) return { scopeSubcategories: pageSubs };
+  return {};
+};
+
+const resolveManufacturerNameForCatalogPage = async (catalogPage, manufacturerSlugValue) => {
+  const wanted = String(manufacturerSlugValue || "").trim().toLowerCase();
+  if (!wanted) return null;
+
+  const fromConfig = FACTORY_SECTIONS.filter((section) => section.catalogPageSlug === catalogPage)
+    .flatMap((section) => [...section.manufacturers])
+    .find((name) => manufacturerSlug(name).toLowerCase() === wanted);
+  if (fromConfig) return fromConfig;
+
+  const sections = await factoryStorefrontService.listPublicFactorySections();
+  const matchingSections = FACTORY_SECTIONS.filter((section) => section.catalogPageSlug === catalogPage);
+  for (const sectionConfig of matchingSections) {
+    const section = sections.find((item) => item.id === sectionConfig.id);
+    const found = section?.factories.find(
+      (factory) => manufacturerSlug(factory.name).toLowerCase() === wanted,
+    );
+    if (found?.name) return found.name;
+  }
+
+  const page = await catalogPageRepository.findCatalogPageBySlug(catalogPage);
+  if (!page) return null;
+  return productRepository.findManufacturerNameBySlugInScope(
+    catalogPageScopeConstraints(page),
+    wanted,
+  );
+};
+
 module.exports = {
   getProducts,
   getFilterMeta,
   listCatalogPages,
   listActiveProductSlugs,
   findCatalogPageBySlug,
+  resolveManufacturerNameForCatalogPage,
   getProductById,
   getProductByRef,
   buildCatalogFilters,

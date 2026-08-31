@@ -6,7 +6,6 @@ import { StorefrontBreadcrumbs } from "@/features/store/storefront-breadcrumbs";
 import { storefrontPageContainerClass } from "@/features/store/storefront-ui";
 import { catalogPagePath } from "@/lib/catalog-page-paths";
 import { resolveCatalogPageSlug } from "@/lib/catalog-page-slugs";
-import { FACTORY_SECTIONS } from "@/lib/factory-sections-config";
 import { manufacturerSlug } from "@/lib/factory-slug";
 import { manufacturerCatalogPath } from "@/lib/manufacturer-catalog-path";
 import { buildCatalogMetadata } from "@/lib/server/catalog-metadata";
@@ -18,40 +17,15 @@ export const dynamic = "force-dynamic";
 const require = createRequire(import.meta.url);
 const catalogService = require("@/lib/server/services/catalogService") as {
   findCatalogPageBySlug: (slug: string) => Promise<{ name?: string; slug?: string } | null>;
-};
-const factoryStorefrontService = require("@/lib/server/services/factoryStorefrontService") as {
-  listPublicFactorySections: () => Promise<
-    Array<{ id: string; title: string; factories: Array<{ name: string }> }>
-  >;
+  resolveManufacturerNameForCatalogPage: (
+    catalogPage: string,
+    manufacturerSlugValue: string,
+  ) => Promise<string | null>;
 };
 
 type ManufacturerCatalogPageProps = {
   params: Promise<{ slug: string; manufacturerSlug: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
-};
-
-const resolveManufacturerName = async (
-  catalogPage: string,
-  manufacturerSlugValue: string,
-): Promise<string | null> => {
-  const wanted = String(manufacturerSlugValue || "").trim().toLowerCase();
-  if (!wanted) return null;
-
-  const fromConfig = FACTORY_SECTIONS.filter((section) => section.catalogPageSlug === catalogPage)
-    .flatMap((section) => [...section.manufacturers])
-    .find((name) => manufacturerSlug(name).toLowerCase() === wanted);
-  if (fromConfig) return fromConfig;
-
-  const sections = await factoryStorefrontService.listPublicFactorySections();
-  const matchingSections = FACTORY_SECTIONS.filter((section) => section.catalogPageSlug === catalogPage);
-  for (const sectionConfig of matchingSections) {
-    const section = sections.find((item) => item.id === sectionConfig.id);
-    const found = section?.factories.find(
-      (factory) => manufacturerSlug(factory.name).toLowerCase() === wanted,
-    );
-    if (found?.name) return found.name;
-  }
-  return null;
 };
 
 export async function generateMetadata({
@@ -60,7 +34,10 @@ export async function generateMetadata({
 }: ManufacturerCatalogPageProps): Promise<Metadata> {
   const { slug, manufacturerSlug: manufacturerSlugValue } = await params;
   const catalogPage = resolveCatalogPageSlug(slug);
-  const manufacturerName = await resolveManufacturerName(catalogPage, manufacturerSlugValue);
+  const manufacturerName = await catalogService.resolveManufacturerNameForCatalogPage(
+    catalogPage,
+    manufacturerSlugValue,
+  );
   if (!manufacturerName) return { title: "Каталог" };
   const resolved = await searchParams;
   const initial = await getCatalogShell(resolved, { catalogPage, manufacturerName });
@@ -80,7 +57,10 @@ export default async function ManufacturerCatalogPage({
   const catalogPageRow = await catalogService.findCatalogPageBySlug(catalogPage);
   if (!catalogPageRow?.slug) notFound();
 
-  const manufacturerName = await resolveManufacturerName(catalogPage, manufacturerSlugValue);
+  const manufacturerName = await catalogService.resolveManufacturerNameForCatalogPage(
+    catalogPage,
+    manufacturerSlugValue,
+  );
   if (!manufacturerName) notFound();
 
   const resolvedSearchParams = await searchParams;
