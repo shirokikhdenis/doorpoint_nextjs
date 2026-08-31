@@ -24,9 +24,9 @@ export function formatProductSearchLabel(
 ): string {
   return formatProductDisplayName({
     name: row.name,
-    color: row.color,
-    glass: row.glass,
-    manufacturer: row.manufacturer,
+    color: row.color ?? undefined,
+    glass: row.glass ?? undefined,
+    manufacturer: row.manufacturer ?? undefined,
     categorySlug: row.categoryType === "interior" ? "interior-doors" : undefined,
   });
 }
