@@ -6,6 +6,9 @@
  *   node scripts/optimize-uploads.mjs
  *   node scripts/optimize-uploads.mjs --dry-run
  *   node scripts/optimize-uploads.mjs --subdir products --min-size-kb 200
+ *   node scripts/optimize-uploads.mjs --card-thumbs
+ *
+ * `--card-thumbs` не трогает оригиналы: рядом пишет `name.card.jpg` из уже лежащих файлов.
  */
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -19,6 +22,10 @@ const {
   shouldOptimizeExtension,
   shouldSkipExtension,
   shouldSkipOptimization,
+  isCardThumbFileName,
+  cardThumbOutputPath,
+  shouldGenerateCardThumbForSubdir,
+  writeCardThumbBeside,
 } = require("../src/lib/server/imageOptimize.js");
 const { replaceImageUrlInDb } = require("../src/lib/server/uploadImageUrlMigration.js");
 
@@ -31,12 +38,17 @@ const parseArgs = (argv) => {
     dryRun: false,
     subdir: "",
     minSizeKb: 200,
+    cardThumbs: false,
   };
 
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === "--dry-run") {
       options.dryRun = true;
+      continue;
+    }
+    if (arg === "--card-thumbs") {
+      options.cardThumbs = true;
       continue;
     }
     if (arg === "--subdir") {
@@ -56,6 +68,7 @@ const parseArgs = (argv) => {
       console.log(`Usage: node scripts/optimize-uploads.mjs [options]
 
 Options:
+  --card-thumbs       Write sibling name.card.jpg from existing files (does not replace originals)
   --dry-run           Log actions without writing files or DB updates
   --subdir PATH       Only process public/uploads/PATH (e.g. products, furnitura)
   --min-size-kb N     Skip files smaller than N KB when already within preset bounds (default: 200)
@@ -86,6 +99,81 @@ const walkFiles = async (dir) => {
 
 const toPublicUploadUrl = (relativePath) => `/uploads/${relativePath.replace(/\\/g, "/")}`;
 
+const fileExists = async (fullPath) => {
+  try {
+    await fs.access(fullPath);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const generateCardThumbs = async (scanRoot, options) => {
+  const stats = {
+    scanned: 0,
+    skipped: 0,
+    written: 0,
+    savedBytes: 0,
+  };
+
+  const files = await walkFiles(scanRoot);
+  console.log(`Card thumbs: scanning ${files.length} files under ${scanRoot}`);
+
+  for (const fullPath of files) {
+    stats.scanned += 1;
+    const relativePath = path.relative(uploadsRoot, fullPath);
+    const ext = path.extname(fullPath).toLowerCase();
+    const subdir = path.dirname(relativePath);
+    const relativeSubdir = subdir === "." ? "" : subdir.replace(/\\/g, "/");
+
+    if (isCardThumbFileName(fullPath)) {
+      stats.skipped += 1;
+      continue;
+    }
+    if (shouldSkipExtension(ext) || !shouldOptimizeExtension(ext)) {
+      stats.skipped += 1;
+      continue;
+    }
+    if (!shouldGenerateCardThumbForSubdir(relativeSubdir)) {
+      stats.skipped += 1;
+      continue;
+    }
+
+    const outputPath = cardThumbOutputPath(fullPath);
+    if (await fileExists(outputPath)) {
+      stats.skipped += 1;
+      continue;
+    }
+
+    const buffer = await fs.readFile(fullPath);
+    const thumb = await optimizeRasterBuffer(buffer, { preset: "cardThumb" });
+    const saved = Math.max(0, buffer.length - thumb.buffer.length);
+
+    if (options.dryRun) {
+      console.log(
+        `[dry-run] ${relativePath} -> ${path.relative(uploadsRoot, outputPath)} (${(buffer.length / 1024).toFixed(1)} KB -> ${(thumb.buffer.length / 1024).toFixed(1)} KB)`,
+      );
+      stats.written += 1;
+      stats.savedBytes += saved;
+      continue;
+    }
+
+    await writeCardThumbBeside(fullPath, buffer, relativeSubdir);
+    stats.written += 1;
+    stats.savedBytes += saved;
+    console.log(
+      `Card thumb ${relativePath} (${(buffer.length / 1024).toFixed(1)} KB -> ${(thumb.buffer.length / 1024).toFixed(1)} KB)`,
+    );
+  }
+
+  console.log("");
+  console.log("Done (originals unchanged).");
+  console.log(`Scanned: ${stats.scanned}`);
+  console.log(`Skipped: ${stats.skipped}`);
+  console.log(`Card thumbs written: ${stats.written}`);
+  console.log(`Delta vs originals: ${(stats.savedBytes / (1024 * 1024)).toFixed(2)} MB`);
+};
+
 const main = async () => {
   const options = parseArgs(process.argv.slice(2));
   const scanRoot = options.subdir ? path.join(uploadsRoot, options.subdir) : uploadsRoot;
@@ -95,6 +183,11 @@ const main = async () => {
   } catch {
     console.error(`Uploads directory not found: ${scanRoot}`);
     process.exit(1);
+  }
+
+  if (options.cardThumbs) {
+    await generateCardThumbs(scanRoot, options);
+    return;
   }
 
   const stats = {
@@ -113,6 +206,10 @@ const main = async () => {
     const relativePath = path.relative(uploadsRoot, fullPath);
     const ext = path.extname(fullPath).toLowerCase();
 
+    if (isCardThumbFileName(fullPath)) {
+      stats.skipped += 1;
+      continue;
+    }
     if (shouldSkipExtension(ext) || !shouldOptimizeExtension(ext)) {
       stats.skipped += 1;
       continue;

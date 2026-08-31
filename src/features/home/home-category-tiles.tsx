@@ -36,6 +36,7 @@ function CategoryTile({
           alt={imageAlt}
           fill
           sizes="(max-width: 768px) 100vw, 50vw"
+          variant="card"
           className="object-contain object-right-bottom p-4 transition duration-300 group-hover:scale-[1.02]"
         />
       ) : null}

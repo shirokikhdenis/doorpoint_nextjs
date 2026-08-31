@@ -35,6 +35,15 @@ export function toPublicImageSrc(url: string | undefined | null): string {
   return "";
 }
 
+/** Соседний превью-файл `name.card.jpg` (карточки каталога / фабрик). Оригинал в БД не меняется. */
+export function toCardImageSrc(url: string | undefined | null): string {
+  const src = toPublicImageSrc(url);
+  if (!src) return "";
+  if (!src.startsWith("/uploads/")) return src;
+  if (/\.card\.[a-z0-9]+$/i.test(src)) return src.replace(/\.[a-z0-9]+$/i, ".jpg");
+  return src.replace(/\.[a-z0-9]+$/i, ".card.jpg");
+}
+
 /** Локальные файлы из public/ и uploads — отдаём напрямую через nginx, без /_next/image. */
 export function shouldBypassImageOptimizer(url: string | undefined | null): boolean {
   const normalized = toPublicImageSrc(url) || String(url ?? "").trim();

@@ -26,6 +26,7 @@ export function LabelCard({ href, badge, title, subtitle, cta, coverImage }: Lab
           alt=""
           fill
           sizes="(max-width: 640px) 100vw, 50vw"
+          variant="card"
           className="object-cover object-center transition duration-300 group-hover:scale-[1.02]"
         />
       ) : (

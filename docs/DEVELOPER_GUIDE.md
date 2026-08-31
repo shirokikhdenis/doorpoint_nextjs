@@ -397,8 +397,10 @@ catalog-page-client.tsx
 
 - Корень: `public/uploads/` (`lib/server/uploadsPath.js`)
 - При загрузке через админку и при CSV-импорте по HTTP растровые файлы **сжимаются в JPEG** (`lib/server/imageOptimize.js`): ресайз по пресету (товар / витрина / ярлык / фурнитура / портфолио), сохранение как `.jpg`. SVG не трогается.
-- Пресеты: `productCard` 2000px, `catalogCard` 1200px, `storefrontLabel` 1600px, `finishThumb` 1000px, `logo` 512px, `portfolio` 1920px.
+- Пресеты: `productCard` 2000px, `catalogCard` 1200px, `storefrontLabel` 1600px, `finishThumb` 1000px, `logo` 512px, `portfolio` 1920px, `cardThumb` 800px.
+- Карточки каталога / фабрик / коллекций запрашивают соседний файл `name.card.jpg` (оригинал в БД и на диске не меняется). Если превью нет — откат на полный JPEG.
 - Уже залитые файлы: `npm run uploads:optimize` (перед запуском на проде — бэкап `public/uploads/` и БД). Флаги: `--dry-run`, `--subdir products`, `--min-size-kb 200`.
+- Превью для карточек без перезаливки: `npm run uploads:card-thumbs` (или `node scripts/optimize-uploads.mjs --card-thumbs`). Пишет только `*.card.jpg`, оригиналы не трогает.
 - На VPS нужны права записи для процесса Node (часто `www-data`)
 - `next.config.ts`: `proxyClientMaxBodySize: "25mb"`, nginx — `client_max_body_size` (см. `scripts/doorpoint29.nginx.conf`)
 - `images.remotePatterns` — unsplash, picsum (для dev/seed)

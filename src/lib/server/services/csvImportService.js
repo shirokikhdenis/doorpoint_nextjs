@@ -5,7 +5,7 @@ const attributeRepository = require("../repositories/attributeRepository");
 const fs = require("fs/promises");
 const path = require("path");
 const crypto = require("crypto");
-const { optimizeRasterBuffer } = require("../imageOptimize");
+const { optimizeRasterBuffer, writeCardThumbBeside } = require("../imageOptimize");
 
 const requiredColumns = ["sku"];
 
@@ -444,6 +444,7 @@ const downloadImageToLocal = async (urlValue, urlCache) => {
   const fileName = `${hash}${optimized.extension}`;
   const fullPath = path.join(uploadsDir, fileName);
   await fs.writeFile(fullPath, optimized.buffer);
+  await writeCardThumbBeside(fullPath, optimized.buffer, "products");
   const localUrl = `${localUploadsPrefix}${fileName}`;
   urlCache.set(rawUrl, localUrl);
   return localUrl;

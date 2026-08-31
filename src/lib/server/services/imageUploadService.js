@@ -6,6 +6,7 @@ const {
   optimizeRasterBuffer,
   resolveImagePreset,
   shouldOptimizeExtension,
+  writeCardThumbBeside,
 } = require("../imageOptimize");
 
 const RASTER_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp"]);
@@ -77,7 +78,11 @@ const saveFilesToSubdir = async (relativeSubdir, fileEntries, options = {}) => {
     }
 
     const fileName = `${Date.now()}-${randomUUID()}${outputExt}`;
-    await fs.writeFile(path.join(dir, fileName), outputBuffer);
+    const fullPath = path.join(dir, fileName);
+    await fs.writeFile(fullPath, outputBuffer);
+    if (outputExt !== SVG_EXTENSION) {
+      await writeCardThumbBeside(fullPath, outputBuffer, relativeSubdir);
+    }
     savedUrls.push(`${publicPrefix}/${fileName}`);
   }
 

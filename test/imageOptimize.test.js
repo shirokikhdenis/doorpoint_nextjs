@@ -7,6 +7,9 @@ const {
   shouldSkipExtension,
   optimizeRasterBuffer,
   shouldSkipOptimization,
+  isCardThumbFileName,
+  cardThumbOutputPath,
+  shouldGenerateCardThumbForSubdir,
 } = require("../src/lib/server/imageOptimize");
 
 test("resolveImagePreset maps upload subdirs to presets", () => {
@@ -70,4 +73,31 @@ test("shouldSkipOptimization skips small in-bounds JPEG files", async () => {
   });
 
   assert.equal(skip, true);
+});
+
+test("card thumb helpers map sibling filenames and subdirs", () => {
+  assert.equal(isCardThumbFileName("abc.card.jpg"), true);
+  assert.equal(isCardThumbFileName("abc.jpg"), false);
+  assert.ok(cardThumbOutputPath("/uploads/products/abc.jpg").endsWith("abc.card.jpg"));
+  assert.equal(shouldGenerateCardThumbForSubdir("products"), true);
+  assert.equal(shouldGenerateCardThumbForSubdir("factories/doors"), true);
+  assert.equal(shouldGenerateCardThumbForSubdir("factories/logos"), false);
+  assert.equal(shouldGenerateCardThumbForSubdir("portfolio"), false);
+});
+
+test("cardThumb preset stays within 800px", async () => {
+  const input = await sharp({
+    create: {
+      width: 2000,
+      height: 1600,
+      channels: 3,
+      background: { r: 40, g: 80, b: 120 },
+    },
+  })
+    .jpeg()
+    .toBuffer();
+
+  const result = await optimizeRasterBuffer(input, { preset: "cardThumb" });
+  assert.ok(result.width <= 800);
+  assert.ok(result.height <= 800);
 });

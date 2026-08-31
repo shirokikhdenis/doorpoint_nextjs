@@ -21,6 +21,7 @@
     "db:restore": "bash scripts/restore-db.sh",
     "favicons": "node scripts/generate-favicons.mjs",
     "uploads:optimize": "node scripts/optimize-uploads.mjs",
+    "uploads:card-thumbs": "node scripts/optimize-uploads.mjs --card-thumbs",
     "deploy": "powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1"
   },
   "dependencies": {

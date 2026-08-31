@@ -67,6 +67,7 @@ export function CatalogProductCard({
                 alt={item.name}
                 fill
                 sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                variant="card"
                 className="object-contain object-center"
               />
             ) : null}

@@ -29,6 +29,7 @@ function DoorLayer({
           alt=""
           fill
           sizes={factoryLabelCardImageSizes}
+          variant="card"
           className={factoryLabelCardImageClass}
         />
       </div>

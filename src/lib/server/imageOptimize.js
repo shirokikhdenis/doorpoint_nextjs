@@ -1,3 +1,5 @@
+const fs = require("fs/promises");
+const path = require("path");
 const sharp = require("sharp");
 
 const IMAGE_PRESETS = {
@@ -7,7 +9,12 @@ const IMAGE_PRESETS = {
   finishThumb: { maxEdge: 1000, quality: 80 },
   logo: { maxEdge: 512, quality: 85 },
   portfolio: { maxEdge: 1920, quality: 82 },
+  /** Карточки каталога / фабрик / коллекций — оригинал на диске не трогаем. */
+  cardThumb: { maxEdge: 800, quality: 78 },
 };
+
+const CARD_THUMB_INFIX = ".card";
+const CARD_THUMB_EXTENSION = ".jpg";
 
 const RASTER_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp"]);
 const SKIP_EXTENSIONS = new Set([".svg", ".gif"]);
@@ -94,6 +101,35 @@ const getRasterMetadata = async (buffer) => {
 /**
  * Skip re-encoding when file is already small JPEG within preset bounds.
  */
+const isCardThumbFileName = (filePath) =>
+  /\.card\.(jpe?g|png|webp)$/i.test(path.basename(String(filePath || "")));
+
+const cardThumbOutputPath = (sourceFullPath) => {
+  const dir = path.dirname(sourceFullPath);
+  const ext = path.extname(sourceFullPath);
+  const base = path.basename(sourceFullPath, ext).replace(/\.card$/i, "");
+  return path.join(dir, `${base}${CARD_THUMB_INFIX}${CARD_THUMB_EXTENSION}`);
+};
+
+const shouldGenerateCardThumbForSubdir = (relativeSubdir) => {
+  const subdir = normalizeSubdir(relativeSubdir);
+  if (subdir === "products" || subdir === "merged") return true;
+  if (subdir === "furnitura" || subdir.startsWith("furnitura/")) return true;
+  if (subdir === "factories/doors" || subdir.startsWith("factories/doors/")) return true;
+  if (subdir === "storefront" || subdir.startsWith("storefront/")) return true;
+  return false;
+};
+
+/** Пишет соседний `name.card.jpg` (оригинал не меняет). */
+const writeCardThumbBeside = async (sourceFullPath, sourceBuffer, relativeSubdir) => {
+  if (!shouldGenerateCardThumbForSubdir(relativeSubdir)) return null;
+  if (isCardThumbFileName(sourceFullPath)) return null;
+  const outputPath = cardThumbOutputPath(sourceFullPath);
+  const thumb = await optimizeRasterBuffer(sourceBuffer, { preset: "cardThumb" });
+  await fs.writeFile(outputPath, thumb.buffer);
+  return outputPath;
+};
+
 const shouldSkipOptimization = async (buffer, { preset = "storefrontLabel", fileSizeBytes = 0, minSizeKb = 200 } = {}) => {
   const { maxEdge } = resolvePresetConfig(preset);
   if (fileSizeBytes > 0 && fileSizeBytes < minSizeKb * 1024) {
@@ -109,6 +145,8 @@ module.exports = {
   IMAGE_PRESETS,
   RASTER_EXTENSIONS,
   SKIP_EXTENSIONS,
+  CARD_THUMB_INFIX,
+  CARD_THUMB_EXTENSION,
   resolveImagePreset,
   resolvePresetConfig,
   shouldOptimizeExtension,
@@ -116,4 +154,8 @@ module.exports = {
   optimizeRasterBuffer,
   getRasterMetadata,
   shouldSkipOptimization,
+  isCardThumbFileName,
+  cardThumbOutputPath,
+  shouldGenerateCardThumbForSubdir,
+  writeCardThumbBeside,
 };
