@@ -17,7 +17,9 @@ import {
   AdminTableRow,
 } from "@/features/admin/ui/admin-table";
 import { LeadStatusSelect } from "@/features/admin/leads/lead-status-select";
-import { formatUpcomingDateLabel } from "@/features/admin/install-calendar/calendar-utils";
+import { LeadScheduleCell } from "@/features/admin/leads/lead-schedule-cell";
+import { LeadScheduleSidePanel } from "@/features/admin/leads/lead-schedule-side-panel";
+import type { CalendarEntryKind, InteriorInstallation } from "@/features/admin/install-calendar/types";
 import { formatPrice } from "@/lib/client/format";
 import { LEAD_STATUS_COLORS, LEAD_STATUS_OPTIONS } from "@/lib/client/lead-status";
 import { cn } from "@/lib/utils";
@@ -38,12 +40,21 @@ type LeadListItem = {
   measureNote?: string;
   firstProductName?: string;
   firstProductItemId?: number | null;
-  createdAt: string;
+  installId?: number | null;
   installDate?: string | null;
   installEndDate?: string | null;
+  deliveryId?: number | null;
   deliveryDate?: string | null;
   deliveryEndDate?: string | null;
+  createdAt: string;
   items?: Array<{ name?: string }>;
+};
+
+type SchedulePanelState = {
+  leadId: number;
+  leadLabel: string;
+  kind: CalendarEntryKind;
+  jobId: number | null;
 };
 
 const TAB_CONFIG: Record<
@@ -81,10 +92,8 @@ const formatDateTime = (value: string) => {
   }
 };
 
-const formatScheduleDate = (from?: string | null, to?: string | null) => {
-  if (!from) return "—";
-  return formatUpcomingDateLabel(from, to || from) || "—";
-};
+const leadScheduleLabel = (item: LeadListItem) =>
+  [item.contractNumber, item.customerName].filter(Boolean).join(" · ");
 
 const truncateText = (value: string, max = 80) => {
   const text = String(value || "").trim();
@@ -224,6 +233,64 @@ export default function AdminLeadsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [savingId, setSavingId] = useState<number | null>(null);
+  const [schedulePanel, setSchedulePanel] = useState<SchedulePanelState | null>(null);
+
+  const openSchedulePanel = (
+    item: LeadListItem,
+    kind: CalendarEntryKind,
+    jobId: number | null,
+  ) => {
+    setSchedulePanel({
+      leadId: item.id,
+      leadLabel: leadScheduleLabel(item),
+      kind,
+      jobId,
+    });
+  };
+
+  const applyScheduleSaved = (saved: InteriorInstallation) => {
+    setItems((current) =>
+      current.map((row) => {
+        if (row.id !== saved.leadId) return row;
+        if (saved.kind === "delivery") {
+          return {
+            ...row,
+            deliveryId: saved.id,
+            deliveryDate: saved.installDate,
+            deliveryEndDate: saved.installEndDate || saved.installDate,
+          };
+        }
+        return {
+          ...row,
+          installId: saved.id,
+          installDate: saved.installDate,
+          installEndDate: saved.installEndDate || saved.installDate,
+        };
+      }),
+    );
+  };
+
+  const applyScheduleDeleted = (leadId: number, kind: CalendarEntryKind) => {
+    setItems((current) =>
+      current.map((row) => {
+        if (row.id !== leadId) return row;
+        if (kind === "delivery") {
+          return {
+            ...row,
+            deliveryId: null,
+            deliveryDate: null,
+            deliveryEndDate: null,
+          };
+        }
+        return {
+          ...row,
+          installId: null,
+          installDate: null,
+          installEndDate: null,
+        };
+      }),
+    );
+  };
 
   const setActiveTab = (tab: LeadTab) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -505,10 +572,26 @@ export default function AdminLeadsPage() {
                   {showScheduleColumns ? (
                     <>
                       <AdminTableCell className="whitespace-nowrap">
-                        {formatScheduleDate(item.installDate, item.installEndDate)}
+                        <LeadScheduleCell
+                          from={item.installDate}
+                          to={item.installEndDate}
+                          kind="install"
+                          disabled={savingId === item.id}
+                          onAdd={() => openSchedulePanel(item, "install", null)}
+                          onEdit={() => openSchedulePanel(item, "install", item.installId ?? null)}
+                        />
                       </AdminTableCell>
                       <AdminTableCell className="whitespace-nowrap">
-                        {formatScheduleDate(item.deliveryDate, item.deliveryEndDate)}
+                        <LeadScheduleCell
+                          from={item.deliveryDate}
+                          to={item.deliveryEndDate}
+                          kind="delivery"
+                          disabled={savingId === item.id}
+                          onAdd={() => openSchedulePanel(item, "delivery", null)}
+                          onEdit={() =>
+                            openSchedulePanel(item, "delivery", item.deliveryId ?? null)
+                          }
+                        />
                       </AdminTableCell>
                     </>
                   ) : null}
@@ -523,6 +606,24 @@ export default function AdminLeadsPage() {
           </AdminTable>
         )}
       </AdminCard>
+
+      {schedulePanel ? (
+        <LeadScheduleSidePanel
+          open
+          leadId={schedulePanel.leadId}
+          leadLabel={schedulePanel.leadLabel}
+          kind={schedulePanel.kind}
+          jobId={schedulePanel.jobId}
+          onClose={() => setSchedulePanel(null)}
+          onSaved={applyScheduleSaved}
+          onDeleted={(jobId) => {
+            applyScheduleDeleted(schedulePanel.leadId, schedulePanel.kind);
+            if (schedulePanel.jobId === jobId) {
+              setSchedulePanel(null);
+            }
+          }}
+        />
+      ) : null}
     </AdminPage>
   );
 }
