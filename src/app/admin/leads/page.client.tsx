@@ -34,12 +34,16 @@ type LeadListItem = {
   totalPrice: number;
   status: string;
   arrivalDate?: string | null;
+  invoiceNumber?: string;
   measureNote?: string;
+  firstProductName?: string;
+  firstProductItemId?: number | null;
   createdAt: string;
   installDate?: string | null;
   installEndDate?: string | null;
   deliveryDate?: string | null;
   deliveryEndDate?: string | null;
+  items?: Array<{ name?: string }>;
 };
 
 const TAB_CONFIG: Record<
@@ -92,6 +96,82 @@ const parseTab = (value: string | null): LeadTab => {
   if (value === "website" || value === "measure") return value;
   return "salon";
 };
+
+function LeadProductNameInput({
+  value,
+  disabled,
+  onSave,
+}: {
+  value: string;
+  disabled?: boolean;
+  onSave: (value: string) => void;
+}) {
+  const [draft, setDraft] = useState(value);
+
+  useEffect(() => {
+    setDraft(value);
+  }, [value]);
+
+  return (
+    <input
+      type="text"
+      value={draft}
+      disabled={disabled}
+      maxLength={500}
+      onChange={(event) => setDraft(event.target.value)}
+      onBlur={() => {
+        const next = draft.trim();
+        if (next !== value.trim()) onSave(next);
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") {
+          event.currentTarget.blur();
+        }
+      }}
+      className="h-8 w-[14rem] max-w-[20vw] rounded border border-zinc-200 bg-white px-2 text-sm disabled:bg-zinc-50"
+      aria-label="Наименование товара"
+      placeholder="—"
+    />
+  );
+}
+
+function LeadInvoiceNumberInput({
+  value,
+  disabled,
+  onSave,
+}: {
+  value: string;
+  disabled?: boolean;
+  onSave: (value: string) => void;
+}) {
+  const [draft, setDraft] = useState(value);
+
+  useEffect(() => {
+    setDraft(value);
+  }, [value]);
+
+  return (
+    <input
+      type="text"
+      value={draft}
+      disabled={disabled}
+      maxLength={120}
+      onChange={(event) => setDraft(event.target.value)}
+      onBlur={() => {
+        const next = draft.trim();
+        if (next !== value.trim()) onSave(next);
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") {
+          event.currentTarget.blur();
+        }
+      }}
+      className="h-8 w-[9rem] rounded border border-zinc-200 bg-white px-2 text-sm disabled:bg-zinc-50"
+      aria-label="Номер счёта"
+      placeholder="—"
+    />
+  );
+}
 
 function LeadMeasureNoteInput({
   value,
@@ -197,7 +277,13 @@ export default function AdminLeadsPage() {
 
   const handlePatch = async (
     item: LeadListItem,
-    patch: { status?: string; arrivalDate?: string | null; measureNote?: string },
+    patch: {
+      status?: string;
+      arrivalDate?: string | null;
+      measureNote?: string;
+      firstProductName?: string;
+      invoiceNumber?: string;
+    },
   ) => {
     setSavingId(item.id);
     setError("");
@@ -216,6 +302,11 @@ export default function AdminLeadsPage() {
         throw new Error(payload.message || "Не удалось сохранить заявку");
       }
       const updated = (await response.json()) as LeadListItem;
+      const nextProductName =
+        updated.firstProductName ??
+        updated.items?.[0]?.name ??
+        patch.firstProductName ??
+        item.firstProductName;
       setItems((current) =>
         current.map((row) =>
           row.id === item.id
@@ -224,6 +315,10 @@ export default function AdminLeadsPage() {
                 status: updated.status ?? row.status,
                 arrivalDate: updated.arrivalDate !== undefined ? updated.arrivalDate : row.arrivalDate,
                 measureNote: updated.measureNote !== undefined ? updated.measureNote : row.measureNote,
+                invoiceNumber:
+                  updated.invoiceNumber !== undefined ? updated.invoiceNumber : row.invoiceNumber,
+                firstProductName:
+                  nextProductName !== undefined ? nextProductName : row.firstProductName,
               }
             : row,
         ),
@@ -237,6 +332,7 @@ export default function AdminLeadsPage() {
   };
 
   const showContractColumn = activeTab === "salon";
+  const showProductNameColumn = activeTab === "salon" || activeTab === "website";
   const showAmountColumn = activeTab !== "measure";
   const showCommentColumn = activeTab === "website" || activeTab === "measure";
   const showScheduleColumns = activeTab === "salon";
@@ -244,12 +340,13 @@ export default function AdminLeadsPage() {
   const tableColumns = useMemo(() => {
     const columns = ["Дата", "ФИО", "Телефон"];
     if (showContractColumn) columns.push("№ договора");
+    if (showProductNameColumn) columns.push("Наименование товара");
     if (showCommentColumn) columns.push("Комментарий");
     if (showAmountColumn) columns.push("Сумма");
-    columns.push("Статус", "Дата прихода", "Замер");
+    columns.push("Статус", "Дата прихода", "Номер счёта", "Замер");
     if (showScheduleColumns) columns.push("Монтаж", "Доставка");
     return columns;
-  }, [showAmountColumn, showCommentColumn, showContractColumn, showScheduleColumns]);
+  }, [showAmountColumn, showCommentColumn, showContractColumn, showProductNameColumn, showScheduleColumns]);
 
   return (
     <AdminPage title="Заявки" description={tabConfig.description} className="max-w-none">
@@ -334,6 +431,21 @@ export default function AdminLeadsPage() {
                   {showContractColumn ? (
                     <AdminTableCell>{item.contractNumber || "—"}</AdminTableCell>
                   ) : null}
+                  {showProductNameColumn ? (
+                    <AdminTableCell>
+                      {item.firstProductItemId ? (
+                        <LeadProductNameInput
+                          value={item.firstProductName || ""}
+                          disabled={savingId === item.id}
+                          onSave={(firstProductName) =>
+                            void handlePatch(item, { firstProductName })
+                          }
+                        />
+                      ) : (
+                        <span className="text-zinc-400">—</span>
+                      )}
+                    </AdminTableCell>
+                  ) : null}
                   {showCommentColumn ? (
                     <AdminTableCell className="max-w-xs">
                       {truncateText(item.clientComment) || "—"}
@@ -371,6 +483,13 @@ export default function AdminLeadsPage() {
                     ) : (
                       <span className="text-zinc-400">—</span>
                     )}
+                  </AdminTableCell>
+                  <AdminTableCell>
+                    <LeadInvoiceNumberInput
+                      value={item.invoiceNumber || ""}
+                      disabled={savingId === item.id}
+                      onSave={(invoiceNumber) => void handlePatch(item, { invoiceNumber })}
+                    />
                   </AdminTableCell>
                   <AdminTableCell>
                     {item.status === "measure" ? (

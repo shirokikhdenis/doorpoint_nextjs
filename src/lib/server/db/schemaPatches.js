@@ -10,6 +10,7 @@ let portfolioTablesEnsured = false;
 let promotionTablesEnsured = false;
 let leadTablesEnsured = false;
 let leadMeasureNoteEnsured = false;
+let leadInvoiceNumberEnsured = false;
 let leadItemManufacturerIdEnsured = false;
 let servicesTablesEnsured = false;
 let seoColumnsEnsured = false;
@@ -286,6 +287,15 @@ const ensureLeadMeasureNoteColumn = async () => {
   leadMeasureNoteEnsured = true;
 };
 
+const ensureLeadInvoiceNumberColumn = async () => {
+  if (leadInvoiceNumberEnsured) return;
+  await query(`
+    ALTER TABLE leads
+    ADD COLUMN IF NOT EXISTS invoice_number TEXT NOT NULL DEFAULT ''
+  `);
+  leadInvoiceNumberEnsured = true;
+};
+
 const ensureLeadItemManufacturerIdColumn = async () => {
   if (leadItemManufacturerIdEnsured) return;
   await query(`
@@ -298,6 +308,7 @@ const ensureLeadItemManufacturerIdColumn = async () => {
 const ensureLeadTables = async () => {
   if (leadTablesEnsured) {
     await ensureLeadMeasureNoteColumn();
+    await ensureLeadInvoiceNumberColumn();
     await ensureLeadItemManufacturerIdColumn();
     return;
   }
@@ -387,6 +398,7 @@ const ensureLeadTables = async () => {
     ADD COLUMN IF NOT EXISTS arrival_date DATE
   `);
   await ensureLeadMeasureNoteColumn();
+  await ensureLeadInvoiceNumberColumn();
   await ensureLeadItemManufacturerIdColumn();
   leadTablesEnsured = true;
 };

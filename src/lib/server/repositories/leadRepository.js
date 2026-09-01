@@ -12,6 +12,7 @@ const leadSelectFields = `
   contract_date AS "contractDate",
   delivery_days AS "deliveryDays",
   arrival_date::text AS "arrivalDate",
+  invoice_number AS "invoiceNumber",
   measure_note AS "measureNote",
   total_price AS "totalPrice",
   discount_kind AS "discountKind",
@@ -34,6 +35,7 @@ const mapLeadRow = (row) => ({
   contractDate: row.contractDate || null,
   deliveryDays: row.deliveryDays != null ? Number(row.deliveryDays) : null,
   arrivalDate: row.arrivalDate ? String(row.arrivalDate).slice(0, 10) : null,
+  invoiceNumber: String(row.invoiceNumber || ""),
   measureNote: String(row.measureNote || ""),
   totalPrice: Number(row.totalPrice) || 0,
   discountKind: normalizeDiscountKind(row.discountKind),
@@ -44,6 +46,15 @@ const mapLeadRow = (row) => ({
   sourcePage: String(row.sourcePage || ""),
   createdAt: row.createdAt,
   updatedAt: row.updatedAt,
+  ...(row.firstProductName !== undefined
+    ? { firstProductName: String(row.firstProductName || "") }
+    : {}),
+  ...(row.firstProductItemId !== undefined
+    ? {
+        firstProductItemId:
+          row.firstProductItemId != null ? Number(row.firstProductItemId) : null,
+      }
+    : {}),
 });
 
 const enrichLead = (lead) => {
@@ -233,7 +244,22 @@ const listLeads = async ({ limit = 50, offset = 0, status, type, search } = {}) 
 
   const res = await query(
     `
-    SELECT ${leadSelectFields}
+    SELECT
+      ${leadSelectFields},
+      (
+        SELECT li.name
+        FROM lead_items li
+        WHERE li.lead_id = leads.id
+        ORDER BY li.sort_order ASC, li.id ASC
+        LIMIT 1
+      ) AS "firstProductName",
+      (
+        SELECT li.id
+        FROM lead_items li
+        WHERE li.lead_id = leads.id
+        ORDER BY li.sort_order ASC, li.id ASC
+        LIMIT 1
+      ) AS "firstProductItemId"
     FROM leads
     ${whereClause}
     ORDER BY created_at DESC, id DESC
@@ -283,6 +309,26 @@ const updateLead = async (id, patch) => {
 
     const current = mapLeadRow(currentRes.rows[0]);
 
+    if (patch.firstProductName !== undefined) {
+      const firstItemRes = await client.query(
+        `
+        SELECT id
+        FROM lead_items
+        WHERE lead_id = $1
+        ORDER BY sort_order ASC, id ASC
+        LIMIT 1
+        `,
+        [numericId],
+      );
+      if (firstItemRes.rows[0]) {
+        await client.query(`UPDATE lead_items SET name = $1 WHERE id = $2 AND lead_id = $3`, [
+          patch.firstProductName,
+          firstItemRes.rows[0].id,
+          numericId,
+        ]);
+      }
+    }
+
     if (Array.isArray(patch.items) && patch.items.length > 0) {
       for (const item of patch.items) {
         const updated = await client.query(
@@ -311,6 +357,8 @@ const updateLead = async (id, patch) => {
       patch.arrivalDate !== undefined ? patch.arrivalDate : current.arrivalDate;
     const measureNote =
       patch.measureNote !== undefined ? patch.measureNote : current.measureNote;
+    const invoiceNumber =
+      patch.invoiceNumber !== undefined ? patch.invoiceNumber : current.invoiceNumber;
     const totals = computeLeadTotals(items, discountKind, discountValue);
 
     const updateRes = await client.query(
@@ -325,6 +373,7 @@ const updateLead = async (id, patch) => {
         delivery_days = $7,
         arrival_date = $8,
         measure_note = $9,
+        invoice_number = $10,
         updated_at = NOW()
       WHERE id = $1
       RETURNING ${leadSelectFields}
@@ -339,6 +388,7 @@ const updateLead = async (id, patch) => {
         deliveryDays,
         arrivalDate,
         measureNote,
+        invoiceNumber,
       ],
     );
 

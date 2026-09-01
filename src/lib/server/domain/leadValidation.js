@@ -1,5 +1,6 @@
 const LEAD_STATUSES = ["not_issued", "measure", "issued", "in_transit", "in_stock", "shipped"];
 const MEASURE_NOTE_MAX_LENGTH = 300;
+const INVOICE_NUMBER_MAX_LENGTH = 120;
 const DEFAULT_LEAD_STATUS = "not_issued";
 const ADMIN_ORDER_TYPE = "admin_order";
 const CART_LEAD_TYPE = "cart_lead";
@@ -271,6 +272,21 @@ const validateLeadPatch = (body) => {
       return { ok: false, message: `Текст замера: не больше ${MEASURE_NOTE_MAX_LENGTH} символов` };
     }
     data.measureNote = measureNote;
+  }
+
+  if (body?.firstProductName !== undefined) {
+    data.firstProductName = String(body.firstProductName ?? "").trim().slice(0, 500);
+  }
+
+  if (body?.invoiceNumber !== undefined) {
+    const invoiceNumber = String(body.invoiceNumber ?? "").trim();
+    if (invoiceNumber.length > INVOICE_NUMBER_MAX_LENGTH) {
+      return {
+        ok: false,
+        message: `Номер счёта: не больше ${INVOICE_NUMBER_MAX_LENGTH} символов`,
+      };
+    }
+    data.invoiceNumber = invoiceNumber;
   }
 
   if (Object.keys(data).length === 0) {
