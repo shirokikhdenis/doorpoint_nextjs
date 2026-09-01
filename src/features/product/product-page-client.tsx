@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ProductAccessoriesTable } from "@/features/product/product-accessories-table";
-import { ProductAddToCart } from "@/features/product/product-add-to-cart";
+import { ProductAddToCart, ProductCartRequestLink } from "@/features/product/product-add-to-cart";
 import { ProductAddToExhibition } from "@/features/product/product-add-to-exhibition";
 import { ProductFinishSelector } from "@/features/product/product-finish-selector";
 import { ProductGlassUpgradeSelector } from "@/features/product/product-glass-upgrade-selector";
@@ -109,6 +109,28 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
       }
     : null;
   const finishPickerPlacement = finishPickerId ? getFinishPickerPlacement(finishPickerId) : null;
+  const cartLineProps = {
+    productId: product.id,
+    cartName,
+    cartColorLabel: page.cartColorLabel,
+    cartGlassLabel: page.cartGlassLabel,
+    cartImage: image,
+    price,
+    sku: cartSku,
+    manufacturerId: cartManufacturerId,
+    manufacturerName: product.manufacturerName,
+    categorySlug: product.categorySlug,
+    finishId: page.selectedFinish?.id,
+    finishName: page.selectedFinish?.name,
+    glassOptionId: page.selectedGlassOption?.id,
+    glassOptionName: page.selectedGlassOption?.name,
+    hardwareServices: page.selectedHardwareServices.map((item) => ({
+      id: item.id,
+      name: item.name,
+      price: item.price,
+    })),
+    requiresFinish: page.requiresFinish,
+  };
 
   return (
     <>
@@ -225,29 +247,7 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
                 kitPrice={kitPrice}
                 kitPricing={product.kitPricing}
               />
-              <ProductAddToCart
-                productId={product.id}
-                cartName={cartName}
-                cartColorLabel={page.cartColorLabel}
-                cartGlassLabel={page.cartGlassLabel}
-                cartImage={image}
-                price={price}
-                sku={cartSku}
-                manufacturerId={cartManufacturerId}
-                manufacturerName={product.manufacturerName}
-                categorySlug={product.categorySlug}
-                finishId={page.selectedFinish?.id}
-                finishName={page.selectedFinish?.name}
-                glassOptionId={page.selectedGlassOption?.id}
-                glassOptionName={page.selectedGlassOption?.name}
-                hardwareServices={page.selectedHardwareServices.map((item) => ({
-                  id: item.id,
-                  name: item.name,
-                  price: item.price,
-                }))}
-                requiresFinish={page.requiresFinish}
-                className="w-full"
-              />
+              <ProductAddToCart {...cartLineProps} className="w-full" />
             </div>
             <div className="flex items-start gap-2.5 rounded-lg bg-zinc-50 px-3 py-2 sm:items-center">
               <svg
@@ -268,6 +268,10 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
                 <TrackedPhoneLink className="inline-block whitespace-nowrap font-semibold text-brand hover:underline sm:inline">
                   {SITE_PHONE_DISPLAY}
                 </TrackedPhoneLink>
+                <span className="mt-1 block sm:mt-0 sm:inline">
+                  {" "}
+                  или <ProductCartRequestLink {...cartLineProps} /> и мы вам перезвоним
+                </span>
               </p>
             </div>
             {product.attributes.length > 0 ? (
