@@ -176,7 +176,7 @@ function LeadInvoiceNumberInput({
         }
       }}
       className="h-8 w-[9rem] rounded border border-zinc-200 bg-white px-2 text-sm disabled:bg-zinc-50"
-      aria-label="Номер счёта"
+      aria-label="Комментарии"
       placeholder="—"
     />
   );
@@ -228,6 +228,7 @@ export default function AdminLeadsPage() {
 
   const [items, setItems] = useState<LeadListItem[]>([]);
   const [statusFilter, setStatusFilter] = useState("");
+  const [hideEstimates, setHideEstimates] = useState(true);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -312,6 +313,7 @@ export default function AdminLeadsPage() {
     const params = new URLSearchParams();
     params.set("type", tabConfig.type);
     if (statusFilter) params.set("status", statusFilter);
+    params.set("hideEstimates", hideEstimates ? "1" : "0");
     if (debouncedSearch) params.set("search", debouncedSearch);
     const response = await fetch(`/api/admin/leads?${params.toString()}`);
     if (!response.ok) {
@@ -320,7 +322,7 @@ export default function AdminLeadsPage() {
     }
     const payload = (await response.json()) as { items?: LeadListItem[] };
     setItems(Array.isArray(payload.items) ? payload.items : []);
-  }, [statusFilter, debouncedSearch, tabConfig.type]);
+  }, [statusFilter, hideEstimates, debouncedSearch, tabConfig.type]);
 
   useEffect(() => {
     let cancelled = false;
@@ -410,8 +412,8 @@ export default function AdminLeadsPage() {
     if (showProductNameColumn) columns.push("Наименование товара");
     if (showCommentColumn) columns.push("Комментарий");
     if (showAmountColumn) columns.push("Сумма");
-    columns.push("Статус", "Дата прихода", "Номер счёта", "Замер");
-    if (showScheduleColumns) columns.push("Монтаж", "Доставка");
+    columns.push("Статус", "Дата прихода", "Комментарии", "Замер");
+    if (showScheduleColumns) columns.push("Доставка", "Монтаж");
     return columns;
   }, [showAmountColumn, showCommentColumn, showContractColumn, showProductNameColumn, showScheduleColumns]);
 
@@ -452,6 +454,15 @@ export default function AdminLeadsPage() {
               className="w-full max-w-md rounded border border-zinc-200 px-3 py-2 text-sm"
             />
           </div>
+          <label className="flex items-center gap-2 self-end pb-2 text-sm text-zinc-700">
+            <input
+              type="checkbox"
+              checked={hideEstimates}
+              onChange={(event) => setHideEstimates(event.target.checked)}
+              className="size-4 rounded border-zinc-300"
+            />
+            Скрыть расчеты
+          </label>
           <div className="max-w-xs">
             <AdminSelectField
               id="lead-status-filter"
@@ -573,16 +584,6 @@ export default function AdminLeadsPage() {
                     <>
                       <AdminTableCell className="whitespace-nowrap">
                         <LeadScheduleCell
-                          from={item.installDate}
-                          to={item.installEndDate}
-                          kind="install"
-                          disabled={savingId === item.id}
-                          onAdd={() => openSchedulePanel(item, "install", null)}
-                          onEdit={() => openSchedulePanel(item, "install", item.installId ?? null)}
-                        />
-                      </AdminTableCell>
-                      <AdminTableCell className="whitespace-nowrap">
-                        <LeadScheduleCell
                           from={item.deliveryDate}
                           to={item.deliveryEndDate}
                           kind="delivery"
@@ -591,6 +592,16 @@ export default function AdminLeadsPage() {
                           onEdit={() =>
                             openSchedulePanel(item, "delivery", item.deliveryId ?? null)
                           }
+                        />
+                      </AdminTableCell>
+                      <AdminTableCell className="whitespace-nowrap">
+                        <LeadScheduleCell
+                          from={item.installDate}
+                          to={item.installEndDate}
+                          kind="install"
+                          disabled={savingId === item.id}
+                          onAdd={() => openSchedulePanel(item, "install", null)}
+                          onEdit={() => openSchedulePanel(item, "install", item.installId ?? null)}
                         />
                       </AdminTableCell>
                     </>

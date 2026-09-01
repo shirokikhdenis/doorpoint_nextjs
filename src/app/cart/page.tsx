@@ -18,6 +18,15 @@ import {
   type AdminCartServiceKey,
   type AdminCartServiceLineState,
 } from "@/features/store/admin-cart-service-lines";
+import {
+  clearAdminCartCustomLines,
+  createAdminCartCustomLine,
+  readAdminCartCustomLines,
+  sumAdminCustomLines,
+  toAdminCustomCartItems,
+  writeAdminCartCustomLines,
+  type AdminCartCustomLineState,
+} from "@/features/store/admin-cart-custom-lines";
 import { useAdminSession } from "@/lib/client/use-admin-session";
 import {
   resolveCartManufacturerArticle,
@@ -243,6 +252,217 @@ function useAdminServiceLineEditor(
     handlePriceBlur,
     handleNameBlur,
   };
+}
+
+function useAdminCustomLineEditor(
+  line: AdminCartCustomLineState,
+  onChange: (
+    patch: Partial<Pick<AdminCartCustomLineState, "name" | "quantity" | "price">>,
+  ) => void,
+) {
+  const [nameText, setNameText] = useState(() => line.name);
+  const [qtyText, setQtyText] = useState(() => String(line.quantity));
+  const [priceText, setPriceText] = useState(() => (line.price > 0 ? String(line.price) : ""));
+
+  useEffect(() => {
+    setNameText(line.name);
+  }, [line.name, line.id]);
+
+  useEffect(() => {
+    setQtyText(String(line.quantity));
+  }, [line.quantity, line.id]);
+
+  useEffect(() => {
+    setPriceText(line.price > 0 ? String(line.price) : "");
+  }, [line.price, line.id]);
+
+  const applyQuantity = (next: number) => {
+    const clamped = Math.min(CART_QTY_MAX, Math.max(1, Math.floor(next)));
+    setQtyText(String(clamped));
+    onChange({ quantity: clamped });
+  };
+
+  const handleQtyChange = (raw: string) => {
+    if (raw === "") {
+      setQtyText("");
+      return;
+    }
+    if (!/^\d+$/.test(raw)) {
+      setQtyText(String(line.quantity));
+      return;
+    }
+    const n = parseInt(raw, 10);
+    const clamped = Math.min(CART_QTY_MAX, Math.max(1, n));
+    setQtyText(String(clamped));
+    onChange({ quantity: clamped });
+  };
+
+  const handleQtyBlur = () => {
+    if (qtyText === "" || !/^\d+$/.test(qtyText)) {
+      setQtyText(String(line.quantity));
+      return;
+    }
+    applyQuantity(parseInt(qtyText, 10));
+  };
+
+  const handlePriceChange = (raw: string) => {
+    if (raw === "") {
+      setPriceText("");
+      onChange({ price: 0 });
+      return;
+    }
+    if (!/^\d+$/.test(raw)) {
+      setPriceText(line.price > 0 ? String(line.price) : "");
+      return;
+    }
+    const n = parseInt(raw, 10);
+    const clamped = Math.max(0, n);
+    setPriceText(String(clamped));
+    onChange({ price: clamped });
+  };
+
+  const handlePriceBlur = () => {
+    if (priceText === "" || !/^\d+$/.test(priceText)) {
+      setPriceText(line.price > 0 ? String(line.price) : "");
+      onChange({ price: 0 });
+      return;
+    }
+    const clamped = Math.max(0, parseInt(priceText, 10));
+    setPriceText(String(clamped));
+    onChange({ price: clamped });
+  };
+
+  const handleNameBlur = () => {
+    const next = nameText.trim();
+    setNameText(next);
+    if (next !== line.name) onChange({ name: next });
+  };
+
+  return {
+    nameText,
+    setNameText,
+    qtyText,
+    priceText,
+    applyQuantity,
+    handleQtyChange,
+    handleQtyBlur,
+    handlePriceChange,
+    handlePriceBlur,
+    handleNameBlur,
+  };
+}
+
+function AdminCustomLineControls({
+  line,
+  onChange,
+  onRemove,
+}: {
+  line: AdminCartCustomLineState;
+  onChange: (
+    patch: Partial<Pick<AdminCartCustomLineState, "name" | "quantity" | "price">>,
+  ) => void;
+  onRemove: () => void;
+}) {
+  const {
+    nameText,
+    setNameText,
+    qtyText,
+    priceText,
+    applyQuantity,
+    handleQtyChange,
+    handleQtyBlur,
+    handlePriceChange,
+    handlePriceBlur,
+    handleNameBlur,
+  } = useAdminCustomLineEditor(line, onChange);
+
+  const lineLabel = line.name.trim() || "позицию";
+
+  return (
+    <>
+      <td className="px-4 py-3 align-middle">
+        <input
+          type="text"
+          aria-label="Наименование товара"
+          placeholder="Наименование"
+          className="box-border w-full min-w-0 max-w-full rounded border border-zinc-300 px-2 py-1 text-sm font-medium text-zinc-900 print:hidden"
+          value={nameText}
+          onChange={(event) => setNameText(event.target.value)}
+          onBlur={handleNameBlur}
+        />
+        <p className="hidden font-medium leading-snug text-zinc-900 print:block">
+          {line.name.trim() || "—"}
+        </p>
+      </td>
+      <td className="whitespace-nowrap px-4 py-3 align-middle font-mono text-xs text-zinc-500 print:hidden">
+        —
+      </td>
+      <td className="whitespace-nowrap px-4 py-3 align-middle font-medium">
+        <div className="flex items-center print:hidden">
+          <input
+            type="text"
+            inputMode="numeric"
+            autoComplete="off"
+            aria-label="Цена"
+            placeholder="Цена"
+            className="box-border w-full min-w-0 max-w-full rounded border border-zinc-300 px-2 py-1 text-sm tabular-nums"
+            value={priceText}
+            onChange={(event) => handlePriceChange(event.target.value)}
+            onBlur={handlePriceBlur}
+          />
+          <span className="ml-1 text-zinc-500">₽</span>
+        </div>
+        <span className="hidden print:inline">{formatPrice(line.price)}</span>
+      </td>
+      <td className="px-4 py-3 align-middle">
+        <div className="flex w-full items-center justify-start gap-2 print:hidden">
+          <button
+            type="button"
+            className="shrink-0 rounded border px-2"
+            onClick={() => applyQuantity(line.quantity - 1)}
+            aria-label={`Уменьшить количество: ${lineLabel}`}
+          >
+            -
+          </button>
+          <input
+            type="text"
+            inputMode="numeric"
+            autoComplete="off"
+            aria-label={`Количество: ${lineLabel}`}
+            className="w-9 shrink-0 rounded border border-zinc-300 px-1 py-1 text-center text-sm tabular-nums"
+            value={qtyText}
+            onChange={(event) => handleQtyChange(event.target.value)}
+            onBlur={handleQtyBlur}
+          />
+          <button
+            type="button"
+            className="shrink-0 rounded border px-2"
+            onClick={() => applyQuantity(line.quantity + 1)}
+            aria-label={`Увеличить количество: ${lineLabel}`}
+          >
+            +
+          </button>
+        </div>
+        <span className="hidden whitespace-nowrap print:inline">{line.quantity} шт.</span>
+      </td>
+      <td className="whitespace-nowrap px-4 py-3 text-right align-middle font-medium">
+        {formatPrice(line.price * line.quantity)}
+      </td>
+      <td className="w-10 px-2 py-3 text-right align-middle print:hidden">
+        <button
+          type="button"
+          aria-label="Удалить позицию"
+          title="Удалить"
+          className="inline-flex h-8 w-8 items-center justify-center rounded text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900"
+          onClick={onRemove}
+        >
+          <span className="text-lg leading-none" aria-hidden="true">
+            ✕
+          </span>
+        </button>
+      </td>
+    </>
+  );
 }
 
 function AdminServiceLineControls({
@@ -542,15 +762,139 @@ function AdminServiceLineCard({
   );
 }
 
+function AdminCustomLineCard({
+  line,
+  onChange,
+  onRemove,
+}: {
+  line: AdminCartCustomLineState;
+  onChange: (
+    patch: Partial<Pick<AdminCartCustomLineState, "name" | "quantity" | "price">>,
+  ) => void;
+  onRemove: () => void;
+}) {
+  const {
+    nameText,
+    setNameText,
+    qtyText,
+    priceText,
+    applyQuantity,
+    handleQtyChange,
+    handleQtyBlur,
+    handlePriceChange,
+    handlePriceBlur,
+    handleNameBlur,
+  } = useAdminCustomLineEditor(line, onChange);
+
+  const lineLabel = line.name.trim() || "позицию";
+
+  return (
+    <article className="rounded-lg border border-dashed border-zinc-300 bg-zinc-50/60 p-3">
+      <div className="flex items-start gap-2">
+        <input
+          type="text"
+          aria-label="Наименование товара"
+          placeholder="Наименование"
+          className="box-border min-w-0 flex-1 rounded border border-zinc-300 bg-white px-2 py-2 text-sm font-medium text-zinc-900"
+          value={nameText}
+          onChange={(event) => setNameText(event.target.value)}
+          onBlur={handleNameBlur}
+        />
+        <button
+          type="button"
+          aria-label="Удалить позицию"
+          title="Удалить"
+          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900"
+          onClick={onRemove}
+        >
+          <span className="text-lg leading-none" aria-hidden="true">
+            ✕
+          </span>
+        </button>
+      </div>
+      <div className="mt-3 flex flex-col gap-3">
+        <label className="min-w-0">
+          <span className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">Цена</span>
+          <span className="mt-0.5 flex items-center gap-1">
+            <input
+              type="text"
+              inputMode="numeric"
+              autoComplete="off"
+              aria-label="Цена"
+              placeholder="Цена"
+              className="box-border w-full min-w-0 max-w-[8rem] rounded border border-zinc-300 bg-white px-2 py-2 text-sm tabular-nums"
+              value={priceText}
+              onChange={(event) => handlePriceChange(event.target.value)}
+              onBlur={handlePriceBlur}
+            />
+            <span className="shrink-0 text-zinc-500">₽</span>
+          </span>
+        </label>
+        <div className="flex items-end justify-between gap-3">
+          <div className="flex flex-col gap-1.5">
+            <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">Кол-во</p>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded border border-zinc-300 bg-white text-lg leading-none"
+                onClick={() => applyQuantity(line.quantity - 1)}
+                aria-label={`Уменьшить количество: ${lineLabel}`}
+              >
+                -
+              </button>
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="off"
+                aria-label={`Количество: ${lineLabel}`}
+                className="h-10 w-11 shrink-0 rounded border border-zinc-300 bg-white px-1 text-center text-sm tabular-nums"
+                value={qtyText}
+                onChange={(event) => handleQtyChange(event.target.value)}
+                onBlur={handleQtyBlur}
+              />
+              <button
+                type="button"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded border border-zinc-300 bg-white text-lg leading-none"
+                onClick={() => applyQuantity(line.quantity + 1)}
+                aria-label={`Увеличить количество: ${lineLabel}`}
+              >
+                +
+              </button>
+            </div>
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">Сумма</p>
+            <p className="mt-0.5 text-sm font-semibold tabular-nums text-zinc-900">
+              {formatPrice(line.price * line.quantity)}
+            </p>
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+}
+
 export default function CartPage() {
   const { items, totalPrice, setQuantity, removeItem, clear } = useCart();
   const { isAdmin, loading: adminLoading } = useAdminSession();
   const [isExporting, setIsExporting] = useState(false);
   const [serviceLines, setServiceLines] = useState(createInitialAdminCartServiceLines);
+  const [customLines, setCustomLines] = useState<AdminCartCustomLineState[]>(() =>
+    readAdminCartCustomLines(),
+  );
 
   const adminMode = !adminLoading && isAdmin;
   const manufacturerArticles = useCartManufacturerArticles(items, adminMode);
   const tableColSpan = adminMode ? 6 : 5;
+  const customCartItems = useMemo(
+    () => (adminMode ? toAdminCustomCartItems(customLines) : []),
+    [adminMode, customLines],
+  );
+  const customTotal = useMemo(
+    () => (adminMode ? sumAdminCustomLines(customLines) : 0),
+    [adminMode, customLines],
+  );
+  const productTotal = totalPrice + customTotal;
   const serviceCartItems = useMemo(
     () => (adminMode ? toAdminServiceCartItems(serviceLines) : []),
     [adminMode, serviceLines],
@@ -560,10 +904,18 @@ export default function CartPage() {
     [adminMode, serviceLines],
   );
   const invoiceItems = useMemo(
-    () => (adminMode ? [...items, ...serviceCartItems] : items),
-    [adminMode, items, serviceCartItems],
+    () => (adminMode ? [...items, ...customCartItems, ...serviceCartItems] : items),
+    [adminMode, items, customCartItems, serviceCartItems],
   );
-  const invoiceTotal = totalPrice + serviceTotal;
+  const invoiceTotal = productTotal + serviceTotal;
+  const hasEnabledServices = serviceLines.some((line) => line.enabled);
+  const hasClearableContent =
+    items.length > 0 || customLines.length > 0 || hasEnabledServices;
+
+  useEffect(() => {
+    if (!adminMode) return;
+    writeAdminCartCustomLines(customLines);
+  }, [adminMode, customLines]);
 
   const updateServiceLine = (
     key: AdminCartServiceKey,
@@ -574,12 +926,31 @@ export default function CartPage() {
     );
   };
 
+  const addCustomLine = () => {
+    setCustomLines((current) => [...current, createAdminCartCustomLine()]);
+  };
+
+  const updateCustomLine = (
+    id: string,
+    patch: Partial<Pick<AdminCartCustomLineState, "name" | "quantity" | "price">>,
+  ) => {
+    setCustomLines((current) =>
+      current.map((line) => (line.id === id ? { ...line, ...patch } : line)),
+    );
+  };
+
+  const removeCustomLine = (id: string) => {
+    setCustomLines((current) => current.filter((line) => line.id !== id));
+  };
+
   const handleClear = () => {
-    if (items.length === 0) return;
+    if (!hasClearableContent) return;
     const ok = window.confirm("Очистить корзину? Действие нельзя отменить.");
     if (!ok) return;
     clear();
     setServiceLines(createInitialAdminCartServiceLines());
+    setCustomLines([]);
+    clearAdminCartCustomLines();
   };
 
   const handlePrint = () => {
@@ -596,7 +967,7 @@ export default function CartPage() {
     }
   };
 
-  if (items.length === 0) {
+  if (items.length === 0 && !isAdmin && !adminLoading) {
     return (
       <main className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6">
         <h1 className="text-2xl font-semibold">Корзина</h1>
@@ -674,7 +1045,8 @@ export default function CartPage() {
           <button
             type="button"
             onClick={handleClear}
-            className="min-h-10 flex-1 rounded-md border border-rose-300 bg-white px-3 py-2 text-sm text-rose-700 transition hover:border-rose-500 hover:bg-rose-50 sm:min-h-0 sm:flex-none sm:py-1.5"
+            disabled={!hasClearableContent}
+            className="min-h-10 flex-1 rounded-md border border-rose-300 bg-white px-3 py-2 text-sm text-rose-700 transition hover:border-rose-500 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0 sm:flex-none sm:py-1.5"
           >
             Очистить корзину
           </button>
@@ -722,10 +1094,29 @@ export default function CartPage() {
             }
           />
         ))}
+        {adminMode
+          ? customLines.map((line) => (
+              <AdminCustomLineCard
+                key={line.id}
+                line={line}
+                onChange={(patch) => updateCustomLine(line.id, patch)}
+                onRemove={() => removeCustomLine(line.id)}
+              />
+            ))
+          : null}
+        {adminMode ? (
+          <button
+            type="button"
+            onClick={addCustomLine}
+            className="w-full rounded-md border border-dashed border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 transition hover:border-zinc-400 hover:bg-zinc-50"
+          >
+            Добавить позицию
+          </button>
+        ) : null}
         {adminMode ? (
           <div className="flex items-baseline justify-between gap-3 px-1 py-1 text-sm">
             <span className="text-zinc-700">Стоимость товара</span>
-            <span className="font-semibold tabular-nums text-zinc-900">{formatPrice(totalPrice)}</span>
+            <span className="font-semibold tabular-nums text-zinc-900">{formatPrice(productTotal)}</span>
           </div>
         ) : null}
         {adminMode && serviceCartItems.length > 0 ? (
@@ -836,6 +1227,33 @@ export default function CartPage() {
                 </td>
               </tr>
             ))}
+            {adminMode
+              ? customLines.map((line) => (
+                  <tr
+                    key={line.id}
+                    className="bg-zinc-50/40 hover:bg-zinc-50/70 print:break-inside-avoid print:bg-transparent"
+                  >
+                    <AdminCustomLineControls
+                      line={line}
+                      onChange={(patch) => updateCustomLine(line.id, patch)}
+                      onRemove={() => removeCustomLine(line.id)}
+                    />
+                  </tr>
+                ))
+              : null}
+            {adminMode ? (
+              <tr className="print:hidden">
+                <td colSpan={tableColSpan} className="px-4 py-2">
+                  <button
+                    type="button"
+                    onClick={addCustomLine}
+                    className="rounded-md border border-dashed border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 transition hover:border-zinc-400 hover:bg-zinc-50"
+                  >
+                    Добавить позицию
+                  </button>
+                </td>
+              </tr>
+            ) : null}
             {adminMode ? (
               <tr className="bg-zinc-50/80 print:break-inside-avoid print:bg-transparent">
                 <td colSpan={4} className="px-4 py-2.5 text-sm font-medium text-zinc-700 print:hidden">
@@ -848,7 +1266,7 @@ export default function CartPage() {
                   Стоимость товара
                 </td>
                 <td className="whitespace-nowrap px-4 py-2.5 text-right text-sm font-semibold text-zinc-900">
-                  {formatPrice(totalPrice)}
+                  {formatPrice(productTotal)}
                 </td>
                 <td className="print:hidden" />
               </tr>
@@ -946,7 +1364,7 @@ export default function CartPage() {
           <>
             <p className="text-sm text-zinc-600">
               Стоимость товара:{" "}
-              <span className="font-medium text-zinc-900">{formatPrice(totalPrice)}</span>
+              <span className="font-medium text-zinc-900">{formatPrice(productTotal)}</span>
             </p>
             {serviceCartItems.length > 0 ? (
               <p className="text-sm text-zinc-600">
@@ -974,9 +1392,9 @@ export default function CartPage() {
       {adminMode ? (
         <AdminCartLeadForm
           items={invoiceItems}
-          productItems={items}
+          productItems={[...items, ...customCartItems]}
           serviceItems={serviceCartItems}
-          productTotal={totalPrice}
+          productTotal={productTotal}
           serviceTotal={serviceTotal}
           totalPrice={invoiceTotal}
           manufacturerArticles={manufacturerArticles}

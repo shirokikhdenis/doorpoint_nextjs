@@ -1,7 +1,10 @@
 export const DEFAULT_LEAD_STATUS = "not_issued";
 
+export const LEAD_STATUS_ESTIMATE = "estimate";
+
 export const LEAD_STATUS_OPTIONS = [
   { value: "not_issued", label: "Не оформлена" },
+  { value: "estimate", label: "Расчет" },
   { value: "measure", label: "Замер" },
   { value: "issued", label: "Оформлена" },
   { value: "in_transit", label: "В пути" },
@@ -17,6 +20,7 @@ export const LEAD_STATUS_LABELS: Record<string, string> = Object.fromEntries(
 
 export const LEAD_STATUS_COLORS: Record<string, { background: string; color: string }> = {
   not_issued: { background: "#f4f4f5", color: "#3f3f46" },
+  estimate: { background: "#e0e7ff", color: "#3730a3" },
   measure: { background: "#f3e8ff", color: "#6b21a8" },
   issued: { background: "#e0f2fe", color: "#075985" },
   in_transit: { background: "#ffedd5", color: "#9a3412" },
@@ -26,6 +30,7 @@ export const LEAD_STATUS_COLORS: Record<string, { background: string; color: str
 
 export const LEAD_STATUS_BADGE: Record<string, string> = {
   not_issued: "bg-zinc-100 text-zinc-700",
+  estimate: "bg-indigo-100 text-indigo-800",
   measure: "bg-purple-100 text-purple-800",
   issued: "bg-sky-100 text-sky-800",
   in_transit: "bg-orange-100 text-orange-800",

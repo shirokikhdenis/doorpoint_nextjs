@@ -1,4 +1,4 @@
-const LEAD_STATUSES = ["not_issued", "measure", "issued", "in_transit", "in_stock", "shipped"];
+const LEAD_STATUSES = ["not_issued", "estimate", "measure", "issued", "in_transit", "in_stock", "shipped"];
 const MEASURE_NOTE_MAX_LENGTH = 300;
 const INVOICE_NUMBER_MAX_LENGTH = 120;
 const DEFAULT_LEAD_STATUS = "not_issued";
@@ -283,7 +283,7 @@ const validateLeadPatch = (body) => {
     if (invoiceNumber.length > INVOICE_NUMBER_MAX_LENGTH) {
       return {
         ok: false,
-        message: `Номер счёта: не больше ${INVOICE_NUMBER_MAX_LENGTH} символов`,
+        message: `Комментарии: не больше ${INVOICE_NUMBER_MAX_LENGTH} символов`,
       };
     }
     data.invoiceNumber = invoiceNumber;

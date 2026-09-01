@@ -48,7 +48,18 @@ const listLeads = async (query = {}) => {
   const limit = query.limit;
   const offset = query.offset;
   const search = query.search ? String(query.search).trim() : undefined;
-  const items = await leadRepository.listLeads({ status, type, limit, offset, search });
+  const hideEstimates =
+    query.hideEstimates === "0" || query.hideEstimates === "false" ? false : true;
+  const excludeStatuses =
+    hideEstimates && status !== "estimate" ? ["estimate"] : undefined;
+  const items = await leadRepository.listLeads({
+    status,
+    type,
+    limit,
+    offset,
+    search,
+    excludeStatuses,
+  });
   if (type !== "admin_order" || items.length === 0) {
     return { ok: true, items };
   }
