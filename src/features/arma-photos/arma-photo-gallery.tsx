@@ -157,7 +157,9 @@ export function ArmaPhotoGallery({ items, categories, onRequestQuote }: ArmaPhot
       {items.length === 0 ? (
         <p className="mt-6 text-sm text-zinc-500">Фото пока не опубликованы.</p>
       ) : filteredItems.length === 0 ? (
-        <p className="mt-6 text-sm text-zinc-500">Нет фото по выбранным тегам.</p>
+        <p className="mt-6 text-sm leading-relaxed text-zinc-600 sm:text-base">
+          {ARMA_FOTO_GALLERY.emptyFilter}
+        </p>
       ) : (
         <>
           <section className="mt-6 grid grid-cols-3 gap-3 lg:gap-4">

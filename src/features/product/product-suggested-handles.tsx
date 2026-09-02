@@ -5,6 +5,7 @@ import { useState } from "react";
 import { catalogGridClass } from "@/features/catalog/catalog-constants";
 import {
   buildCatalogCartItem,
+  catalogCardAllowsHover,
   CatalogProductCard,
 } from "@/features/catalog/catalog-product-card";
 import { useCart } from "@/lib/client/use-cart";
@@ -42,9 +43,7 @@ export function ProductSuggestedHandles({ handles, cardsPerRow }: ProductSuggest
       </div>
       <div className={`mt-5 ${catalogGridClass(cardsPerRow ?? 6)}`}>
         {handles.map((item) => {
-          const showHover =
-            hoveredProductId === item.id &&
-            Boolean(item.hoverImage && item.hoverImage !== item.image);
+          const showHover = hoveredProductId === item.id && catalogCardAllowsHover(item);
           return (
             <CatalogProductCard
               key={item.id}

@@ -32,6 +32,7 @@ import { ImageLightbox } from "@/features/store/image-lightbox";
 import { MeasureLeadForm } from "@/features/store/measure-lead-form";
 import { TrackedPhoneLink } from "@/features/store/tracked-phone-link";
 import type { ProductData } from "@/lib/client/normalizers";
+import { toPublicImageSrc } from "@/lib/client/image-src";
 import { SITE_PHONE_DISPLAY } from "@/lib/site-contact";
 
 type ProductPageClientProps = {
@@ -178,6 +179,7 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
               productName={product.name}
               image={image}
               galleryImages={galleryImages}
+              keyboardEnabled={!page.imageLightboxOpen}
               onOpenLightbox={() => page.setImageLightboxOpen(true)}
               onSelectThumbnail={(url) => {
                 page.setIsManualImageSelection(true);
@@ -329,9 +331,16 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
         />
       </main>
       <ImageLightbox
-        src={image}
+        src={toPublicImageSrc(image) || image}
         alt={product.name}
         open={page.imageLightboxOpen}
+        images={galleryImages.map((url) => toPublicImageSrc(url) || url)}
+        onSelect={(url) => {
+          const original =
+            galleryImages.find((item) => (toPublicImageSrc(item) || item) === url) || url;
+          page.setIsManualImageSelection(true);
+          page.setDisplayedImage(original);
+        }}
         onClose={() => page.setImageLightboxOpen(false)}
       />
       <MeasureLeadForm />

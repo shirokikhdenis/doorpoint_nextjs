@@ -11,6 +11,7 @@ const {
   buildPogonazhAccessoriesOrderSql,
   KIT_PART_TRUTHY,
 } = require("../domain/interiorKitPrice");
+const { ENTRY_DOORS_CATEGORY_SLUG } = require("../domain/entryDoorMerge");
 const { normalizeProductBadges, resolveProductBadges, syncSaleBadge } = require("../domain/productBadges");
 const {
   applySaleRulesOn,
@@ -23,6 +24,7 @@ const { allocateUniqueSlug, findRedirectProductId } = require("../domain/product
 const {
   ensureProductBadgesColumn,
   ensureProductSaleColumns,
+  ensureProductMergedImageUrlColumn,
   ensureProductSlugColumn,
   ensureLatinProductSlugs,
   ensureSeoColumns,
@@ -200,6 +202,7 @@ const validStorefrontImageUrlSql = `
 
 const productImageSubquery = `
   COALESCE(
+    NULLIF(BTRIM(p.merged_image_url), ''),
     (
       SELECT image_url FROM product_images
       WHERE product_id = p.id AND ${validStorefrontImageUrlSql}
@@ -219,9 +222,14 @@ const productImageSubquery = `
 const hoverImageSubquery = `
   (
     SELECT image_url FROM product_images
-    WHERE product_id = p.id AND ${validStorefrontImageUrlSql}
+    WHERE product_id = p.id
+      AND ${validStorefrontImageUrlSql}
+      AND (
+        NULLIF(BTRIM(p.merged_image_url), '') IS NULL
+        OR image_url IS DISTINCT FROM NULLIF(BTRIM(p.merged_image_url), '')
+      )
     ORDER BY sort_order, id
-    OFFSET 1
+    OFFSET CASE WHEN NULLIF(BTRIM(p.merged_image_url), '') IS NOT NULL THEN 0 ELSE 1 END
     LIMIT 1
   )
 `;
@@ -454,6 +462,7 @@ const loadAttributeDefMap = async () => {
 const listProducts = async (filters) => {
   await ensureProductBadgesColumn();
   await ensureProductSaleColumns();
+  await ensureProductMergedImageUrlColumn();
   await ensureLatinProductSlugs();
   await ensureManufacturerIdAttribute();
   const params = [];
@@ -998,6 +1007,7 @@ const getProductById = async (id) => {
   await ensureManufacturerIdAttribute();
   await removeManufacturerSkuAttribute();
   await ensureProductSaleColumns();
+  await ensureProductMergedImageUrlColumn();
   await ensureLatinProductSlugs();
   const numericId = Number(id);
   if (!Number.isInteger(numericId) || numericId <= 0) return null;
@@ -1017,6 +1027,7 @@ const getProductById = async (id) => {
       p.attrs,
       p.seo_title AS "seoTitle",
       p.seo_description AS "seoDescription",
+      p.merged_image_url AS "mergedImageUrl",
       c.id AS "categoryId",
       parent.id AS "parentCategoryId",
       ${taxonomySelect}
@@ -1055,6 +1066,10 @@ const getProductById = async (id) => {
   ]);
 
   let images = imagesRes.rows.map((r) => r.imageUrl).filter(isStorefrontImageUrl);
+  const mergedImageUrl = String(row.mergedImageUrl || "").trim();
+  if (mergedImageUrl && isStorefrontImageUrl(mergedImageUrl)) {
+    images = [mergedImageUrl, ...images.filter((url) => url !== mergedImageUrl)];
+  }
   if (images.length === 0) {
     const variantImage = variantsRes.rows
       .map((r) => r.imageUrl)
@@ -1382,6 +1397,7 @@ const splitCategoryId = async (productCategoryId) => {
 };
 
 const listAdminProducts = async () => {
+  await ensureProductMergedImageUrlColumn();
   const res = await query(
     `
     SELECT
@@ -1418,6 +1434,7 @@ const listAdminProducts = async () => {
 };
 
 const getAdminProductById = async (id) => {
+  await ensureProductMergedImageUrlColumn();
   const productRes = await query(
     `
     SELECT
@@ -1689,6 +1706,7 @@ const listProductsTable = async ({
 }) => {
   await ensureProductBadgesColumn();
   await ensureProductSaleColumns();
+  await ensureProductMergedImageUrlColumn();
   await ensureSeoColumns();
   await ensureManufacturerIdAttribute();
   await removeManufacturerSkuAttribute();
@@ -2249,6 +2267,7 @@ const mergeJsonbAttrs = (existing, incoming) => {
 
 const upsertProductBySku = async (payload) =>
   withTransaction(async (client) => {
+    await ensureProductMergedImageUrlColumn();
     const attrDefs = await attributeRepository.listAttributes();
     const attrDefById = new Map(attrDefs.map((def) => [def.id, def]));
     const partitioned = partitionAttributesByScope(payload.attributes, attrDefById);
@@ -2730,6 +2749,7 @@ const listPublicManufacturers = async ({
   categoryRootSlug = null,
   manufacturerNames = null,
 } = {}) => {
+  await ensureProductMergedImageUrlColumn();
   const params = [];
   const addParam = (value) => {
     params.push(value);
@@ -2826,6 +2846,7 @@ const listPublicCollections = async ({
   manufacturerName = null,
   collectionAttrCode = "collection",
 } = {}) => {
+  await ensureProductMergedImageUrlColumn();
   const attrCode = String(collectionAttrCode || "collection").trim() || "collection";
   if (!/^[a-z0-9_]+$/i.test(attrCode)) {
     return [];
@@ -2889,6 +2910,7 @@ const listPublicManufacturerSampleImages = async ({
   categoryRootSlug = null,
   limitPerManufacturer = 3,
 } = {}) => {
+  await ensureProductMergedImageUrlColumn();
   const limit = Math.min(Math.max(Number(limitPerManufacturer) || 3, 1), 6);
   const params = [];
   const addParam = (value) => {
@@ -2946,6 +2968,7 @@ const listPublicCollectionSampleImages = async ({
   collectionAttrCode = "collection",
   limitPerCollection = 3,
 } = {}) => {
+  await ensureProductMergedImageUrlColumn();
   const attrCode = String(collectionAttrCode || "collection").trim() || "collection";
   if (!/^[a-z0-9_]+$/i.test(attrCode)) {
     return [];
@@ -3121,6 +3144,96 @@ const mapStorefrontPricesByManufacturerIds = async (manufacturerIds) => {
   return out;
 };
 
+const getProductMergeContextBySku = async (sku) => {
+  await ensureProductMergedImageUrlColumn();
+  const trimmed = String(sku || "").trim();
+  if (!trimmed) return null;
+  const res = await query(
+    `
+    SELECT
+      p.id,
+      p.sku,
+      COALESCE(parent.slug, c.slug) AS "categorySlug",
+      p.merged_image_url AS "mergedImageUrl",
+      COALESCE(
+        (
+          SELECT json_agg(pi.image_url ORDER BY pi.sort_order, pi.id)
+          FROM product_images pi
+          WHERE pi.product_id = p.id
+        ),
+        '[]'::json
+      ) AS "imageUrls"
+    FROM products p
+    JOIN categories c ON c.id = p.category_id
+    LEFT JOIN categories parent ON parent.id = c.parent_id
+    WHERE p.sku = $1
+    LIMIT 1
+    `,
+    [trimmed],
+  );
+  if (!res.rows[0]) return null;
+  const row = res.rows[0];
+  let imageUrls = row.imageUrls;
+  if (typeof imageUrls === "string") {
+    try {
+      imageUrls = JSON.parse(imageUrls);
+    } catch {
+      imageUrls = [];
+    }
+  }
+  return {
+    id: Number(row.id),
+    sku: row.sku,
+    categorySlug: String(row.categorySlug || "").trim(),
+    mergedImageUrl: row.mergedImageUrl || null,
+    imageUrls: Array.isArray(imageUrls) ? imageUrls.map((url) => String(url || "").trim()).filter(Boolean) : [],
+  };
+};
+
+const setMergedImageUrl = async (productId, url) => {
+  await ensureProductMergedImageUrlColumn();
+  const numericId = Number(productId);
+  if (!Number.isInteger(numericId) || numericId <= 0) return null;
+  const value = url == null || String(url).trim() === "" ? null : String(url).trim();
+  await query(
+    `
+    UPDATE products
+    SET merged_image_url = $2, updated_at = NOW()
+    WHERE id = $1
+    `,
+    [numericId, value],
+  );
+  return { id: numericId, mergedImageUrl: value };
+};
+
+const listEntryDoorMergeCandidates = async () => {
+  await ensureProductMergedImageUrlColumn();
+  const res = await query(
+    `
+    SELECT p.id, p.sku
+    FROM products p
+    JOIN categories c ON c.id = p.category_id
+    LEFT JOIN categories parent ON parent.id = c.parent_id
+    WHERE COALESCE(parent.slug, c.slug) = $1
+      AND (
+        SELECT COUNT(*)::int
+        FROM product_images pi
+        WHERE pi.product_id = p.id
+          AND NULLIF(BTRIM(pi.image_url), '') IS NOT NULL
+          AND upper(trim(pi.image_url)) <> 'X'
+          AND pi.image_url NOT ILIKE '%/uploads/merged/%'
+          AND pi.image_url !~* '_merged\\.(jpe?g|png|webp)$'
+      ) >= 2
+    ORDER BY p.sku
+    `,
+    [ENTRY_DOORS_CATEGORY_SLUG],
+  );
+  return res.rows.map((row) => ({
+    id: Number(row.id),
+    sku: row.sku,
+  }));
+};
+
 module.exports = {
   listProducts,
   listFilterMeta,
@@ -3133,6 +3246,9 @@ module.exports = {
   listPublicCollectionSampleImages,
   getProductById,
   getProductBySlug,
+  getProductMergeContextBySku,
+  setMergedImageUrl,
+  listEntryDoorMergeCandidates,
   listAdminProducts,
   getAdminProductById,
   listProductsTable,

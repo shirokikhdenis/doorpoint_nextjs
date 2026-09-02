@@ -8,6 +8,7 @@ const {
   resolveImportVariantPricing,
   parseVariantSizeList,
   buildVariantAttributeSetsFromRow,
+  extractImageUrls,
 } = require("../src/lib/server/services/csvImportService");
 
 const sizeAttr = { id: 10, code: "size", name: "Размер", type: "option", options: [] };
@@ -28,6 +29,20 @@ test("validateCsvRows returns errors for missing sku", () => {
 
   assert.equal(errors.length, 1);
   assert.match(errors[0], /sku/i);
+});
+
+test("extractImageUrls keeps two local originals separated by space", () => {
+  assert.deepEqual(extractImageUrls("/uploads/products/a.jpg /uploads/products/a_1.jpg"), [
+    "/uploads/products/a.jpg",
+    "/uploads/products/a_1.jpg",
+  ]);
+});
+
+test("extractImageUrls keeps multiple http image urls", () => {
+  assert.deepEqual(
+    extractImageUrls("https://cdn.example/a.jpg https://cdn.example/a_1.jpg"),
+    ["https://cdn.example/a.jpg", "https://cdn.example/a_1.jpg"],
+  );
 });
 
 test("resolveUpdateOnlyRowDecision skips unknown product sku", () => {

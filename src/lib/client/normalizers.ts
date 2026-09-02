@@ -61,7 +61,7 @@ export type ProductCard = {
   /** Атрибут manufacturer (фабрика). */
   manufacturer?: string;
   image?: string;
-  /** Второе фото (hover) из product_images, sort_order второй. */
+  /** Второе фото из product_images: при склейке входной — первый оригинал, иначе второе фото. */
   hoverImage?: string;
   category?: string;
   categorySlug?: string;

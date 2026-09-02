@@ -44,6 +44,16 @@ export function toCardImageSrc(url: string | undefined | null): string {
   return src.replace(/\.[a-z0-9]+$/i, ".card.jpg");
 }
 
+/** Склейка входной двери: `/uploads/merged/{sku}_merged.jpg` или `{sku}_merged.jpg`. */
+export function isMergedStorefrontImageUrl(url: string | undefined | null): boolean {
+  const pathOnly = String(url || "")
+    .split("?")[0]
+    .toLowerCase();
+  if (!pathOnly) return false;
+  if (pathOnly.includes("/uploads/merged/")) return true;
+  return /_merged\.(jpe?g|png|webp)$/i.test(pathOnly);
+}
+
 /** Локальные файлы из public/ и uploads — отдаём напрямую через nginx, без /_next/image. */
 export function shouldBypassImageOptimizer(url: string | undefined | null): boolean {
   const normalized = toPublicImageSrc(url) || String(url ?? "").trim();

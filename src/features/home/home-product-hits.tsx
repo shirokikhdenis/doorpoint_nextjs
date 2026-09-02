@@ -11,6 +11,7 @@ import {
 import { cn } from "@/lib/utils";
 import {
   buildCatalogCartItem,
+  catalogCardAllowsHover,
   CatalogProductCard,
 } from "@/features/catalog/catalog-product-card";
 import { useCart } from "@/lib/client/use-cart";
@@ -120,9 +121,7 @@ export function HomeProductHits({
         <>
           <div className={catalogGridClass(cardsPerRow, catalogPage)}>
             {displayedProducts.map((item) => {
-              const showHover =
-                hoveredProductId === item.id &&
-                Boolean(item.hoverImage && item.hoverImage !== item.image);
+              const showHover = hoveredProductId === item.id && catalogCardAllowsHover(item);
               return (
                 <CatalogProductCard
                   key={item.id}

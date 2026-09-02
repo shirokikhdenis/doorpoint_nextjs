@@ -121,6 +121,7 @@ CREATE TABLE products (
   badges TEXT[] NOT NULL DEFAULT '{}'::text[],
   is_on_sale BOOLEAN NOT NULL DEFAULT FALSE,
   compare_at_price INTEGER,
+  merged_image_url TEXT,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

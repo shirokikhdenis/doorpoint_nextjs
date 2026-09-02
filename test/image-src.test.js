@@ -48,6 +48,20 @@ test("toPublicImageSrc drops bare relative paths without leading slash", () => {
   assert.equal(toPublicImageSrc("uploads/foo.jpg"), "");
 });
 
+const isMergedStorefrontImageUrl = (url) => {
+  const pathOnly = String(url || "")
+    .split("?")[0]
+    .toLowerCase();
+  if (!pathOnly) return false;
+  if (pathOnly.includes("/uploads/merged/")) return true;
+  return /_merged\.(jpe?g|png|webp)$/i.test(pathOnly);
+};
+
+test("isMergedStorefrontImageUrl detects merge covers", () => {
+  assert.equal(isMergedStorefrontImageUrl("/uploads/merged/30301_merged.jpg"), true);
+  assert.equal(isMergedStorefrontImageUrl("/uploads/products/30301.jpg"), false);
+});
+
 const shouldBypassImageOptimizer = (url) => {
   const normalized = toPublicImageSrc(url) || String(url ?? "").trim();
   if (!normalized) return false;

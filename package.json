@@ -22,6 +22,7 @@
     "favicons": "node scripts/generate-favicons.mjs",
     "uploads:optimize": "node scripts/optimize-uploads.mjs",
     "uploads:card-thumbs": "node scripts/optimize-uploads.mjs --card-thumbs",
+    "uploads:merge-entry-doors": "node scripts/rebuild-entry-door-merges.js",
     "deploy": "powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1"
   },
   "dependencies": {

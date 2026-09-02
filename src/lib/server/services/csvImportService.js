@@ -7,6 +7,7 @@ const path = require("path");
 const crypto = require("crypto");
 const { optimizeRasterBuffer, writeCardThumbBeside } = require("../imageOptimize");
 const { joinUploads, ensureWritableSubdir } = require("../uploadsPath");
+const { syncEntryDoorMergedImage } = require("./entryDoorMergeService");
 
 const requiredColumns = ["sku"];
 
@@ -115,13 +116,19 @@ const extractImageUrls = (value) => {
   const text = String(value || "").trim();
   if (!text) return [];
 
-  const urlMatches = text.match(/https?:\/\/[^\s,;]+/gi);
-  if (urlMatches && urlMatches.length > 0) {
-    return [...new Set(urlMatches.map((url) => url.trim()).filter(Boolean))];
+  const httpMatches = text.match(/https?:\/\/[^\s,;]+/gi);
+  if (httpMatches && httpMatches.length > 0) {
+    return [...new Set(httpMatches.map((url) => url.trim()).filter(Boolean))];
   }
 
-  const fallback = text.split(/\s+/)[0] || "";
-  return fallback ? [fallback] : [];
+  return [
+    ...new Set(
+      text
+        .split(/[\s,;]+/)
+        .map((part) => part.trim())
+        .filter(Boolean),
+    ),
+  ];
 };
 
 const validateCsvRows = (rows) => {
@@ -784,6 +791,13 @@ const importRows = async (rows, options = {}) => {
     imported += 1;
   }
 
+  for (const sku of imagesBySku.keys()) {
+    const mergeResult = await syncEntryDoorMergedImage({ sku });
+    if (!mergeResult.ok && mergeResult.message) {
+      warnings.push(mergeResult.message);
+    }
+  }
+
   return {
     ok: importErrors.length === 0,
     imported,
@@ -797,6 +811,7 @@ module.exports = {
   IMPORT_MODES,
   requiredColumns,
   validateCsvRows,
+  extractImageUrls,
   resolveUpdateOnlyRowDecision,
   resolveImportVariantPricing,
   parseVariantSizeList,

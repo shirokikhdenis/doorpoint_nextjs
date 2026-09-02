@@ -36,6 +36,13 @@ let doorFactoryFittingBrandTablesEnsured = false;
 let interiorInstallTablesEnsured = false;
 let interiorInstallTablesEnsurePromise = null;
 let interiorInstallSpecificationEnsured = false;
+let productMergedImageUrlEnsured = false;
+
+const ensureProductMergedImageUrlColumn = async () => {
+  if (productMergedImageUrlEnsured) return;
+  await query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS merged_image_url TEXT`);
+  productMergedImageUrlEnsured = true;
+};
 
 const ensureManufacturerIdAttribute = async () => {
   if (!manufacturerIdAttributeEnsured) {
@@ -1077,6 +1084,7 @@ module.exports = {
   CATALOG_PAGE_SLUG_RENAMES,
   ensureProductBadgesColumn,
   ensureProductSaleColumns,
+  ensureProductMergedImageUrlColumn,
   ensureProductSlugColumn,
   ensureLatinProductSlugs,
   ensurePortfolioTables,
