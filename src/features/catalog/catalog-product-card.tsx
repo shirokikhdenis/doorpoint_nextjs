@@ -1,6 +1,3 @@
-"use client";
-
-import { useEffect, useState } from "react";
 import { StorefrontImage } from "@/features/store/storefront-image";
 import {
   catalogCardImageHeightClass,
@@ -11,7 +8,6 @@ import { ProductPricingBlock } from "@/features/product/product-pricing-block";
 import { AddToCartIconButton } from "@/features/store/add-to-cart-icon-button";
 import { ProductCardBadges } from "@/features/store/product-card-badges";
 import { isPogonazhCategoryLabel } from "@/lib/client/cart-store";
-import { uniqueGalleryImages, stepGalleryImage } from "@/lib/client/gallery-step";
 import { formatProductDisplayName } from "@/lib/client/product-display-name";
 import { isMergedStorefrontImageUrl, toPublicImageSrc } from "@/lib/client/image-src";
 import type { ProductCard } from "@/lib/client/normalizers";
@@ -34,33 +30,6 @@ export function catalogCardAllowsHover(item: ProductCard) {
   return !isMergedStorefrontImageUrl(item.image);
 }
 
-function CardPhotoNavButton({
-  label,
-  onClick,
-  side,
-}: {
-  label: string;
-  onClick: () => void;
-  side: "left" | "right";
-}) {
-  return (
-    <button
-      type="button"
-      onClick={(event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        onClick();
-      }}
-      className={`absolute top-1/2 z-10 -translate-y-1/2 rounded-full bg-black/50 px-2 py-1 text-sm leading-none text-white hover:bg-black/70 ${
-        side === "left" ? "left-1" : "right-1"
-      }`}
-      aria-label={label}
-    >
-      {side === "left" ? "‹" : "›"}
-    </button>
-  );
-}
-
 export function CatalogProductCard({
   item,
   showHover,
@@ -72,12 +41,7 @@ export function CatalogProductCard({
 }: CatalogProductCardProps) {
   const primaryImage = toPublicImageSrc(item.image);
   const hoverImage = toPublicImageSrc(item.hoverImage);
-  const photos = uniqueGalleryImages([primaryImage, hoverImage]);
-  const [photoIndex, setPhotoIndex] = useState(0);
-  const canFlip = photos.length > 1;
-  const safeIndex = photos.length > 0 ? photoIndex % photos.length : 0;
-  const cardImage =
-    showHover && hoverImage ? hoverImage : photos[safeIndex] || primaryImage;
+  const cardImage = showHover && hoverImage ? hoverImage : primaryImage;
   const displayName = formatProductDisplayName({
     name: item.name,
     color: item.color,
@@ -86,21 +50,6 @@ export function CatalogProductCard({
     categorySlug: item.categorySlug,
   });
   const imageHeightClass = catalogCardImageHeightClass(imageHeight);
-
-  useEffect(() => {
-    setPhotoIndex(0);
-  }, [item.id, primaryImage, hoverImage]);
-
-  const showPrev = () => {
-    const current = photos[safeIndex] || primaryImage;
-    const next = stepGalleryImage(photos, current, -1);
-    setPhotoIndex(Math.max(0, photos.indexOf(next)));
-  };
-  const showNext = () => {
-    const current = photos[safeIndex] || primaryImage;
-    const next = stepGalleryImage(photos, current, 1);
-    setPhotoIndex(Math.max(0, photos.indexOf(next)));
-  };
 
   return (
     <article
@@ -111,33 +60,25 @@ export function CatalogProductCard({
     >
       <div className="relative">
         <ProductCardBadges badges={item.badges || []} />
-        <div className="relative mb-3">
-          <CatalogProductLink
-            href={productHref(item)}
-            className="block"
-            onBeforeNavigate={onNavigateToProduct}
-          >
-            <div className={`relative ${imageHeightClass} overflow-hidden bg-white p-2`}>
-              {cardImage ? (
-                <StorefrontImage
-                  src={cardImage}
-                  alt={item.name}
-                  fill
-                  sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                  variant="card"
-                  className="object-contain object-center"
-                />
-              ) : null}
-            </div>
-          </CatalogProductLink>
-          {canFlip ? (
-            <>
-              <CardPhotoNavButton label="Предыдущее фото" side="left" onClick={showPrev} />
-              <CardPhotoNavButton label="Следующее фото" side="right" onClick={showNext} />
-            </>
-          ) : null}
-          <AddToCartIconButton productName={displayName} onClick={onAddToCart} />
-        </div>
+        <CatalogProductLink
+          href={productHref(item)}
+          className="block"
+          onBeforeNavigate={onNavigateToProduct}
+        >
+          <div className={`relative mb-3 ${imageHeightClass} overflow-hidden bg-white p-2`}>
+            {cardImage ? (
+              <StorefrontImage
+                src={cardImage}
+                alt={item.name}
+                fill
+                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                variant="card"
+                className="object-contain object-center"
+              />
+            ) : null}
+          </div>
+        </CatalogProductLink>
+        <AddToCartIconButton productName={displayName} onClick={onAddToCart} />
       </div>
       <CatalogProductLink
         href={productHref(item)}

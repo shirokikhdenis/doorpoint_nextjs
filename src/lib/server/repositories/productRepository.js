@@ -220,18 +220,16 @@ const productImageSubquery = `
 `;
 
 const hoverImageSubquery = `
-  (
-    SELECT image_url FROM product_images
-    WHERE product_id = p.id
-      AND ${validStorefrontImageUrlSql}
-      AND (
-        NULLIF(BTRIM(p.merged_image_url), '') IS NULL
-        OR image_url IS DISTINCT FROM NULLIF(BTRIM(p.merged_image_url), '')
-      )
-    ORDER BY sort_order, id
-    OFFSET CASE WHEN NULLIF(BTRIM(p.merged_image_url), '') IS NOT NULL THEN 0 ELSE 1 END
-    LIMIT 1
-  )
+  CASE
+    WHEN NULLIF(BTRIM(p.merged_image_url), '') IS NOT NULL THEN NULL
+    ELSE (
+      SELECT image_url FROM product_images
+      WHERE product_id = p.id AND ${validStorefrontImageUrlSql}
+      ORDER BY sort_order, id
+      OFFSET 1
+      LIMIT 1
+    )
+  END
 `;
 
 /** Публичная витрина: без хотя бы одной реальной картинки карточка в списках не показывается. */
