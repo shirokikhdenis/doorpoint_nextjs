@@ -297,6 +297,27 @@ const listAdminArmaGallery = async () => {
   };
 };
 
+const parsePositiveId = (value) => {
+  const numericId = Number(value);
+  if (!Number.isInteger(numericId) || numericId <= 0) return null;
+  return numericId;
+};
+
+const parseOrderedIds = (values) => {
+  if (!Array.isArray(values)) return [];
+  const ids = [];
+  const seen = new Set();
+  for (const value of values) {
+    const id = parsePositiveId(value);
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    ids.push(id);
+  }
+  return ids;
+};
+
+const uniqueConstraintError = (error) => error?.code === "23505";
+
 const createArmaTagCategory = async (payload) => {
   const name = String(payload?.name || "").trim();
   if (name.length < 1) {
@@ -306,16 +327,47 @@ const createArmaTagCategory = async (payload) => {
     const item = await armaPhotoTagRepository.createCategory({ name });
     return { ok: true, item };
   } catch (error) {
-    if (error?.code === "23505") {
+    if (uniqueConstraintError(error)) {
       return { ok: false, message: "Такая категория уже есть", status: 400 };
     }
     throw error;
   }
 };
 
+const updateArmaTagCategory = async (id, payload) => {
+  const numericId = parsePositiveId(id);
+  if (!numericId) {
+    return { ok: false, message: "Некорректная категория", status: 400 };
+  }
+  const name = String(payload?.name || "").trim();
+  if (name.length < 1) {
+    return { ok: false, message: "Укажите название категории", status: 400 };
+  }
+  try {
+    const item = await armaPhotoTagRepository.updateCategoryName(numericId, name);
+    if (!item) return { ok: false, message: "Категория не найдена", status: 404 };
+    return { ok: true, item };
+  } catch (error) {
+    if (uniqueConstraintError(error)) {
+      return { ok: false, message: "Такая категория уже есть", status: 400 };
+    }
+    throw error;
+  }
+};
+
+const reorderArmaTagCategories = async (orderedIds) => {
+  const ids = parseOrderedIds(orderedIds);
+  const categories = await armaPhotoTagRepository.listCategories();
+  if (ids.length !== categories.length || !ids.every((id) => categories.some((item) => item.id === id))) {
+    return { ok: false, message: "Нужно передать полный список категорий", status: 400 };
+  }
+  await armaPhotoTagRepository.reorderCategories(ids);
+  return { ok: true };
+};
+
 const deleteArmaTagCategory = async (id) => {
-  const numericId = Number(id);
-  if (!Number.isInteger(numericId) || numericId <= 0) {
+  const numericId = parsePositiveId(id);
+  if (!numericId) {
     return { ok: false, message: "Некорректная категория", status: 400 };
   }
   const deleted = await armaPhotoTagRepository.deleteCategory(numericId);
@@ -325,8 +377,8 @@ const deleteArmaTagCategory = async (id) => {
 
 const createArmaTag = async (payload) => {
   const name = String(payload?.name || "").trim();
-  const categoryId = Number(payload?.categoryId);
-  if (!Number.isInteger(categoryId) || categoryId <= 0) {
+  const categoryId = parsePositiveId(payload?.categoryId);
+  if (!categoryId) {
     return { ok: false, message: "Выберите категорию тега", status: 400 };
   }
   if (name.length < 1) {
@@ -339,16 +391,56 @@ const createArmaTag = async (payload) => {
     if (error?.code === "23503") {
       return { ok: false, message: "Категория не найдена", status: 400 };
     }
-    if (error?.code === "23505") {
+    if (uniqueConstraintError(error)) {
       return { ok: false, message: "Такой тег в этой категории уже есть", status: 400 };
     }
     throw error;
   }
 };
 
+const updateArmaTag = async (id, payload) => {
+  const numericId = parsePositiveId(id);
+  if (!numericId) {
+    return { ok: false, message: "Некорректный тег", status: 400 };
+  }
+  const name = String(payload?.name || "").trim();
+  if (name.length < 1) {
+    return { ok: false, message: "Укажите название тега", status: 400 };
+  }
+  try {
+    const item = await armaPhotoTagRepository.updateTagName(numericId, name);
+    if (!item) return { ok: false, message: "Тег не найден", status: 404 };
+    return { ok: true, item };
+  } catch (error) {
+    if (uniqueConstraintError(error)) {
+      return { ok: false, message: "Такой тег в этой категории уже есть", status: 400 };
+    }
+    throw error;
+  }
+};
+
+const reorderArmaTags = async ({ categoryId, orderedIds }) => {
+  const numericCategoryId = parsePositiveId(categoryId);
+  if (!numericCategoryId) {
+    return { ok: false, message: "Выберите категорию тега", status: 400 };
+  }
+  const ids = parseOrderedIds(orderedIds);
+  const tags = (await armaPhotoTagRepository.listTags()).filter(
+    (tag) => tag.categoryId === numericCategoryId,
+  );
+  if (tags.length === 0) {
+    return { ok: false, message: "Категория не найдена или в ней нет тегов", status: 400 };
+  }
+  if (ids.length !== tags.length || !ids.every((id) => tags.some((tag) => tag.id === id))) {
+    return { ok: false, message: "Нужно передать полный список тегов категории", status: 400 };
+  }
+  await armaPhotoTagRepository.reorderTags(ids);
+  return { ok: true };
+};
+
 const deleteArmaTag = async (id) => {
-  const numericId = Number(id);
-  if (!Number.isInteger(numericId) || numericId <= 0) {
+  const numericId = parsePositiveId(id);
+  if (!numericId) {
     return { ok: false, message: "Некорректный тег", status: 400 };
   }
   const deleted = await armaPhotoTagRepository.deleteTag(numericId);
@@ -452,8 +544,12 @@ module.exports = {
   reorderArmaPhotos,
   deleteArmaPhoto,
   createArmaTagCategory,
+  updateArmaTagCategory,
+  reorderArmaTagCategories,
   deleteArmaTagCategory,
   createArmaTag,
+  updateArmaTag,
+  reorderArmaTags,
   deleteArmaTag,
   setArmaPhotoTag,
   downloadArmaPhotosFromYandex,

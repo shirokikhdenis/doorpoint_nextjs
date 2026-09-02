@@ -10,6 +10,8 @@ import {
 import { catalogTabClass } from "@/features/store/storefront-ui";
 import { catalogPageFromPathname, catalogPagePath } from "@/lib/catalog-url";
 import { CATALOG_PAGE_SLUG } from "@/lib/catalog-page-slugs";
+import { ARMA_CUSTOM_PHOTOS_PATH, ARMA_CUSTOM_VITRINE } from "@/lib/arma-foto-url";
+import { cn } from "@/lib/utils";
 
 const tabButtonBase =
   "max-w-[14rem] snap-start truncate md:max-w-none";
@@ -36,8 +38,8 @@ const rememberLastCatalogPage = (slug: string) => {
 };
 
 /**
- * Глобальный навбар витрин: «Общий каталог», «Входные двери», ...
- * Ссылки ведут на `/catalog` или `/catalog/<slug>`.
+ * Глобальный навбар витрин: «Общий каталог», «Входные двери», …
+ * Ссылки ведут на `/catalog`, `/catalog/<slug>` или на `/arma-foto`.
  */
 export function AppCatalogNav() {
   const [pages, setPages] = useState<CatalogPageItem[]>([]);
@@ -65,14 +67,18 @@ export function AppCatalogNav() {
 
   if (pages.length === 0) return null;
 
+  const isOnArmaFoto =
+    pathname === ARMA_CUSTOM_PHOTOS_PATH || pathname.startsWith(`${ARMA_CUSTOM_PHOTOS_PATH}/`);
   const isOnCatalog = pathname === "/catalog" || pathname.startsWith("/catalog/");
   const pathSlug = catalogPageFromPathname(pathname);
   const fallbackSlug = (pages.find((page) => page.isDefault) || pages[0])?.slug || CATALOG_PAGE_SLUG.all;
-  const activeSlug = isOnCatalog
-    ? pathSlug !== CATALOG_PAGE_SLUG.all
-      ? pathSlug
-      : fallbackSlug
-    : lastSelectedSlug;
+  const activeSlug = isOnArmaFoto
+    ? ""
+    : isOnCatalog
+      ? pathSlug !== CATALOG_PAGE_SLUG.all
+        ? pathSlug
+        : fallbackSlug
+      : lastSelectedSlug;
 
   return (
     <div className="relative border-b border-zinc-200 bg-white print:hidden">
@@ -95,6 +101,20 @@ export function AppCatalogNav() {
             </Link>
           );
         })}
+        <Link
+          href={ARMA_CUSTOM_VITRINE.href}
+          prefetch={false}
+          data-testid="catalog-vitrine-tab"
+          data-slug="arma-foto"
+          aria-current={isOnArmaFoto ? "page" : undefined}
+          className={cn(
+            tabButtonBase,
+            catalogTabClass(isOnArmaFoto),
+            "text-brand hover:text-brand-hover",
+          )}
+        >
+          {ARMA_CUSTOM_VITRINE.name}
+        </Link>
       </nav>
       <div className="pointer-events-none absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-white to-transparent md:hidden" />
       <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-white to-transparent md:hidden" />

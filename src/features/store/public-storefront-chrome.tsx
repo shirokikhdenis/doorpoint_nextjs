@@ -6,11 +6,14 @@ import { AppCatalogNav } from "@/features/navigation/app-catalog-nav";
 import { CartAddedToast } from "@/features/store/cart-added-toast";
 import { StoreFooter } from "@/features/store/store-footer";
 import { useAdminSession } from "@/lib/client/use-admin-session";
+import { ARMA_CUSTOM_PHOTOS_PATH } from "@/lib/arma-foto-url";
 
 const showCatalogVitrinesNav = (pathname: string | null) =>
   pathname === "/catalog" ||
   (pathname?.startsWith("/catalog/") ?? false) ||
-  (pathname?.startsWith("/product/") ?? false);
+  (pathname?.startsWith("/product/") ?? false) ||
+  pathname === ARMA_CUSTOM_PHOTOS_PATH ||
+  (pathname?.startsWith(`${ARMA_CUSTOM_PHOTOS_PATH}/`) ?? false);
 
 /**
  * Навбар витрин каталога — на страницах каталога и карточки товара;

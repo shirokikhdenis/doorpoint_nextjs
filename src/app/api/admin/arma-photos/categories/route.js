@@ -25,3 +25,14 @@ export const POST = (request) =>
     await invalidateStorefrontCache("arma-photos");
     return json(result.item, 201);
   });
+
+export const PATCH = (request) =>
+  withErrorHandling(async () => {
+    const denied = requireAdmin(request);
+    if (denied) return denied;
+    const body = await readBody(request);
+    const result = await armaPhotosService.reorderArmaTagCategories(body?.orderedIds);
+    if (!result.ok) return json({ message: result.message }, result.status || 400);
+    await invalidateStorefrontCache("arma-photos");
+    return json(await armaPhotosService.listAdminArmaGallery());
+  });

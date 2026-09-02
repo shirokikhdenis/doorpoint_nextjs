@@ -1,4 +1,4 @@
-const { query } = require("../db/postgres");
+const { query, withTransaction } = require("../db/postgres");
 const { ensureArmaPhotoTagTables } = require("../db/schemaPatches");
 
 const mapCategory = (row) => ({
@@ -52,17 +52,57 @@ const listLinks = async () => {
   }));
 };
 
-const createCategory = async ({ name, sortOrder = 0 }) => {
+const nextCategorySortOrder = async () => {
+  const res = await query(`SELECT COALESCE(MAX(sort_order), 0) AS max FROM arma_photo_tag_categories`);
+  return Number(res.rows[0]?.max || 0) + 10;
+};
+
+const nextTagSortOrder = async (categoryId) => {
+  const res = await query(
+    `SELECT COALESCE(MAX(sort_order), 0) AS max FROM arma_photo_tags WHERE category_id = $1`,
+    [categoryId],
+  );
+  return Number(res.rows[0]?.max || 0) + 10;
+};
+
+const createCategory = async ({ name, sortOrder }) => {
   await ensureArmaPhotoTagTables();
+  const order = Number.isInteger(sortOrder) ? sortOrder : await nextCategorySortOrder();
   const res = await query(
     `
     INSERT INTO arma_photo_tag_categories (name, sort_order)
     VALUES ($1, $2)
     RETURNING id, name, sort_order AS "sortOrder"
     `,
-    [name, sortOrder],
+    [name, order],
   );
   return mapCategory(res.rows[0]);
+};
+
+const updateCategoryName = async (id, name) => {
+  await ensureArmaPhotoTagTables();
+  const res = await query(
+    `
+    UPDATE arma_photo_tag_categories
+    SET name = $2
+    WHERE id = $1
+    RETURNING id, name, sort_order AS "sortOrder"
+    `,
+    [id, name],
+  );
+  return res.rows[0] ? mapCategory(res.rows[0]) : null;
+};
+
+const reorderCategories = async (orderedIds) => {
+  await ensureArmaPhotoTagTables();
+  await withTransaction(async (client) => {
+    for (let index = 0; index < orderedIds.length; index += 1) {
+      await client.query(`UPDATE arma_photo_tag_categories SET sort_order = $2 WHERE id = $1`, [
+        orderedIds[index],
+        (index + 1) * 10,
+      ]);
+    }
+  });
 };
 
 const deleteCategory = async (id) => {
@@ -71,17 +111,44 @@ const deleteCategory = async (id) => {
   return Boolean(res.rows[0]);
 };
 
-const createTag = async ({ categoryId, name, sortOrder = 0 }) => {
+const createTag = async ({ categoryId, name, sortOrder }) => {
   await ensureArmaPhotoTagTables();
+  const order = Number.isInteger(sortOrder) ? sortOrder : await nextTagSortOrder(categoryId);
   const res = await query(
     `
     INSERT INTO arma_photo_tags (category_id, name, sort_order)
     VALUES ($1, $2, $3)
     RETURNING id, category_id AS "categoryId", name, sort_order AS "sortOrder"
     `,
-    [categoryId, name, sortOrder],
+    [categoryId, name, order],
   );
   return mapTag(res.rows[0]);
+};
+
+const updateTagName = async (id, name) => {
+  await ensureArmaPhotoTagTables();
+  const res = await query(
+    `
+    UPDATE arma_photo_tags
+    SET name = $2
+    WHERE id = $1
+    RETURNING id, category_id AS "categoryId", name, sort_order AS "sortOrder"
+    `,
+    [id, name],
+  );
+  return res.rows[0] ? mapTag(res.rows[0]) : null;
+};
+
+const reorderTags = async (orderedIds) => {
+  await ensureArmaPhotoTagTables();
+  await withTransaction(async (client) => {
+    for (let index = 0; index < orderedIds.length; index += 1) {
+      await client.query(`UPDATE arma_photo_tags SET sort_order = $2 WHERE id = $1`, [
+        orderedIds[index],
+        (index + 1) * 10,
+      ]);
+    }
+  });
 };
 
 const deleteTag = async (id) => {
@@ -128,8 +195,12 @@ module.exports = {
   listTags,
   listLinks,
   createCategory,
+  updateCategoryName,
+  reorderCategories,
   deleteCategory,
   createTag,
+  updateTagName,
+  reorderTags,
   deleteTag,
   setPhotoTag,
   listTagIdsForPhoto,

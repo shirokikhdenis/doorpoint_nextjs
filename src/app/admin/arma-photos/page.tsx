@@ -1,9 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { Button } from "@/components/ui/button";
 import { AdminCard } from "@/features/admin/ui/admin-card";
-import { AdminConfirmButton } from "@/features/admin/ui/admin-confirm-button";
 import { AdminEmptyState } from "@/features/admin/ui/admin-empty-state";
 import { AdminNotice } from "@/features/admin/ui/admin-notice";
 import { AdminPage } from "@/features/admin/ui/admin-page";
@@ -12,6 +10,7 @@ import {
   ArmaPhotoAdminGrid,
   reorderPhotosList,
 } from "@/features/admin/arma-photos/arma-photo-admin-grid";
+import { ArmaPhotoTagManager, reorderById } from "@/features/admin/arma-photos/arma-photo-tag-manager";
 import {
   flattenTags,
   photoMatchesSelectedTags,
@@ -186,6 +185,111 @@ export default function AdminArmaPhotosPage() {
     }
   };
 
+  const handleRenameCategory = async (id: number, name: string) => {
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      const response = await fetch(`/api/admin/arma-photos/categories/${id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      if (!response.ok) throw new Error(await readError(response));
+      setNotice("Категория переименована");
+      await reload();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Не удалось переименовать категорию");
+      await reload();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRenameTag = async (id: number, name: string) => {
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      const response = await fetch(`/api/admin/arma-photos/tags/${id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      if (!response.ok) throw new Error(await readError(response));
+      setNotice("Тег переименован");
+      await reload();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Не удалось переименовать тег");
+      await reload();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleReorderCategories = async (dragId: number, targetId: number) => {
+    const nextCategories = reorderById(categories, dragId, targetId);
+    if (nextCategories === categories) return;
+    setCategories(nextCategories);
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      const response = await fetch("/api/admin/arma-photos/categories", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ orderedIds: nextCategories.map((category) => category.id) }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        categories?: ArmaPhotoTagCategory[];
+        message?: string;
+      };
+      if (!response.ok) throw new Error(payload.message || "Не удалось сохранить порядок категорий");
+      if (Array.isArray(payload.categories)) setCategories(payload.categories);
+      setNotice("Порядок категорий сохранён");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Не удалось сохранить порядок категорий");
+      await reload();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleReorderTags = async (categoryId: number, dragId: number, targetId: number) => {
+    const category = categories.find((item) => item.id === categoryId);
+    if (!category) return;
+    const nextTags = reorderById(category.tags, dragId, targetId);
+    if (nextTags === category.tags) return;
+    setCategories((current) =>
+      current.map((item) => (item.id === categoryId ? { ...item, tags: nextTags } : item)),
+    );
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      const response = await fetch("/api/admin/arma-photos/tags", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          categoryId,
+          orderedIds: nextTags.map((tag) => tag.id),
+        }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        categories?: ArmaPhotoTagCategory[];
+        message?: string;
+      };
+      if (!response.ok) throw new Error(payload.message || "Не удалось сохранить порядок тегов");
+      if (Array.isArray(payload.categories)) setCategories(payload.categories);
+      setNotice("Порядок тегов сохранён");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Не удалось сохранить порядок тегов");
+      await reload();
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const goPrev = useCallback(() => {
     setActiveIndex((index) =>
       index == null ? index : (index - 1 + galleryItems.length) % galleryItems.length,
@@ -294,94 +398,26 @@ export default function AdminArmaPhotosPage() {
       {error ? <AdminNotice variant="error">{error}</AdminNotice> : null}
       {notice ? <AdminNotice variant="success">{notice}</AdminNotice> : null}
 
-      <AdminCard title="Категории и теги">
-        <div className="grid gap-4 lg:grid-cols-2">
-          <form className="flex flex-wrap items-end gap-2" onSubmit={(event) => void handleCreateCategory(event)}>
-            <label className="min-w-[12rem] flex-1 text-sm">
-              <span className="mb-1 block text-admin-text-secondary">Новая категория</span>
-              <input
-                value={categoryName}
-                onChange={(event) => setCategoryName(event.target.value)}
-                placeholder="Цвет, Остекление…"
-                className="flex h-10 w-full border border-admin-input-border bg-admin-input-bg px-3 text-sm"
-              />
-            </label>
-            <Button type="submit" disabled={saving || !categoryName.trim()}>
-              Добавить категорию
-            </Button>
-          </form>
-
-          <form className="flex flex-wrap items-end gap-2" onSubmit={(event) => void handleCreateTag(event)}>
-            <label className="text-sm">
-              <span className="mb-1 block text-admin-text-secondary">Категория</span>
-              <select
-                value={tagCategoryId}
-                onChange={(event) => setTagCategoryId(event.target.value)}
-                className="flex h-10 border border-admin-input-border bg-admin-input-bg px-3 text-sm"
-              >
-                {categories.length === 0 ? <option value="">Нет категорий</option> : null}
-                {categories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="min-w-[12rem] flex-1 text-sm">
-              <span className="mb-1 block text-admin-text-secondary">Новый тег</span>
-              <input
-                value={tagName}
-                onChange={(event) => setTagName(event.target.value)}
-                placeholder="черный, со стеклопакетом…"
-                className="flex h-10 w-full border border-admin-input-border bg-admin-input-bg px-3 text-sm"
-              />
-            </label>
-            <Button type="submit" disabled={saving || !tagName.trim() || !tagCategoryId}>
-              Добавить тег
-            </Button>
-          </form>
-        </div>
-
-        {categories.length > 0 ? (
-          <ul className="mt-4 space-y-3">
-            {categories.map((category) => (
-              <li key={category.id} className="rounded border border-admin-border px-3 py-2">
-                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-medium">{category.name}</p>
-                  <AdminConfirmButton
-                    confirmMessage={`Удалить категорию «${category.name}» и все её теги?`}
-                    onConfirm={() => handleDeleteCategory(category.id)}
-                  >
-                    Удалить
-                  </AdminConfirmButton>
-                </div>
-                {category.tags.length === 0 ? (
-                  <p className="text-xs text-admin-text-muted">Тегов пока нет</p>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {category.tags.map((tag) => (
-                      <span
-                        key={tag.id}
-                        className="inline-flex items-center gap-1 rounded-full border border-admin-border bg-admin-surface-muted px-2 py-0.5 text-xs"
-                      >
-                        {tag.name}
-                        <button
-                          type="button"
-                          className="text-admin-text-muted hover:text-red-700"
-                          aria-label={`Удалить тег ${tag.name}`}
-                          onClick={() => void handleDeleteTag(tag.id)}
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </li>
-            ))}
-          </ul>
-        ) : null}
-      </AdminCard>
+      <ArmaPhotoTagManager
+        categories={categories}
+        saving={saving}
+        categoryName={categoryName}
+        tagName={tagName}
+        tagCategoryId={tagCategoryId}
+        onCategoryNameChange={setCategoryName}
+        onTagNameChange={setTagName}
+        onTagCategoryIdChange={setTagCategoryId}
+        onCreateCategory={(event) => void handleCreateCategory(event)}
+        onCreateTag={(event) => void handleCreateTag(event)}
+        onRenameCategory={handleRenameCategory}
+        onRenameTag={handleRenameTag}
+        onDeleteCategory={(id) => void handleDeleteCategory(id)}
+        onDeleteTag={(id) => void handleDeleteTag(id)}
+        onReorderCategories={(dragId, targetId) => void handleReorderCategories(dragId, targetId)}
+        onReorderTags={(categoryId, dragId, targetId) =>
+          void handleReorderTags(categoryId, dragId, targetId)
+        }
+      />
 
       <AdminCard
         title="Галерея"

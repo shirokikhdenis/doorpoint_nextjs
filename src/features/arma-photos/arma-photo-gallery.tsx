@@ -108,13 +108,13 @@ export function ArmaPhotoGallery({ items, categories, onRequestQuote }: ArmaPhot
       </section>
 
       {categories.length > 0 ? (
-        <section className="mt-6 space-y-4 rounded-xl border border-zinc-200 bg-white p-4 sm:p-5">
+        <section className="mt-4 space-y-2 rounded-lg border border-zinc-200 bg-white px-3 py-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-sm font-semibold text-zinc-900">Подбор по характеристикам</h2>
+            <h2 className="text-xs font-semibold text-zinc-900">Подбор по характеристикам</h2>
             {selectedTagIds.length > 0 ? (
               <button
                 type="button"
-                className="text-xs text-zinc-500 transition hover:text-brand"
+                className="text-[11px] text-zinc-500 transition hover:text-brand"
                 onClick={() => {
                   setSelectedTagIds([]);
                   setActiveIndex(null);
@@ -125,11 +125,11 @@ export function ArmaPhotoGallery({ items, categories, onRequestQuote }: ArmaPhot
             ) : null}
           </div>
           {categories.map((category) => (
-            <div key={category.id}>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+            <div key={category.id} className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <p className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
                 {category.name}
               </p>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1">
                 {category.tags.map((tag) => {
                   const active = selectedTagIds.includes(tag.id);
                   return (
@@ -137,7 +137,7 @@ export function ArmaPhotoGallery({ items, categories, onRequestQuote }: ArmaPhot
                       key={tag.id}
                       type="button"
                       className={cn(
-                        "rounded-full border px-3 py-1.5 text-xs font-medium transition",
+                        "rounded-full border px-2 py-0.5 text-[11px] font-medium leading-5 transition",
                         active
                           ? "border-brand bg-brand/10 text-brand"
                           : "border-zinc-200 bg-white text-zinc-700 hover:border-brand/30 hover:text-brand",
