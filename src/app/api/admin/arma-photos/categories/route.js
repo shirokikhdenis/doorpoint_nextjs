@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import { invalidateStorefrontCache } from "@/lib/server/cache/invalidate-storefront";
 
 const require = createRequire(import.meta.url);
 const armaPhotosService = require("@/lib/server/services/armaPhotosService");
@@ -21,5 +22,6 @@ export const POST = (request) =>
     const body = await readBody(request);
     const result = await armaPhotosService.createArmaTagCategory(body);
     if (!result.ok) return json({ message: result.message }, result.status || 400);
+    await invalidateStorefrontCache("arma-photos");
     return json(result.item, 201);
   });

@@ -1,5 +1,6 @@
 const catalogService = require("./catalogService");
 const homeProductSectionService = require("./homeProductSectionService");
+const doorOfWeekService = require("./doorOfWeekService");
 const portfolioService = require("./portfolioService");
 const homeFactoryLogoService = require("./homeFactoryLogoService");
 const testimonialService = require("./testimonialService");
@@ -40,7 +41,7 @@ const getHomePageData = async () => {
   const settings = await storefrontSettingsRepository.getStorefrontSettings();
   const hitsCount = Math.max(8, settings.homeHitsCardsPerRow * 2);
   const portfolioCount = settings.homePortfolioCardsPerRow;
-  const [interiorHits, entryHits, customSections, portfolioItems, factoryLogos, testimonials, catalogPages] =
+  const [interiorHits, entryHits, customSections, portfolioItems, factoryLogos, testimonials, catalogPages, doorOfWeekItems] =
     await Promise.all([
       pickTopHits("dveri-mezhkomnatnyye", hitsCount),
       pickTopHits("vhodnye-dveri", hitsCount),
@@ -49,6 +50,7 @@ const getHomePageData = async () => {
       homeFactoryLogoService.listPublicForHomepage(),
       testimonialService.listPublicTestimonials(6),
       catalogService.listCatalogPages(),
+      doorOfWeekService.getPublicDoorOfWeekBlocks(),
     ]);
 
   const cardImageHeightBySlug = Object.fromEntries(
@@ -68,6 +70,7 @@ const getHomePageData = async () => {
     homePortfolioCardsPerRow: settings.homePortfolioCardsPerRow,
     homePromoCards: settings.homePromoCards,
     cardImageHeightBySlug,
+    doorOfWeekItems,
   };
 };
 

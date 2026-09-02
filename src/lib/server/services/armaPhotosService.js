@@ -26,14 +26,6 @@ const getArmaPhotosDir = () => joinUploads(ARMA_PHOTOS_UPLOAD_SUBDIR);
 
 const getManifestPath = (dir) => path.join(/*turbopackIgnore: true*/ dir, ARMA_PHOTOS_MANIFEST_NAME);
 
-const sortPhotos = (photos) =>
-  [...photos].sort((a, b) => {
-    const aTime = a.modifiedAt ? Date.parse(a.modifiedAt) : 0;
-    const bTime = b.modifiedAt ? Date.parse(b.modifiedAt) : 0;
-    if (aTime !== bTime) return bTime - aTime;
-    return a.name.localeCompare(b.name, "ru", { numeric: true, sensitivity: "base" });
-  });
-
 const readManifest = async (dir) => {
   try {
     const raw = await fs.readFile(getManifestPath(dir), "utf8");
@@ -84,7 +76,7 @@ const listArmaPhotos = async () => {
     photos.push(mapLocalFileToPhoto({ fileName, name: fileName, modifiedAt: null }));
   }
 
-  return sortPhotos(photos);
+  return photos;
 };
 
 const buildListUrl = (offset) => {
@@ -387,9 +379,78 @@ const setArmaPhotoTag = async ({ photoId, tagId, assigned }) => {
   return { ok: true, photoId: id, tagIds };
 };
 
+const listPublicArmaGallery = async () => listAdminArmaGallery();
+
+const normalizePhotoId = (photoId) => {
+  const fileName = String(photoId || "").trim();
+  if (!fileName || fileName.includes("/") || fileName.includes("\\") || fileName.includes("..")) {
+    return null;
+  }
+  return fileName;
+};
+
+const buildManifestEntry = (photo) => ({
+  fileName: photo.id,
+  name: photo.name,
+  modifiedAt: photo.modifiedAt || null,
+});
+
+const reorderArmaPhotos = async (orderedIds) => {
+  const ids = Array.isArray(orderedIds)
+    ? orderedIds.map((id) => normalizePhotoId(id)).filter(Boolean)
+    : [];
+  if (ids.length === 0) {
+    return { ok: false, message: "Укажите порядок фото", status: 400 };
+  }
+
+  const photos = await listArmaPhotos();
+  const photoById = new Map(photos.map((photo) => [photo.id, photo]));
+  const uniqueIds = [...new Set(ids)];
+
+  if (uniqueIds.length !== photos.length) {
+    return { ok: false, message: "Нужно передать полный список фото", status: 400 };
+  }
+  if (!uniqueIds.every((id) => photoById.has(id))) {
+    return { ok: false, message: "Некорректный список фото", status: 400 };
+  }
+
+  const dir = getArmaPhotosDir();
+  await writeManifest(
+    dir,
+    uniqueIds.map((id) => buildManifestEntry(photoById.get(id))),
+  );
+  return { ok: true };
+};
+
+const deleteArmaPhoto = async (photoId) => {
+  const fileName = normalizePhotoId(photoId);
+  if (!fileName) {
+    return { ok: false, message: "Некорректное фото", status: 400 };
+  }
+
+  const dir = getArmaPhotosDir();
+  const filePath = path.join(/*turbopackIgnore: true*/ dir, fileName);
+  try {
+    await fs.unlink(filePath);
+  } catch (error) {
+    if (error?.code !== "ENOENT") throw error;
+  }
+
+  const manifest = await readManifest(dir);
+  await writeManifest(
+    dir,
+    manifest.filter((row) => String(row?.fileName || "").trim() !== fileName),
+  );
+  await armaPhotoTagRepository.deleteLinksForPhoto(fileName);
+  return { ok: true };
+};
+
 module.exports = {
   listArmaPhotos,
   listAdminArmaGallery,
+  listPublicArmaGallery,
+  reorderArmaPhotos,
+  deleteArmaPhoto,
   createArmaTagCategory,
   deleteArmaTagCategory,
   createArmaTag,

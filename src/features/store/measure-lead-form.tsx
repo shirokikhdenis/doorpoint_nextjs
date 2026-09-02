@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -22,9 +22,29 @@ const BENEFITS = [
 type MeasureLeadFormProps = {
   /** Внутри `<main>` на главной — без полноширинной подложки */
   embedded?: boolean;
+  /** Подставляет текст в поле комментария при смене значения */
+  prefillComment?: string;
+  title?: string;
+  cardTitle?: string;
+  description?: string;
+  benefits?: readonly string[];
+  selectedPhotoLabel?: string;
+  commentPlaceholder?: string;
 };
 
-export function MeasureLeadForm({ embedded = false }: MeasureLeadFormProps) {
+const DEFAULT_DESCRIPTION =
+  "Оставьте контакты — перезвоним в удобное время, уточним размеры проёмов и подготовим расчёт.";
+
+export function MeasureLeadForm({
+  embedded = false,
+  prefillComment = "",
+  title = "Запишитесь на бесплатный замер",
+  cardTitle = "Заявка на замер",
+  description = DEFAULT_DESCRIPTION,
+  benefits = BENEFITS,
+  selectedPhotoLabel,
+  commentPlaceholder = "Адрес, удобное время, пожелания по дверям…",
+}: MeasureLeadFormProps) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [comment, setComment] = useState("");
@@ -33,6 +53,11 @@ export function MeasureLeadForm({ embedded = false }: MeasureLeadFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+
+  useEffect(() => {
+    const nextComment = prefillComment.trim();
+    if (nextComment) setComment(nextComment);
+  }, [prefillComment]);
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -86,15 +111,12 @@ export function MeasureLeadForm({ embedded = false }: MeasureLeadFormProps) {
         <div className="space-y-5">
           <div className="space-y-3">
             <h2 id="zamer-form-title" className="text-2xl font-bold text-zinc-900 sm:text-3xl">
-              Запишитесь на бесплатный замер
+              {title}
             </h2>
-            <p className="text-base leading-relaxed text-zinc-600">
-              Оставьте контакты — перезвоним в удобное время, уточним размеры проёмов и подготовим
-              расчёт.
-            </p>
+            <p className="text-base leading-relaxed text-zinc-600">{description}</p>
           </div>
           <ul className="space-y-3 text-sm text-zinc-700">
-            {BENEFITS.map((item) => (
+            {benefits.map((item) => (
               <li key={item} className="flex items-start gap-2">
                 <span className="mt-0.5 text-brand" aria-hidden>
                   ✓
@@ -113,7 +135,7 @@ export function MeasureLeadForm({ embedded = false }: MeasureLeadFormProps) {
 
         <Card>
           <CardHeader className="pb-4">
-            <CardTitle className="text-lg">Заявка на замер</CardTitle>
+            <CardTitle className="text-lg">{cardTitle}</CardTitle>
           </CardHeader>
           <CardContent>
             {success ? (
@@ -166,12 +188,18 @@ export function MeasureLeadForm({ embedded = false }: MeasureLeadFormProps) {
                     disabled={loading}
                   />
                 </div>
+                {selectedPhotoLabel ? (
+                  <div className="rounded-lg border border-brand/20 bg-brand/5 px-3 py-2 text-sm text-zinc-800">
+                    <span className="font-medium text-brand">Расчёт по фото:</span>{" "}
+                    {selectedPhotoLabel}
+                  </div>
+                ) : null}
                 <div className="space-y-2">
                   <Label htmlFor="zamer-comment">Комментарий</Label>
                   <Textarea
                     id="zamer-comment"
                     name="comment"
-                    placeholder="Адрес, удобное время, пожелания по дверям…"
+                    placeholder={commentPlaceholder}
                     rows={4}
                     value={comment}
                     onChange={(event) => setComment(event.target.value)}

@@ -118,6 +118,11 @@ const listTagIdsForPhoto = async (photoId) => {
   return res.rows.map((row) => Number(row.tagId));
 };
 
+const deleteLinksForPhoto = async (photoId) => {
+  await ensureArmaPhotoTagTables();
+  await query(`DELETE FROM arma_photo_tag_links WHERE photo_id = $1`, [photoId]);
+};
+
 module.exports = {
   listCategories,
   listTags,
@@ -128,4 +133,5 @@ module.exports = {
   deleteTag,
   setPhotoTag,
   listTagIdsForPhoto,
+  deleteLinksForPhoto,
 };

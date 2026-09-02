@@ -22,6 +22,8 @@ let factoryStorefrontTablesEnsured = false;
 let doorFinishTablesEnsured = false;
 let doorOptionModuleTablesEnsured = false;
 let homeProductSectionTablesEnsured = false;
+let doorOfWeekTablesEnsured = false;
+let doorOfWeekTablesEnsurePromise = null;
 let testimonialTablesEnsured = false;
 let homeFactoryLogoTablesEnsured = false;
 let vkSyncTablesEnsured = false;
@@ -697,6 +699,85 @@ const ensureHomeProductSectionTables = async () => {
   homeProductSectionTablesEnsured = true;
 };
 
+const ensureDoorOfWeekTables = async () => {
+  if (doorOfWeekTablesEnsured) return;
+  if (!doorOfWeekTablesEnsurePromise) {
+    doorOfWeekTablesEnsurePromise = (async () => {
+      await query(`
+        CREATE TABLE IF NOT EXISTS door_of_week_settings (
+          id SMALLINT PRIMARY KEY,
+          is_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+          discount_percent INTEGER NOT NULL DEFAULT 10,
+          title TEXT NOT NULL DEFAULT 'Дверь недели',
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `);
+      await query(`
+        CREATE TABLE IF NOT EXISTS door_of_week_products (
+          id BIGSERIAL PRIMARY KEY,
+          slot SMALLINT NOT NULL DEFAULT 1,
+          product_id BIGINT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `);
+      await query(`
+        ALTER TABLE door_of_week_settings
+        DROP CONSTRAINT IF EXISTS door_of_week_settings_id_check
+      `);
+      await query(`
+        DO $$ BEGIN
+          ALTER TABLE door_of_week_settings
+          ADD CONSTRAINT door_of_week_settings_id_check
+          CHECK (id IN (1, 2));
+        EXCEPTION
+          WHEN duplicate_object THEN NULL;
+        END $$;
+      `);
+      await query(`
+        ALTER TABLE door_of_week_products
+        ADD COLUMN IF NOT EXISTS slot SMALLINT NOT NULL DEFAULT 1
+      `);
+      await query(`
+        ALTER TABLE door_of_week_products
+        DROP CONSTRAINT IF EXISTS door_of_week_products_product_id_key
+      `);
+      await query(`
+        DO $$ BEGIN
+          ALTER TABLE door_of_week_products
+          ADD CONSTRAINT door_of_week_products_slot_check
+          CHECK (slot IN (1, 2));
+        EXCEPTION
+          WHEN duplicate_object THEN NULL;
+        END $$;
+      `);
+      await query(`
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_door_of_week_products_slot_product
+        ON door_of_week_products(slot, product_id)
+      `);
+      await query(`
+        CREATE INDEX IF NOT EXISTS idx_door_of_week_products_sort
+        ON door_of_week_products(slot, sort_order, id)
+      `);
+      await query(`
+        INSERT INTO door_of_week_settings (id, is_enabled, discount_percent, title)
+        VALUES (1, FALSE, 10, 'Дверь недели')
+        ON CONFLICT (id) DO NOTHING
+      `);
+      await query(`
+        INSERT INTO door_of_week_settings (id, is_enabled, discount_percent, title)
+        VALUES (2, FALSE, 10, 'Дверь недели')
+        ON CONFLICT (id) DO NOTHING
+      `);
+      doorOfWeekTablesEnsured = true;
+    })().catch((error) => {
+      doorOfWeekTablesEnsurePromise = null;
+      throw error;
+    });
+  }
+  await doorOfWeekTablesEnsurePromise;
+};
+
 const ensureVkSyncTables = async () => {
   if (vkSyncTablesEnsured) return;
   if (!vkSyncTablesEnsurePromise) {
@@ -1012,6 +1093,7 @@ module.exports = {
   ensureDoorFinishTables,
   ensureDoorOptionModuleTables,
   ensureHomeProductSectionTables,
+  ensureDoorOfWeekTables,
   ensureTestimonialTables,
   ensureHomeFactoryLogoTables,
   ensureVkSyncTables,

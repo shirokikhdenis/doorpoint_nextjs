@@ -9,6 +9,9 @@ const ENTRY_FACTORY_CATALOG_LINKS = [
   { label: "Двери с терморазрывом", subcategorySlug: "двери-с-терморазрывом" },
 ];
 
+const ARMA_MANUFACTURER_NAME = "арма";
+const ARMA_CUSTOM_PHOTOS_PATH = "/arma-foto";
+
 /** Подкатегории с отдельной витриной каталога. */
 const SUBCATEGORY_TO_CATALOG_PAGE = {
   "двери-с-терморазрывом": THERMAL_DOORS_CATALOG_PAGE_SLUG,
@@ -49,11 +52,19 @@ const buildManufacturerSubcategoryCatalogHref = (manufacturer, subcategorySlug) 
   return qs ? `${path}?${qs}` : path;
 };
 
-const buildEntryFactoryCatalogLinks = (manufacturer) =>
-  ENTRY_FACTORY_CATALOG_LINKS.map(({ label, subcategorySlug }) => ({
+const buildEntryFactoryCatalogLinks = (manufacturer) => {
+  const links = ENTRY_FACTORY_CATALOG_LINKS.map(({ label, subcategorySlug }) => ({
     label,
     href: buildManufacturerSubcategoryCatalogHref(manufacturer, subcategorySlug),
   }));
+  if (String(manufacturer || "").trim().toLowerCase() === ARMA_MANUFACTURER_NAME) {
+    links.push({
+      label: "Двери Арма под заказ",
+      href: ARMA_CUSTOM_PHOTOS_PATH,
+    });
+  }
+  return links;
+};
 
 const isEntryDoor = (product) => product?.categorySlug === ENTRY_DOORS_CATEGORY_SLUG;
 

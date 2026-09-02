@@ -23,6 +23,7 @@ import {
 } from "@/features/product/product-utils";
 import { useCatalogBackHref } from "@/features/product/use-catalog-back-href";
 import { ProductPricingBlock } from "@/features/product/product-pricing-block";
+import { applyDoorOfWeekPricing } from "@/lib/client/door-of-week-pricing";
 import { ProductManufacturerLogo } from "@/features/product/product-manufacturer-logo";
 import { ProductPageSkeleton } from "@/features/product/product-page-skeleton";
 import { useProductPage } from "@/features/product/use-product-page";
@@ -66,7 +67,13 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
   const finishDelta = page.selectedFinish?.priceDelta ?? 0;
   const glassDelta = page.selectedGlassOption?.priceDelta ?? 0;
   const hardwareDelta = page.selectedHardwareServices.reduce((sum, item) => sum + item.price, 0);
-  const price = basePrice + finishDelta + glassDelta + hardwareDelta;
+  const subtotal = basePrice + finishDelta + glassDelta + hardwareDelta;
+  const doorOfWeekPricing = applyDoorOfWeekPricing(subtotal, product.doorOfWeek);
+  const price = doorOfWeekPricing.price;
+  const compareAtPrice = doorOfWeekPricing.isOnSale
+    ? doorOfWeekPricing.compareAtPrice
+    : product.compareAtPrice;
+  const isOnSale = doorOfWeekPricing.isOnSale || product.isOnSale === true;
   const kitPrice = computeInteriorKitPrice(price, product.kitPricing);
   const relatedFittings = product.relatedFittings ?? { items: [] };
   const cartVariantSuffix = page.selectedVariant
@@ -242,8 +249,8 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
             <div className="flex flex-col gap-3 border-t border-zinc-100 pt-4">
               <ProductPricingBlock
                 price={price}
-                compareAtPrice={product.compareAtPrice}
-                isOnSale={product.isOnSale}
+                compareAtPrice={compareAtPrice}
+                isOnSale={isOnSale}
                 kitPrice={kitPrice}
                 kitPricing={product.kitPricing}
               />

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { HomeDoorOfWeek, type HomeDoorOfWeekItem } from "@/features/home/home-door-of-week";
 import { HomePromotionSlider } from "@/features/home/home-promotion-slider";
 import type { PromotionBanner } from "@/lib/client/normalizers";
 const promoCardClass =
@@ -156,9 +157,11 @@ const PROMO_ICONS = {
 export function HomePromotions({
   banners,
   cards = DEFAULT_PROMO_CARDS,
+  doorOfWeekItems,
 }: {
   banners: PromotionBanner[];
   cards?: HomePromoCard[];
+  doorOfWeekItems?: HomeDoorOfWeekItem[];
 }) {
   const promoCards = cards.length === 3 ? cards : DEFAULT_PROMO_CARDS;
   return (
@@ -181,6 +184,18 @@ export function HomePromotions({
           />
         ))}
       </div>
+
+      {doorOfWeekItems && doorOfWeekItems.length > 0 ? (
+        <div
+          className={
+            doorOfWeekItems.length > 1 ? "grid items-stretch gap-4 xl:grid-cols-2" : "grid gap-4"
+          }
+        >
+          {doorOfWeekItems.map((item) => (
+            <HomeDoorOfWeek key={item.slot} item={item} />
+          ))}
+        </div>
+      ) : null}
     </section>
   );
 }

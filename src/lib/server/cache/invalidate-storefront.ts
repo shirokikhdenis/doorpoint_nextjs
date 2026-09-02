@@ -5,9 +5,11 @@ export type StorefrontCacheScope =
   | "catalog-pages"
   | "promotions"
   | "home-sections"
+  | "door-of-week"
   | "factories"
   | "testimonials"
   | "portfolio"
+  | "arma-photos"
   | "all";
 
 const expireTag = (tag: string) => {
@@ -36,6 +38,11 @@ export async function invalidateStorefrontCache(scope: StorefrontCacheScope = "a
     expireTag("home-hits");
   }
 
+  if (scope === "all" || scope === "door-of-week") {
+    expireTag("door-of-week");
+    expireTag("home-hits");
+  }
+
   if (scope === "all" || scope === "factories") {
     expireTag("factories");
     expireTag("home-hits");
@@ -53,7 +60,14 @@ export async function invalidateStorefrontCache(scope: StorefrontCacheScope = "a
     revalidatePath("/portfolio");
   }
 
-  if (scope === "all" || scope === "products" || scope === "promotions" || scope === "home-sections" || scope === "testimonials" || scope === "portfolio" || scope === "catalog-pages") {
+  if (scope === "all" || scope === "arma-photos") {
+    expireTag("arma-photos");
+    expireTag("factories");
+    revalidatePath("/arma-foto");
+    revalidatePath("/fabriki", "layout");
+  }
+
+  if (scope === "all" || scope === "products" || scope === "promotions" || scope === "home-sections" || scope === "door-of-week" || scope === "testimonials" || scope === "portfolio" || scope === "catalog-pages" || scope === "arma-photos") {
     revalidatePath("/");
   }
 

@@ -308,12 +308,15 @@ const attachInteriorDoorExtras = async (product, settings) => {
 
 const attachProductPageExtras = async (product) => {
   if (!product) return null;
+  const doorOfWeekService = require("./doorOfWeekService");
   const settings = await storefrontSettingsRepository.getStorefrontSettings();
   const withBrand = await attachManufacturerBrand(product);
   const withEntryDoors = await attachEntryDoorExtras(withBrand, settings);
   const withInterior = await attachInteriorDoorExtras(withEntryDoors, settings);
+  const doorOfWeek = await doorOfWeekService.getActiveContextForProduct(product.id);
   return {
     ...withInterior,
+    doorOfWeek,
     relatedFittingsCardsPerRow: settings.relatedFittingsCardsPerRow,
     collectionDoorsCardsPerRow: settings.collectionDoorsCardsPerRow,
     suggestedHandlesCardsPerRow: settings.suggestedHandlesCardsPerRow,

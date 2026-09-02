@@ -233,6 +233,10 @@ export type ProductData = {
   collectionDoorsCardsPerRow?: number;
   suggestedHandlesCardsPerRow?: number;
   subcategoryDoorsCardsPerRow?: number;
+  doorOfWeek?: {
+    isActive: boolean;
+    discountPercent: number;
+  };
 };
 
 export type AdminCatalogPage = {
@@ -640,6 +644,14 @@ export const normalizeProductData = (value: unknown): ProductData => {
     collectionDoorsCardsPerRow: optionalPositiveInt(source.collectionDoorsCardsPerRow),
     suggestedHandlesCardsPerRow: optionalPositiveInt(source.suggestedHandlesCardsPerRow),
     subcategoryDoorsCardsPerRow: optionalPositiveInt(source.subcategoryDoorsCardsPerRow),
+    doorOfWeek:
+      source.doorOfWeek && typeof source.doorOfWeek === "object"
+        ? {
+            isActive: (source.doorOfWeek as Record<string, unknown>).isActive === true,
+            discountPercent:
+              Number((source.doorOfWeek as Record<string, unknown>).discountPercent) || 0,
+          }
+        : undefined,
   };
 };
 

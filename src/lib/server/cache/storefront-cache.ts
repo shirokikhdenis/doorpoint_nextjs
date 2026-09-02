@@ -21,6 +21,13 @@ const portfolioService = require("@/lib/server/services/portfolioService") as {
   listPublicPortfolio: () => Promise<unknown[]>;
 };
 
+const armaPhotosService = require("@/lib/server/services/armaPhotosService") as {
+  listPublicArmaGallery: () => Promise<{
+    items: unknown[];
+    categories: unknown[];
+  }>;
+};
+
 export const STOREFRONT_API_CACHE_CONTROL =
   "public, s-maxage=60, stale-while-revalidate=120";
 
@@ -67,6 +74,8 @@ const fetchActivePromotions = async () => promotionService.listActivePromotions(
 
 const fetchPublicPortfolio = async () => portfolioService.listPublicPortfolio();
 
+const fetchPublicArmaGallery = async () => armaPhotosService.listPublicArmaGallery();
+
 const getCachedCatalogPagesInner = unstable_cache(
   fetchCatalogPages,
   ["storefront", "catalog-pages"],
@@ -83,7 +92,7 @@ const getCachedHomePageDataInner = unstable_cache(
   fetchHomePageData,
   ["storefront", "home-hits"],
   {
-    tags: ["home-hits", "home-sections", "catalog-products", "portfolio", "factories", "testimonials"],
+    tags: ["home-hits", "home-sections", "door-of-week", "catalog-products", "portfolio", "factories", "testimonials"],
     revalidate: 120,
   },
 );
@@ -98,6 +107,12 @@ const getCachedPortfolioInner = unstable_cache(
   fetchPublicPortfolio,
   ["storefront", "portfolio"],
   { tags: ["portfolio"], revalidate: 120 },
+);
+
+const getCachedArmaPhotosInner = unstable_cache(
+  fetchPublicArmaGallery,
+  ["storefront", "arma-photos"],
+  { tags: ["arma-photos"], revalidate: 120 },
 );
 
 export async function getCachedCatalogPages() {
@@ -138,4 +153,28 @@ export async function getCachedPortfolio() {
       images: string[];
     }>
   >;
+}
+
+export async function getCachedArmaPhotos() {
+  return getCachedArmaPhotosInner() as Promise<{
+    items: Array<{
+      id: string;
+      name: string;
+      previewUrl: string;
+      imageUrl: string;
+      modifiedAt: string | null;
+      tagIds: number[];
+    }>;
+    categories: Array<{
+      id: number;
+      name: string;
+      sortOrder: number;
+      tags: Array<{
+        id: number;
+        categoryId: number;
+        name: string;
+        sortOrder: number;
+      }>;
+    }>;
+  }>;
 }

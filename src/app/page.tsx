@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { HomeCategoryTiles } from "@/features/home/home-category-tiles";
+import type { HomeDoorOfWeekItem } from "@/features/home/home-door-of-week";
 import { HomeFactoryLogos } from "@/features/home/home-factory-logos";
 import { HomeHero } from "@/features/home/home-hero";
 import { HomePortfolioTeaser } from "@/features/home/home-portfolio-teaser";
@@ -62,6 +63,7 @@ type HomePageData = {
     variant: "default" | "offer";
   }>;
   cardImageHeightBySlug?: Record<string, "default" | "compact">;
+  doorOfWeekItems?: HomeDoorOfWeekItem[];
 };
 
 export default async function HomePage() {
@@ -86,6 +88,7 @@ export default async function HomePage() {
   const portfolioCols = homeData.homePortfolioCardsPerRow ?? 4;
   const promoCards = homeData.homePromoCards as HomePromoCard[] | undefined;
   const imageHeightBySlug = homeData.cardImageHeightBySlug ?? {};
+  const doorOfWeekItems = homeData.doorOfWeekItems ?? [];
 
   return (
     <>
@@ -93,7 +96,7 @@ export default async function HomePage() {
       <WebsiteJsonLd />
       <main className={cn(storefrontPageContainerClass, "space-y-12 py-6 lg:space-y-16 lg:py-8")}>
         <HomeHero />
-        <HomePromotions banners={promotionBanners} cards={promoCards} />
+        <HomePromotions banners={promotionBanners} cards={promoCards} doorOfWeekItems={doorOfWeekItems} />
         <HomeCategoryTiles
           interiorCoverImage={homeData.interiorCoverImage}
           entryCoverImage={homeData.entryCoverImage}

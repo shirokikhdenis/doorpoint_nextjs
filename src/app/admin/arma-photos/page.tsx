@@ -9,6 +9,10 @@ import { AdminNotice } from "@/features/admin/ui/admin-notice";
 import { AdminPage } from "@/features/admin/ui/admin-page";
 import { ArmaPhotoViewer } from "@/features/admin/arma-photos/arma-photo-viewer";
 import {
+  ArmaPhotoAdminGrid,
+  reorderPhotosList,
+} from "@/features/admin/arma-photos/arma-photo-admin-grid";
+import {
   flattenTags,
   photoMatchesSelectedTags,
   type ArmaPhoto,
@@ -33,6 +37,8 @@ export default function AdminArmaPhotosPage() {
   const [tagCategoryId, setTagCategoryId] = useState("");
   const [saving, setSaving] = useState(false);
   const [savingTagId, setSavingTagId] = useState<number | null>(null);
+  const [reordering, setReordering] = useState(false);
+  const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
 
   const tags = useMemo(() => flattenTags(categories), [categories]);
 
@@ -78,8 +84,11 @@ export default function AdminArmaPhotosPage() {
     [items, selectedTagIds, tags],
   );
 
+  const galleryItems = selectedTagIds.length > 0 ? filteredItems : items;
+  const reorderDisabled = selectedTagIds.length > 0;
+
   const activePhoto =
-    activeIndex == null ? null : filteredItems[activeIndex] || null;
+    activeIndex == null ? null : galleryItems[activeIndex] || null;
 
   const toggleFilterTag = (tagId: number) => {
     setSelectedTagIds((current) =>
@@ -179,15 +188,78 @@ export default function AdminArmaPhotosPage() {
 
   const goPrev = useCallback(() => {
     setActiveIndex((index) =>
-      index == null ? index : (index - 1 + filteredItems.length) % filteredItems.length,
+      index == null ? index : (index - 1 + galleryItems.length) % galleryItems.length,
     );
-  }, [filteredItems.length]);
+  }, [galleryItems.length]);
 
   const goNext = useCallback(() => {
     setActiveIndex((index) =>
-      index == null ? index : (index + 1) % filteredItems.length,
+      index == null ? index : (index + 1) % galleryItems.length,
     );
-  }, [filteredItems.length]);
+  }, [galleryItems.length]);
+
+  const applyGalleryPayload = (payload: {
+    items?: ArmaPhoto[];
+    categories?: ArmaPhotoTagCategory[];
+  }) => {
+    setItems(Array.isArray(payload.items) ? payload.items : []);
+    if (Array.isArray(payload.categories)) {
+      setCategories(payload.categories);
+    }
+  };
+
+  const handleReorderPhotos = async (dragId: string, targetId: string) => {
+    const nextItems = reorderPhotosList(items, dragId, targetId);
+    setItems(nextItems);
+    setReordering(true);
+    setError("");
+    setNotice("");
+    try {
+      const response = await fetch("/api/admin/arma-photos/reorder", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ orderedIds: nextItems.map((photo) => photo.id) }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        items?: ArmaPhoto[];
+        categories?: ArmaPhotoTagCategory[];
+        message?: string;
+      };
+      if (!response.ok) throw new Error(payload.message || "Не удалось сохранить порядок");
+      applyGalleryPayload(payload);
+      setNotice("Порядок фото сохранён");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Не удалось сохранить порядок");
+      await reload();
+    } finally {
+      setReordering(false);
+    }
+  };
+
+  const handleDeletePhoto = async (photo: ArmaPhoto) => {
+    if (!window.confirm(`Удалить фото «${photo.name}»?`)) return;
+    setDeletingPhotoId(photo.id);
+    setError("");
+    setNotice("");
+    try {
+      const response = await fetch(`/api/admin/arma-photos/${encodeURIComponent(photo.id)}`, {
+        method: "DELETE",
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        items?: ArmaPhoto[];
+        categories?: ArmaPhotoTagCategory[];
+        message?: string;
+      };
+      if (!response.ok) throw new Error(payload.message || "Не удалось удалить фото");
+      applyGalleryPayload(payload);
+      setActiveIndex(null);
+      setNotice("Фото удалено");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Не удалось удалить фото");
+    } finally {
+      setDeletingPhotoId(null);
+    }
+  };
 
   const handleTogglePhotoTag = async (tagId: number, assigned: boolean) => {
     if (!activePhoto) return;
@@ -373,25 +445,14 @@ export default function AdminArmaPhotosPage() {
             description="Снимите часть фильтров или отметьте теги на фото."
           />
         ) : (
-          <ul className="grid grid-cols-3 gap-3">
-            {filteredItems.map((photo, index) => (
-              <li key={photo.id}>
-                <button
-                  type="button"
-                  className="group block w-full overflow-hidden rounded border border-admin-border bg-admin-surface-muted"
-                  onClick={() => setActiveIndex(index)}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={photo.previewUrl || photo.imageUrl}
-                    alt="Фото Арма"
-                    className="aspect-[3/4] w-full object-cover transition group-hover:opacity-90"
-                    loading="lazy"
-                  />
-                </button>
-              </li>
-            ))}
-          </ul>
+          <ArmaPhotoAdminGrid
+            photos={galleryItems}
+            disabled={saving || reordering || deletingPhotoId != null}
+            reorderDisabled={reorderDisabled}
+            onOpen={setActiveIndex}
+            onReorder={(dragId, targetId) => void handleReorderPhotos(dragId, targetId)}
+            onDelete={(photo) => void handleDeletePhoto(photo)}
+          />
         )}
       </AdminCard>
 

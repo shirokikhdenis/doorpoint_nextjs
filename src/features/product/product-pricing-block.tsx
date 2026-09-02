@@ -59,6 +59,7 @@ export function ProductPricingBlock({
           className={cn(
             isCompact ? "text-base font-medium text-zinc-800" : "text-2xl font-semibold tabular-nums text-zinc-900",
           )}
+          priceClassName={isCompact ? "text-base" : "text-2xl"}
           compareClassName={isCompact ? "text-xs" : "text-sm"}
         />
       </div>
@@ -75,6 +76,7 @@ export function ProductPricingBlock({
             isOnSale={isOnSale}
             layout="stacked"
             className="text-base font-medium text-zinc-800"
+            priceClassName="text-base"
             compareClassName="text-xs"
           />
           <span className="text-[10px] text-zinc-400">за полотно</span>
@@ -105,6 +107,7 @@ export function ProductPricingBlock({
             "font-semibold leading-tight tabular-nums text-zinc-900",
             isCompact ? "text-base" : "text-2xl",
           )}
+          priceClassName={isCompact ? "text-base" : "text-2xl"}
           compareClassName={isCompact ? "text-xs" : "text-sm"}
         />
         <span className={cn("text-zinc-400", isCompact ? "text-[10px]" : "text-xs")}>за полотно</span>

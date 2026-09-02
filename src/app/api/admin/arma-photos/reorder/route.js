@@ -15,13 +15,13 @@ const requireAdmin = (request) => {
   return null;
 };
 
-export const PUT = (request) =>
+export const PATCH = (request) =>
   withErrorHandling(async () => {
     const denied = requireAdmin(request);
     if (denied) return denied;
     const body = await readBody(request);
-    const result = await armaPhotosService.setArmaPhotoTag(body);
+    const result = await armaPhotosService.reorderArmaPhotos(body?.orderedIds);
     if (!result.ok) return json({ message: result.message }, result.status || 400);
     await invalidateStorefrontCache("arma-photos");
-    return json({ photoId: result.photoId, tagIds: result.tagIds });
+    return json(await armaPhotosService.listAdminArmaGallery());
   });

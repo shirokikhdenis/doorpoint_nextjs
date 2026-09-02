@@ -16,6 +16,7 @@ type ProductPriceProps = {
   isOnSale?: boolean;
   className?: string;
   compareClassName?: string;
+  priceClassName?: string;
   showDiscountBadge?: boolean;
   /** `stacked` — для узких карточек: цена и бейдж сверху, старая цена строкой ниже */
   layout?: "inline" | "stacked";
@@ -27,6 +28,7 @@ export function ProductPrice({
   isOnSale,
   className,
   compareClassName,
+  priceClassName,
   showDiscountBadge = true,
   layout = "inline",
 }: ProductPriceProps) {
@@ -52,10 +54,17 @@ export function ProductPrice({
     return (
       <div className={cn("flex flex-col gap-1", className)}>
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="text-base font-semibold leading-none text-rose-600">{formatPrice(price)}</span>
+          <span
+            className={cn(
+              "font-semibold leading-none text-rose-600",
+              priceClassName,
+            )}
+          >
+            {formatPrice(price)}
+          </span>
           {discountBadge}
         </div>
-        <span className={cn("text-xs leading-none text-zinc-400 line-through", compareClassName)}>
+        <span className={cn("leading-none text-zinc-400 line-through", compareClassName)}>
           {formatPrice(compareAtPrice)}
         </span>
       </div>
@@ -64,7 +73,7 @@ export function ProductPrice({
 
   return (
     <span className={cn("inline-flex flex-wrap items-baseline gap-x-2.5 gap-y-1", className)}>
-      <span className="font-semibold text-rose-600">{formatPrice(price)}</span>
+      <span className={cn("font-semibold text-rose-600", priceClassName)}>{formatPrice(price)}</span>
       <span className={cn("text-sm text-zinc-400 line-through", compareClassName)}>
         {formatPrice(compareAtPrice)}
       </span>

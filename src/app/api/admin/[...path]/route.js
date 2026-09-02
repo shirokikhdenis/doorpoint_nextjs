@@ -6,6 +6,7 @@ const adminService = require("@/lib/server/services/adminService");
 const csvImportService = require("@/lib/server/services/csvImportService");
 const promotionService = require("@/lib/server/services/promotionService");
 const homeProductSectionService = require("@/lib/server/services/homeProductSectionService");
+const doorOfWeekService = require("@/lib/server/services/doorOfWeekService");
 const leadService = require("@/lib/server/services/leadService");
 const interiorInstallService = require("@/lib/server/services/interiorInstallService");
 const factoryStorefrontService = require("@/lib/server/services/factoryStorefrontService");
@@ -362,6 +363,45 @@ const handle = async (request, context) =>
       if (!result.ok) return json({ message: result.message }, result.status || 404);
       await invalidateStorefrontCache("home-sections");
       return empty(204);
+    }
+
+    if (match(path, method, "GET", "door-of-week")) {
+      return json(await doorOfWeekService.getAdminPayload());
+    }
+    if (path[0] === "door-of-week" && path.length === 2 && method === "PATCH") {
+      const result = await doorOfWeekService.updateSettings(Number(path[1]), body || {});
+      if (!result.ok) return json({ message: result.message }, result.status || 400);
+      await invalidateStorefrontCache("door-of-week");
+      return json(await doorOfWeekService.getAdminPayload());
+    }
+    if (path[0] === "door-of-week" && path.length === 3 && path[2] === "products" && method === "POST") {
+      const result = await doorOfWeekService.addProduct(Number(path[1]), body?.productId);
+      if (!result.ok) return json({ message: result.message }, result.status || 400);
+      await invalidateStorefrontCache("door-of-week");
+      return json(await doorOfWeekService.getAdminPayload());
+    }
+    if (
+      path[0] === "door-of-week" &&
+      path.length === 4 &&
+      path[2] === "products" &&
+      method === "DELETE"
+    ) {
+      const result = await doorOfWeekService.removeProduct(Number(path[1]), Number(path[3]));
+      if (!result.ok) return json({ message: result.message }, result.status || 400);
+      await invalidateStorefrontCache("door-of-week");
+      return json(await doorOfWeekService.getAdminPayload());
+    }
+    if (
+      path[0] === "door-of-week" &&
+      path.length === 5 &&
+      path[2] === "products" &&
+      path[4] === "move" &&
+      method === "PATCH"
+    ) {
+      const result = await doorOfWeekService.moveProduct(Number(path[1]), Number(path[3]), body?.direction);
+      if (!result.ok) return json({ message: result.message }, result.status || 400);
+      await invalidateStorefrontCache("door-of-week");
+      return json(await doorOfWeekService.getAdminPayload());
     }
 
     if (match(path, method, "POST", "leads")) {
