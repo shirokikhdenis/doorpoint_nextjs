@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { HomeArmaFotoTeaser } from "@/features/home/home-arma-foto-teaser";
 import { HomeCategoryTiles } from "@/features/home/home-category-tiles";
 import type { HomeDoorOfWeekItem } from "@/features/home/home-door-of-week";
 import { HomeFactoryLogos } from "@/features/home/home-factory-logos";
@@ -18,10 +19,18 @@ import {
 } from "@/lib/client/normalizers";
 import { CATALOG_PAGE_SLUG } from "@/lib/catalog-page-slugs";
 import { catalogPagePath } from "@/lib/catalog-url";
-import { getCachedActivePromotions, getCachedHomePageData } from "@/lib/server/cache/storefront-cache";
+import {
+  getCachedActivePromotions,
+  getCachedArmaPhotos,
+  getCachedHomePageData,
+} from "@/lib/server/cache/storefront-cache";
 import { SEO_COPY } from "@/lib/seo-copy";
 import { absoluteUrl, defaultOpenGraph } from "@/lib/site-seo";
 import { cn } from "@/lib/utils";
+
+const HOME_ARMA_PREVIEW_COUNT = 4;
+const HOME_ARMA_INSERT_AFTER_TITLE = "Двери с зеркалом";
+const HOME_ARMA_INSERT_BEFORE_TITLE = "Белые двери";
 
 export const revalidate = 120;
 
@@ -66,10 +75,25 @@ type HomePageData = {
   doorOfWeekItems?: HomeDoorOfWeekItem[];
 };
 
+function resolveArmaTeaserSplitIndex(sections: Array<{ title: string }>): number {
+  const afterMirror = sections.findIndex(
+    (section) => section.title === HOME_ARMA_INSERT_AFTER_TITLE,
+  );
+  if (afterMirror >= 0) return afterMirror + 1;
+
+  const beforeWhite = sections.findIndex(
+    (section) => section.title === HOME_ARMA_INSERT_BEFORE_TITLE,
+  );
+  if (beforeWhite >= 0) return beforeWhite;
+
+  return Math.min(1, sections.length);
+}
+
 export default async function HomePage() {
-  const [data, promotionRows] = await Promise.all([
+  const [data, promotionRows, armaGallery] = await Promise.all([
     getCachedHomePageData(),
     getCachedActivePromotions(),
+    getCachedArmaPhotos(),
   ]);
   const homeData = data as HomePageData;
   const interiorHits = normalizeProductsResponse({ items: homeData.interiorHits });
@@ -89,6 +113,32 @@ export default async function HomePage() {
   const promoCards = homeData.homePromoCards as HomePromoCard[] | undefined;
   const imageHeightBySlug = homeData.cardImageHeightBySlug ?? {};
   const doorOfWeekItems = homeData.doorOfWeekItems ?? [];
+  const armaPreview = (armaGallery.items ?? []).slice(0, HOME_ARMA_PREVIEW_COUNT).map((item) => ({
+    id: item.id,
+    name: item.name,
+    previewUrl: item.previewUrl,
+  }));
+  const armaSplitIndex = resolveArmaTeaserSplitIndex(customSections);
+  const customSectionsBeforeArma = customSections.slice(0, armaSplitIndex);
+  const customSectionsAfterArma = customSections.slice(armaSplitIndex);
+
+  const renderCustomSection = (
+    section: (typeof customSections)[number],
+    index: number,
+  ) => (
+    <HomeProductHits
+      key={section.id}
+      title={section.title}
+      catalogPage={section.catalogPageSlug}
+      catalogHref={section.catalogHref}
+      products={section.products}
+      sectionId={section.id}
+      loadMoreCount={section.productLimit}
+      variant={index % 2 === 0 ? "default" : "muted"}
+      cardsPerRow={hitsCols}
+      cardImageHeight={imageHeightBySlug[section.catalogPageSlug]}
+    />
+  );
 
   return (
     <>
@@ -119,20 +169,11 @@ export default async function HomePage() {
           cardsPerRow={hitsCols}
           cardImageHeight={imageHeightBySlug[CATALOG_PAGE_SLUG.entryDoors]}
         />
-        {customSections.map((section, index) => (
-          <HomeProductHits
-            key={section.id}
-            title={section.title}
-            catalogPage={section.catalogPageSlug}
-            catalogHref={section.catalogHref}
-            products={section.products}
-            sectionId={section.id}
-            loadMoreCount={section.productLimit}
-            variant={index % 2 === 0 ? "default" : "muted"}
-            cardsPerRow={hitsCols}
-            cardImageHeight={imageHeightBySlug[section.catalogPageSlug]}
-          />
-        ))}
+        {customSectionsBeforeArma.map((section, index) => renderCustomSection(section, index))}
+        <HomeArmaFotoTeaser items={armaPreview} cardsPerRow={hitsCols} />
+        {customSectionsAfterArma.map((section, index) =>
+          renderCustomSection(section, customSectionsBeforeArma.length + index),
+        )}
         <HomePortfolioTeaser items={portfolioPreview} cardsPerRow={portfolioCols} />
         <HomeTestimonials items={testimonials} />
         <MeasureLeadForm embedded />
