@@ -34,6 +34,11 @@ import {
 } from "@/lib/client/use-cart-manufacturer-articles";
 import { SITE_EMAIL, SITE_ADDRESS, SITE_PHONE_DISPLAY, SITE_PHONE_TEL } from "@/lib/site-contact";
 import { getSiteUrl, SITE_NAME } from "@/lib/site-seo";
+import {
+  listCartKpDoors,
+  startCartInvoicePrint,
+} from "@/features/store/cart-kp-print";
+import { downloadCartKp } from "@/lib/client/admin-cart-kp";
 
 const formatSiteUrlForPrint = () => getSiteUrl().replace(/^https?:\/\//, "");
 
@@ -878,12 +883,15 @@ export default function CartPage() {
   const { items, totalPrice, setQuantity, removeItem, clear } = useCart();
   const { isAdmin, loading: adminLoading } = useAdminSession();
   const [isExporting, setIsExporting] = useState(false);
+  const [isGeneratingKp, setIsGeneratingKp] = useState(false);
+  const [kpError, setKpError] = useState("");
   const [serviceLines, setServiceLines] = useState(createInitialAdminCartServiceLines);
   const [customLines, setCustomLines] = useState<AdminCartCustomLineState[]>(() =>
     readAdminCartCustomLines(),
   );
 
   const adminMode = !adminLoading && isAdmin;
+  const kpDoors = useMemo(() => listCartKpDoors(items), [items]);
   const manufacturerArticles = useCartManufacturerArticles(items, adminMode);
   const tableColSpan = adminMode ? 6 : 5;
   const customCartItems = useMemo(
@@ -954,7 +962,20 @@ export default function CartPage() {
   };
 
   const handlePrint = () => {
-    if (typeof window !== "undefined") window.print();
+    startCartInvoicePrint();
+  };
+
+  const handleKpDownload = async () => {
+    if (kpDoors.length === 0 || isGeneratingKp) return;
+    setIsGeneratingKp(true);
+    setKpError("");
+    try {
+      await downloadCartKp(invoiceItems);
+    } catch (caught) {
+      setKpError(caught instanceof Error ? caught.message : "Не удалось сформировать КП");
+    } finally {
+      setIsGeneratingKp(false);
+    }
   };
 
   const handleExportCsv = async () => {
@@ -1020,6 +1041,21 @@ export default function CartPage() {
               {isExporting ? "Экспорт…" : "Экспорт CSV"}
             </button>
           ) : null}
+          {adminMode ? (
+            <button
+              type="button"
+              onClick={() => void handleKpDownload()}
+              disabled={kpDoors.length === 0 || isGeneratingKp}
+              title={
+                kpDoors.length > 0
+                  ? "Скачать КП в PDF и PNG"
+                  : "Добавьте в корзину входную или межкомнатную дверь"
+              }
+              className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-800 transition hover:border-zinc-500 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0 sm:flex-none sm:py-1.5"
+            >
+              {isGeneratingKp ? "КП…" : "КП"}
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={handlePrint}
@@ -1053,8 +1089,13 @@ export default function CartPage() {
         </div>
       </div>
 
-      {/* Шапка для печатной версии: видна только при печати. */}
-      <div className="mt-4 hidden border-b border-zinc-300 pb-3 print:block">
+      {kpError ? (
+        <p className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 print:hidden">
+          {kpError}
+        </p>
+      ) : null}
+
+      <div className="cart-print-invoice-header mt-4 hidden border-b border-zinc-300 pb-3 print:block">
         <div className="flex items-baseline justify-between gap-4">
           <h2 className="text-xl font-semibold">Заказ</h2>
           <span className="text-sm">от {formatToday()}</span>
@@ -1383,7 +1424,7 @@ export default function CartPage() {
         )}
       </div>
 
-      <div className="mt-8 hidden border-t border-zinc-300 pt-4 text-sm text-zinc-700 print:block">
+      <div className="cart-print-invoice-footer mt-8 hidden border-t border-zinc-300 pt-4 text-sm text-zinc-700 print:block">
         <p className="font-semibold text-zinc-900">{SITE_NAME}</p>
         <p className="mt-1">{SITE_ADDRESS}</p>
         <p className="mt-1">{formatSiteUrlForPrint()}</p>

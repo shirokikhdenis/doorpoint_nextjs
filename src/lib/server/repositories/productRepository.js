@@ -2233,6 +2233,27 @@ const patchProductAttributes = async (id, payload = {}) => {
   });
 };
 
+const replaceProductImages = async (id, images) => {
+  const { sanitizeProductGalleryUrls } = require("../domain/entryDoorMerge");
+  const numericId = Number(id);
+  if (!Number.isInteger(numericId) || numericId <= 0) return null;
+  const imageUrls = sanitizeProductGalleryUrls(images);
+
+  return withTransaction(async (client) => {
+    const currentRes = await client.query(
+      `SELECT id, sku FROM products WHERE id = $1 LIMIT 1`,
+      [numericId],
+    );
+    if (currentRes.rows.length === 0) return null;
+    await writeProductImages(client, numericId, imageUrls);
+    return {
+      id: numericId,
+      sku: currentRes.rows[0].sku,
+      imageUrls,
+    };
+  });
+};
+
 const DEFAULT_IMPORT_IMAGE = "https://picsum.photos/seed/imported/500/360";
 
 /** Категория комплектующего / погонажа — без автоматической заглушки при импорте без фото. */
@@ -3255,6 +3276,7 @@ module.exports = {
   createProduct,
   updateProduct,
   patchProductAttributes,
+  replaceProductImages,
   upsertProductBySku,
   listSkusBySkuList,
   listVariantSkusBySkuList,

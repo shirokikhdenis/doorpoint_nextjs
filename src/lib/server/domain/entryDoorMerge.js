@@ -20,6 +20,18 @@ const originalImageUrls = (imageUrls) =>
     .map((url) => String(url || "").trim())
     .filter((url) => url && !isMergedImageUrl(url));
 
+/** Оригиналы для product_images: без склейки, без дублей, порядок как пришёл. */
+const sanitizeProductGalleryUrls = (imageUrls) => {
+  const seen = new Set();
+  const out = [];
+  for (const url of originalImageUrls(imageUrls)) {
+    if (seen.has(url)) continue;
+    seen.add(url);
+    out.push(url);
+  }
+  return out;
+};
+
 const mergedFileNameForSku = (sku) => {
   const safe = String(sku || "")
     .trim()
@@ -123,6 +135,7 @@ module.exports = {
   MERGED_PUBLIC_PREFIX,
   isMergedImageUrl,
   originalImageUrls,
+  sanitizeProductGalleryUrls,
   mergedFileNameForSku,
   mergedPublicUrlForSku,
   resolveEntryDoorMergeAction,

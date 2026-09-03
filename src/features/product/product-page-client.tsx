@@ -10,6 +10,12 @@ import { ProductGlassUpgradeSelector } from "@/features/product/product-glass-up
 import { ProductHardwareServicesSelector } from "@/features/product/product-hardware-services-selector";
 import { getFinishPickerPlacement } from "@/lib/door-finish-picker-templates.js";
 import { ProductGallery } from "@/features/product/product-gallery";
+import {
+  ProductPageAdminAttributes,
+  ProductPageAdminBar,
+  useProductAdminPhotos,
+  useProductPageAdmin,
+} from "@/features/product/product-page-admin";
 import { ProductRelatedCollectionDoors } from "@/features/product/product-related-collection-doors";
 import { ProductRelatedFittings } from "@/features/product/product-related-fittings";
 import { ProductSuggestedHandles } from "@/features/product/product-suggested-handles";
@@ -43,6 +49,13 @@ type ProductPageClientProps = {
 export function ProductPageClient({ params, initialProduct }: ProductPageClientProps) {
   const page = useProductPage(params, initialProduct);
   const catalogBackHref = useCatalogBackHref();
+  const admin = useProductPageAdmin();
+  const photos = useProductAdminPhotos(
+    page.product,
+    page.reloadProduct,
+    admin.setPhotosBusy,
+    admin.setError,
+  );
 
   if (page.loading) {
     return <ProductPageSkeleton />;
@@ -180,6 +193,10 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
               image={image}
               galleryImages={galleryImages}
               keyboardEnabled={!page.imageLightboxOpen}
+              editable={admin.editing}
+              photosBusy={admin.photosBusy}
+              onRemoveImage={photos.removeImage}
+              onAddFiles={photos.addFiles}
               onOpenLightbox={() => page.setImageLightboxOpen(true)}
               onSelectThumbnail={(url) => {
                 page.setIsManualImageSelection(true);
@@ -212,6 +229,15 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
               ) : null}
             </p>
             <h1 className="text-2xl font-semibold">{pageTitle}</h1>
+            {admin.adminMode ? (
+              <ProductPageAdminBar
+                editing={admin.editing}
+                onToggle={() => admin.setEditing((value) => !value)}
+              />
+            ) : null}
+            {admin.editing && admin.error ? (
+              <p className="text-sm text-rose-700">{admin.error}</p>
+            ) : null}
             <ProductAddToExhibition
               productId={product.id}
               categorySlug={product.categorySlug}
@@ -283,7 +309,13 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
                 </span>
               </p>
             </div>
-            {product.attributes.length > 0 ? (
+            {admin.editing ? (
+              <ProductPageAdminAttributes
+                product={product}
+                editing={admin.editing}
+                onReload={page.reloadProduct}
+              />
+            ) : product.attributes.length > 0 ? (
             <div className="mt-8 border-t border-zinc-200 pt-6">
               <h2 className="text-lg font-semibold text-zinc-900">Характеристики</h2>
             <div className="mt-3 space-y-0">

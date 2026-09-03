@@ -89,6 +89,26 @@ export function useProductPage(
     setError("");
   }, []);
 
+  const reloadProduct = useCallback(async () => {
+    const key =
+      String(selectedRef || "").trim() ||
+      String(productRef.current?.slug || "").trim() ||
+      String(productRef.current?.id || "");
+    if (!key) return;
+    const response = await fetch(`/api/products/${encodeURIComponent(key)}`);
+    if (!response.ok) return;
+    const data = normalizeProductData(await response.json());
+    seedProductCache(cacheRef.current, data, key);
+    setProduct(data);
+    const prevSku = variantSkuRef.current;
+    if (!data.variants.some((item) => item.sku === prevSku)) {
+      setVariantSku(data.variants[0]?.sku || "");
+    }
+    setIsManualImageSelection(false);
+    const nextImage = data.images[0] || data.image || "";
+    if (nextImage) setDisplayedImage(nextImage);
+  }, [selectedRef]);
+
   useEffect(() => {
     if (!selectedRef) return;
     const cached = cacheRef.current.get(selectedRef);
@@ -293,6 +313,7 @@ export function useProductPage(
     imageLightboxOpen,
     setImageLightboxOpen,
     targetImage,
+    reloadProduct,
     prefetchProduct,
     switchToSlug,
     selectAxisValue,

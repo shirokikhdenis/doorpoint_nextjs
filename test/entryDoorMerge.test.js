@@ -6,6 +6,7 @@ const {
   RIGHT_SCALE,
   isMergedImageUrl,
   originalImageUrls,
+  sanitizeProductGalleryUrls,
   mergedFileNameForSku,
   mergedPublicUrlForSku,
   resolveEntryDoorMergeAction,
@@ -30,6 +31,18 @@ test("originalImageUrls drops pre-baked merges", () => {
   assert.deepEqual(
     originalImageUrls([
       "/uploads/merged/30100_merged.jpg",
+      "/uploads/products/30100.jpg",
+      "/uploads/products/30100_1.jpg",
+    ]),
+    ["/uploads/products/30100.jpg", "/uploads/products/30100_1.jpg"],
+  );
+});
+
+test("sanitizeProductGalleryUrls drops merges and duplicates", () => {
+  assert.deepEqual(
+    sanitizeProductGalleryUrls([
+      "/uploads/merged/30100_merged.jpg",
+      "/uploads/products/30100.jpg",
       "/uploads/products/30100.jpg",
       "/uploads/products/30100_1.jpg",
     ]),

@@ -50,6 +50,9 @@
   --admin-error-text: #be123c;
   --admin-error-border: #fecaca;
   --admin-error-bg: #fff1f2;
+  --admin-warning-text: #b45309;
+  --admin-warning-border: #fcd34d;
+  --admin-warning-bg: #fffbeb;
   --admin-emerald-badge-bg: #d1fae5;
   --admin-emerald-badge-text: #065f46;
   --admin-toggle-off: #d4d4d8;
@@ -93,6 +96,9 @@
   --admin-error-text: #fda4af;
   --admin-error-border: #9f1239;
   --admin-error-bg: rgb(136 19 55 / 0.35);
+  --admin-warning-text: #fcd34d;
+  --admin-warning-border: #92400e;
+  --admin-warning-bg: rgb(120 53 15 / 0.35);
   --admin-emerald-badge-bg: rgb(6 78 59 / 0.5);
   --admin-emerald-badge-text: #a7f3d0;
   --admin-toggle-off: #52525b;
@@ -135,6 +141,9 @@
   --admin-error-text: #cc0000;
   --admin-error-border: #ff9999;
   --admin-error-bg: #ffe8e8;
+  --admin-warning-text: #9a5b00;
+  --admin-warning-border: #e6c35c;
+  --admin-warning-bg: #fff8dc;
   --admin-emerald-badge-bg: #b8e6b8;
   --admin-emerald-badge-text: #006400;
   --admin-toggle-off: #9eb8d9;
@@ -239,6 +248,9 @@
   --color-admin-error-text: var(--admin-error-text);
   --color-admin-error-border: var(--admin-error-border);
   --color-admin-error-bg: var(--admin-error-bg);
+  --color-admin-warning-text: var(--admin-warning-text);
+  --color-admin-warning-border: var(--admin-warning-border);
+  --color-admin-warning-bg: var(--admin-warning-bg);
   --color-admin-emerald-badge-bg: var(--admin-emerald-badge-bg);
   --color-admin-emerald-badge-text: var(--admin-emerald-badge-text);
   --font-sans: var(--font-geometria);

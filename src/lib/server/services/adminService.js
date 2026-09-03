@@ -419,6 +419,17 @@ const patchProductSeo = async (id, body) => productRepository.patchProductSeo(Nu
 const patchProductAttributes = async (id, body) =>
   productRepository.patchProductAttributes(Number(id), body);
 
+const replaceProductImages = async (id, body) => {
+  const { syncEntryDoorMergedImage } = require("./entryDoorMergeService");
+  const updated = await productRepository.replaceProductImages(
+    Number(id),
+    Array.isArray(body?.images) ? body.images : [],
+  );
+  if (!updated) return null;
+  const merge = await syncEntryDoorMergedImage({ sku: updated.sku });
+  return { ...updated, merge };
+};
+
 const getProductAttributeDistinctValues = async (query) =>
   productRepository.listProductAttributeDistinctValues({
     code: String(query.code || "").trim(),
@@ -461,6 +472,7 @@ module.exports = {
   patchProductSale,
   patchProductSeo,
   patchProductAttributes,
+  replaceProductImages,
   getProductAttributeDistinctValues,
   listCatalogPageLabels,
   createCatalogPageLabel,

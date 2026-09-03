@@ -4,6 +4,7 @@ export type AttributeDef = {
   name: string;
   type: string;
   isFilterable?: boolean;
+  isVisibleOnProduct?: boolean;
   isVariantAxis?: boolean;
   options?: Array<string | { value: string }>;
 };
