@@ -9,6 +9,7 @@ import { AdminPage } from "@/features/admin/ui/admin-page";
 import { ArmaPhotoViewer } from "@/features/admin/arma-photos/arma-photo-viewer";
 import {
   ArmaPhotoAdminGrid,
+  movePhotoToListingPosition,
   reorderPhotosList,
 } from "@/features/admin/arma-photos/arma-photo-admin-grid";
 import { ArmaPhotoTagManager, reorderById } from "@/features/admin/arma-photos/arma-photo-tag-manager";
@@ -315,8 +316,7 @@ export default function AdminArmaPhotosPage() {
     }
   };
 
-  const handleReorderPhotos = async (dragId: string, targetId: string) => {
-    const nextItems = reorderPhotosList(items, dragId, targetId);
+  const persistPhotoOrder = async (nextItems: ArmaPhoto[], successNotice: string) => {
     setItems(nextItems);
     setReordering(true);
     setError("");
@@ -334,13 +334,35 @@ export default function AdminArmaPhotosPage() {
       };
       if (!response.ok) throw new Error(payload.message || "Не удалось сохранить порядок");
       applyGalleryPayload(payload);
-      setNotice("Порядок фото сохранён");
+      setNotice(successNotice);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Не удалось сохранить порядок");
       await reload();
     } finally {
       setReordering(false);
     }
+  };
+
+  const handleReorderPhotos = async (dragId: string, targetId: string) => {
+    const nextItems = reorderPhotosList(items, dragId, targetId);
+    if (nextItems === items) return;
+    await persistPhotoOrder(nextItems, "Порядок фото сохранён");
+  };
+
+  const handleChangeListingPosition = async (photoId: string, position: number) => {
+    const nextItems = movePhotoToListingPosition(items, photoId, position);
+    if (nextItems === items) return;
+    const openId = photoId;
+    await persistPhotoOrder(nextItems, "Место в выдаче сохранено");
+    setActiveIndex((current) => {
+      if (current == null) return current;
+      const nextGallery =
+        selectedTagIds.length > 0
+          ? nextItems.filter((photo) => photoMatchesSelectedTags(photo.tagIds, selectedTagIds, tags))
+          : nextItems;
+      const nextIndex = nextGallery.findIndex((photo) => photo.id === openId);
+      return nextIndex >= 0 ? nextIndex : current;
+    });
   };
 
   const handleDeletePhoto = async (photo: ArmaPhoto) => {
@@ -550,12 +572,18 @@ export default function AdminArmaPhotosPage() {
         <ArmaPhotoViewer
           photo={activePhoto}
           categories={categories}
+          listingPosition={Math.max(1, items.findIndex((photo) => photo.id === activePhoto.id) + 1)}
+          listingTotal={items.length}
           saving={saving}
           savingTagId={savingTagId}
+          savingPosition={reordering}
           onToggleTag={(tagId, assigned) => void handleTogglePhotoTag(tagId, assigned)}
           onCreateCategory={(name) => handleCreateCategory(undefined, name)}
           onCreateTag={(categoryId, name) =>
             handleCreateTag(undefined, { categoryId, name, assignToPhoto: true })
+          }
+          onChangeListingPosition={(position) =>
+            void handleChangeListingPosition(activePhoto.id, position)
           }
           onClose={() => setActiveIndex(null)}
           onPrev={goPrev}

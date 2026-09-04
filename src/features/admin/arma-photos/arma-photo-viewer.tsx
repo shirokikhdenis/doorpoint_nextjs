@@ -7,11 +7,15 @@ import type { ArmaPhoto, ArmaPhotoTagCategory } from "./types";
 type ArmaPhotoViewerProps = {
   photo: ArmaPhoto;
   categories: ArmaPhotoTagCategory[];
+  listingPosition: number;
+  listingTotal: number;
   saving: boolean;
   savingTagId: number | null;
+  savingPosition?: boolean;
   onToggleTag: (tagId: number, assigned: boolean) => void;
   onCreateCategory: (name: string) => Promise<void>;
   onCreateTag: (categoryId: number, name: string) => Promise<void>;
+  onChangeListingPosition: (position: number) => void | Promise<void>;
   onClose: () => void;
   onPrev: () => void;
   onNext: () => void;
@@ -20,11 +24,15 @@ type ArmaPhotoViewerProps = {
 export function ArmaPhotoViewer({
   photo,
   categories,
+  listingPosition,
+  listingTotal,
   saving,
   savingTagId,
+  savingPosition = false,
   onToggleTag,
   onCreateCategory,
   onCreateTag,
+  onChangeListingPosition,
   onClose,
   onPrev,
   onNext,
@@ -34,6 +42,11 @@ export function ArmaPhotoViewer({
   const [tagCategoryId, setTagCategoryId] = useState(() =>
     categories[0] ? String(categories[0].id) : "",
   );
+  const [positionDraft, setPositionDraft] = useState(String(listingPosition));
+
+  useEffect(() => {
+    setPositionDraft(String(listingPosition));
+  }, [listingPosition, photo.id]);
 
   useEffect(() => {
     if (!tagCategoryId && categories[0]) {
@@ -75,6 +88,18 @@ export function ArmaPhotoViewer({
   }, [onClose, onNext, onPrev]);
 
   const assigned = new Set(photo.tagIds);
+
+  const commitListingPosition = () => {
+    const next = Number(positionDraft);
+    if (!Number.isFinite(next)) {
+      setPositionDraft(String(listingPosition));
+      return;
+    }
+    const clamped = Math.max(1, Math.min(listingTotal, Math.round(next)));
+    setPositionDraft(String(clamped));
+    if (clamped === listingPosition) return;
+    void onChangeListingPosition(clamped);
+  };
 
   const handleCreateCategory = async (event: FormEvent) => {
     event.preventDefault();
@@ -182,6 +207,37 @@ export function ArmaPhotoViewer({
           </div>
 
           <div className="space-y-3 border-t border-admin-border px-4 py-3">
+            <div className="space-y-2">
+              <label
+                htmlFor="arma-listing-position"
+                className="text-xs font-medium text-admin-text-secondary"
+              >
+                Место в выдаче
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  id="arma-listing-position"
+                  type="number"
+                  min={1}
+                  max={Math.max(1, listingTotal)}
+                  value={positionDraft}
+                  disabled={savingPosition || listingTotal < 1}
+                  onChange={(event) => setPositionDraft(event.target.value)}
+                  onBlur={commitListingPosition}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      (event.target as HTMLInputElement).blur();
+                    }
+                  }}
+                  className="h-9 w-24 border border-admin-input-border bg-admin-input-bg px-2 text-sm"
+                />
+                <span className="text-sm text-admin-text-muted">из {listingTotal}</span>
+                {savingPosition ? (
+                  <span className="text-xs text-admin-text-muted">Сохранение…</span>
+                ) : null}
+              </div>
+            </div>
             <form className="space-y-2" onSubmit={(event) => void handleCreateCategory(event)}>
               <p className="text-xs font-medium text-admin-text-secondary">Новая категория</p>
               <div className="flex gap-2">

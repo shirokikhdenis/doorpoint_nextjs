@@ -13,6 +13,22 @@ const reorderPhotosList = (photos: ArmaPhoto[], dragId: string, targetId: string
   return next;
 };
 
+/** 1-based position in the storefront gallery order. */
+const movePhotoToListingPosition = (
+  photos: ArmaPhoto[],
+  photoId: string,
+  position: number,
+): ArmaPhoto[] => {
+  const from = photos.findIndex((photo) => photo.id === photoId);
+  if (from < 0 || photos.length === 0) return photos;
+  const to = Math.max(0, Math.min(photos.length - 1, Math.round(Number(position)) - 1));
+  if (!Number.isFinite(to) || from === to) return photos;
+  const next = [...photos];
+  const [moved] = next.splice(from, 1);
+  next.splice(to, 0, moved);
+  return next;
+};
+
 type ArmaPhotoAdminGridProps = {
   photos: ArmaPhoto[];
   disabled?: boolean;
@@ -115,4 +131,4 @@ export function ArmaPhotoAdminGrid({
   );
 }
 
-export { reorderPhotosList };
+export { reorderPhotosList, movePhotoToListingPosition };
