@@ -1,7 +1,10 @@
 const SITE_NAME = "Дверная Точка";
 const SITE_PHONE_DISPLAY = "+7 921 290 5999";
 const SITE_EMAIL = "doorpoint29@yandex.ru";
+const SITE_ADDRESS =
+  "Архангельск, ТЦ Новосёл, пр. Московский, д. 25, к. 4, стр. 1, 1 этаж, направо до конца";
 const SITE_ADDRESS_SHORT = "Архангельск, ТЦ «Новосёл», Московский пр., 25";
+const SITE_HOURS = "Пн–Пт: 11:00–19:00, Сб–Вс: 11:00–17:00";
 const SITE_LOGO_PATH = "/uploads/Logo-01.png";
 const KP_VALIDITY_DAYS = 14;
 
@@ -35,7 +38,9 @@ module.exports = {
   SITE_NAME,
   SITE_PHONE_DISPLAY,
   SITE_EMAIL,
+  SITE_ADDRESS,
   SITE_ADDRESS_SHORT,
+  SITE_HOURS,
   SITE_LOGO_PATH,
   KP_VALIDITY_DAYS,
   BRAND_COLOR,

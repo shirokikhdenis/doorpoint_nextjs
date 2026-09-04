@@ -537,12 +537,93 @@ const deleteArmaPhoto = async (photoId) => {
   return { ok: true };
 };
 
+const UPLOAD_ALLOWED_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"]);
+const UPLOAD_MAX_FILE_BYTES = 10 * 1024 * 1024;
+
+const uploadArmaPhotos = async (fileEntries) => {
+  const entries = Array.isArray(fileEntries) ? fileEntries : [];
+  if (entries.length === 0) {
+    throw new Error("Выберите хотя бы один файл (jpg, png или webp)");
+  }
+
+  const dir = await ensureWritableSubdir(ARMA_PHOTOS_UPLOAD_SUBDIR);
+  const existingPhotos = await listArmaPhotos();
+  const usedNames = new Set();
+
+  let diskFiles = [];
+  try {
+    diskFiles = await fs.readdir(dir);
+  } catch (error) {
+    if (error?.code !== "ENOENT") throw error;
+  }
+  for (const name of diskFiles) {
+    if (name === ARMA_PHOTOS_MANIFEST_NAME) continue;
+    usedNames.add(String(name).toLowerCase());
+  }
+
+  const newEntries = [];
+  for (const file of entries) {
+    if (!file || typeof file.arrayBuffer !== "function") continue;
+
+    const originalName = String(file.name || "photo.jpg").trim() || "photo.jpg";
+    const ext = path.extname(originalName).toLowerCase();
+    if (!UPLOAD_ALLOWED_EXTENSIONS.has(ext)) {
+      throw new Error(`Недопустимый формат файла: ${originalName}`);
+    }
+
+    const buffer = Buffer.from(await file.arrayBuffer());
+    if (buffer.length === 0) continue;
+    if (buffer.length > UPLOAD_MAX_FILE_BYTES) {
+      throw new Error(
+        `Файл слишком большой (макс. ${UPLOAD_MAX_FILE_BYTES / (1024 * 1024)} МБ): ${originalName}`,
+      );
+    }
+
+    let outputBuffer = buffer;
+    let outputExt = ext === ".jpeg" ? ".jpg" : ext;
+    if (CONVERTIBLE_EXTENSIONS.has(ext)) {
+      try {
+        const optimized = await optimizeRasterBuffer(buffer, {
+          preset: resolveImagePreset(ARMA_PHOTOS_UPLOAD_SUBDIR),
+        });
+        outputBuffer = optimized.buffer;
+        outputExt = optimized.extension;
+      } catch (error) {
+        if (!shouldOptimizeExtension(ext)) {
+          throw new Error(`Не удалось обработать ${originalName}: ${error.message}`);
+        }
+      }
+    }
+
+    const desiredName = `${path.parse(originalName).name}${outputExt}`;
+    const fileName = uniqueArmaPhotoFilename(desiredName, usedNames);
+    await fs.writeFile(path.join(/*turbopackIgnore: true*/ dir, fileName), outputBuffer);
+    newEntries.push({
+      fileName,
+      name: originalName,
+      modifiedAt: new Date().toISOString(),
+    });
+  }
+
+  if (newEntries.length === 0) {
+    throw new Error("Не выбраны подходящие изображения");
+  }
+
+  await writeManifest(dir, [
+    ...existingPhotos.map(buildManifestEntry),
+    ...newEntries,
+  ]);
+
+  return listAdminArmaGallery();
+};
+
 module.exports = {
   listArmaPhotos,
   listAdminArmaGallery,
   listPublicArmaGallery,
   reorderArmaPhotos,
   deleteArmaPhoto,
+  uploadArmaPhotos,
   createArmaTagCategory,
   updateArmaTagCategory,
   reorderArmaTagCategories,

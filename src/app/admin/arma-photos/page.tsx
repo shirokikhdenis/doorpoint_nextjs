@@ -1,6 +1,7 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { uploadAdminImages } from "@/features/admin/admin-image-upload";
 import { AdminCard } from "@/features/admin/ui/admin-card";
 import { AdminEmptyState } from "@/features/admin/ui/admin-empty-state";
 import { AdminNotice } from "@/features/admin/ui/admin-notice";
@@ -37,7 +38,9 @@ export default function AdminArmaPhotosPage() {
   const [saving, setSaving] = useState(false);
   const [savingTagId, setSavingTagId] = useState<number | null>(null);
   const [reordering, setReordering] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const tags = useMemo(() => flattenTags(categories), [categories]);
 
@@ -365,6 +368,53 @@ export default function AdminArmaPhotosPage() {
     }
   };
 
+  const handleUploadFiles = async (fileList: FileList | null) => {
+    const files = fileList ? Array.from(fileList) : [];
+    if (files.length === 0 || uploading) return;
+    setUploading(true);
+    setError("");
+    setNotice("");
+    try {
+      await uploadAdminImages({
+        url: "/api/admin/arma-photos",
+        files,
+      });
+      await reload();
+      setNotice(files.length === 1 ? "Фото загружено" : `Загружено фото: ${files.length}`);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Не удалось загрузить фото");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const uploadBusy = uploading || saving || reordering || deletingPhotoId != null;
+
+  const uploadButton = (
+    <>
+      <button
+        type="button"
+        disabled={uploadBusy || loading}
+        onClick={() => fileInputRef.current?.click()}
+        className="rounded-md border border-admin-border bg-admin-surface px-3 py-1.5 text-sm text-admin-text hover:bg-admin-surface-muted disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {uploading ? "Загрузка…" : "Загрузить фото"}
+      </button>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        multiple
+        className="hidden"
+        disabled={uploadBusy || loading}
+        onChange={(event) => {
+          void handleUploadFiles(event.target.files);
+          event.target.value = "";
+        }}
+      />
+    </>
+  );
+
   const handleTogglePhotoTag = async (tagId: number, assigned: boolean) => {
     if (!activePhoto) return;
     setSavingTagId(tagId);
@@ -394,7 +444,11 @@ export default function AdminArmaPhotosPage() {
   };
 
   return (
-    <AdminPage title="Арма фото" description="Фото заказных дверей фабрики Арма.">
+    <AdminPage
+      title="Арма фото"
+      description="Фото заказных дверей фабрики Арма."
+      actions={uploadButton}
+    >
       {error ? <AdminNotice variant="error">{error}</AdminNotice> : null}
       {notice ? <AdminNotice variant="success">{notice}</AdminNotice> : null}
 
@@ -473,7 +527,7 @@ export default function AdminArmaPhotosPage() {
         ) : items.length === 0 ? (
           <AdminEmptyState
             title="Фото не найдены"
-            description="Локальная папка public/uploads/arma-photos пуста."
+            description="Загрузите фото с компьютера или положите файлы в public/uploads/arma-photos."
           />
         ) : filteredItems.length === 0 ? (
           <AdminEmptyState
@@ -483,7 +537,7 @@ export default function AdminArmaPhotosPage() {
         ) : (
           <ArmaPhotoAdminGrid
             photos={galleryItems}
-            disabled={saving || reordering || deletingPhotoId != null}
+            disabled={uploadBusy}
             reorderDisabled={reorderDisabled}
             onOpen={setActiveIndex}
             onReorder={(dragId, targetId) => void handleReorderPhotos(dragId, targetId)}
