@@ -5,6 +5,7 @@ import { FinishPickerFinishCard } from "@/features/product/finish-picker-finish-
 import { ProductDoorOptionSection } from "@/features/product/product-door-option-section";
 import { ProductOptionChip } from "@/features/product/product-option-chip";
 import type { DoorFinishItem, DoorFinishOptions } from "@/lib/client/normalizers";
+import { useBodyScrollLock } from "@/lib/client/use-body-scroll-lock";
 import { cn } from "@/lib/utils";
 
 export type FinishPickerTemplateProps = {
@@ -32,13 +33,12 @@ export function FinishPickerModalGridTabs({
       if (event.key === "Escape") setOpen(false);
     };
     document.addEventListener("keydown", onKeyDown);
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     return () => {
       document.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = previousOverflow;
     };
   }, [open]);
+
+  useBodyScrollLock(open);
 
   return (
     <>

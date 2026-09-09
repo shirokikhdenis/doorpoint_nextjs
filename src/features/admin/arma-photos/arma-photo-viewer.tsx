@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { useBodyScrollLock } from "@/lib/client/use-body-scroll-lock";
 import { Button } from "@/components/ui/button";
 import type { ArmaPhoto, ArmaPhotoTagCategory } from "./types";
 
@@ -79,13 +80,12 @@ export function ArmaPhotoViewer({
       }
     };
     document.addEventListener("keydown", onKeyDown);
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     return () => {
       document.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = previousOverflow;
     };
   }, [onClose, onNext, onPrev]);
+
+  useBodyScrollLock(true);
 
   const assigned = new Set(photo.tagIds);
 

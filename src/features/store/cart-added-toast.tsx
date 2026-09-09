@@ -43,7 +43,7 @@ export function CartAddedToast() {
       key={toast.id}
       role="status"
       aria-live="polite"
-      className={`cart-added-toast fixed bottom-4 right-4 z-50 max-w-[min(20rem,calc(100vw-2rem))] rounded-lg border border-brand bg-white px-4 py-3 text-sm font-medium text-brand shadow-lg print:hidden ${
+      className={`cart-added-toast fixed right-4 z-50 max-w-[min(20rem,calc(100vw-2rem))] rounded-lg border border-brand bg-white px-4 py-3 text-sm font-medium text-brand shadow-lg print:hidden bottom-[max(1rem,calc(1rem+env(safe-area-inset-bottom,0px)+var(--storefront-sticky-cta-height,0px)))] lg:bottom-4 ${
         isExiting ? "cart-added-toast--exit" : "cart-added-toast--enter"
       }`}
     >

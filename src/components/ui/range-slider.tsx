@@ -32,7 +32,7 @@ export function RangeSlider({
 
   return (
     <div className="space-y-2 px-1">
-      <div className="relative mx-1 h-6">
+      <div className="relative mx-1 h-8">
         <div className="absolute top-1/2 h-1 w-full -translate-y-1/2 rounded-full bg-zinc-200" />
         <div
           className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full bg-brand"

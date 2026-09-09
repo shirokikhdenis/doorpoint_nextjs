@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useBodyScrollLock } from "@/lib/client/use-body-scroll-lock";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { AdminInputField, AdminSelectField } from "@/features/admin/ui/admin-form-field";
@@ -108,13 +109,12 @@ export function AdminProductEditor({
       if (event.key === "Escape" && !saving) setOpen(false);
     };
     document.addEventListener("keydown", onKeyDown);
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     return () => {
       document.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = previousOverflow;
     };
   }, [open, saving]);
+
+  useBodyScrollLock(open);
 
   const applyProduct = (product: ProductForEdit) => {
     setSku(product.sku || "");

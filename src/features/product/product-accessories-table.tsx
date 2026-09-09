@@ -11,7 +11,7 @@ type AccessoryRowProps = {
   doorColor: string;
 };
 
-function AccessoryRow({ item, doorColor }: AccessoryRowProps) {
+function useAccessoryCartAdd(item: AccessoryItem, doorColor: string) {
   const { addItem } = useCart();
   const [qty, setQty] = useState<number>(1);
 
@@ -32,6 +32,48 @@ function AccessoryRow({ item, doorColor }: AccessoryRowProps) {
     );
   };
 
+  return { qty, setQty, handleAdd };
+}
+
+function AccessoryAddButton({
+  itemName,
+  onClick,
+  className,
+}: {
+  itemName: string;
+  onClick: () => void;
+  className: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={`Добавить «${itemName}» в корзину`}
+      title="Добавить в корзину"
+      className={className}
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="h-5 w-5"
+        aria-hidden="true"
+      >
+        <path d="M3 4h2l2.4 11.2a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6" />
+        <circle cx="9" cy="20" r="1.4" />
+        <circle cx="17" cy="20" r="1.4" />
+      </svg>
+    </button>
+  );
+}
+
+function AccessoryRow({ item, doorColor }: AccessoryRowProps) {
+  const { qty, setQty, handleAdd } = useAccessoryCartAdd(item, doorColor);
+
   return (
     <tr className="border-b border-zinc-200 last:border-b-0">
       <td className="min-w-0 py-2.5 pr-4 align-middle text-zinc-900">{item.name}</td>
@@ -42,31 +84,34 @@ function AccessoryRow({ item, doorColor }: AccessoryRowProps) {
         <CartQuantityStepper quantity={qty} onQuantityChange={setQty} max={999} />
       </td>
       <td className="w-10 py-2.5 pl-2 text-right align-middle">
-        <button
-          type="button"
+        <AccessoryAddButton
+          itemName={item.name}
           onClick={handleAdd}
-          aria-label={`Добавить «${item.name}» в корзину`}
-          title="Добавить в корзину"
           className="inline-flex h-8 w-8 items-center justify-center text-zinc-500 hover:text-zinc-900"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="h-5 w-5"
-            aria-hidden="true"
-          >
-            <path d="M3 4h2l2.4 11.2a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6" />
-            <circle cx="9" cy="20" r="1.4" />
-            <circle cx="17" cy="20" r="1.4" />
-          </svg>
-        </button>
+        />
       </td>
     </tr>
+  );
+}
+
+function AccessoryCard({ item, doorColor }: AccessoryRowProps) {
+  const { qty, setQty, handleAdd } = useAccessoryCartAdd(item, doorColor);
+
+  return (
+    <article className="border-b border-zinc-200 py-3 last:border-b-0">
+      <p className="break-words text-sm text-zinc-900">{item.name}</p>
+      <div className="mt-2 flex items-center justify-between gap-3">
+        <span className="shrink-0 font-medium tabular-nums">{formatPrice(item.price)}</span>
+        <div className="flex items-center gap-2">
+          <CartQuantityStepper quantity={qty} onQuantityChange={setQty} max={999} />
+          <AccessoryAddButton
+            itemName={item.name}
+            onClick={handleAdd}
+            className="inline-flex h-10 w-10 items-center justify-center text-zinc-500 hover:text-zinc-900"
+          />
+        </div>
+      </div>
+    </article>
   );
 }
 
@@ -81,7 +126,12 @@ export function ProductAccessoriesTable({ accessories, doorColor }: ProductAcces
   return (
     <section className="mt-10">
       <h2 className="text-xl font-semibold">Погонаж</h2>
-      <div className="mt-4 overflow-x-auto">
+      <div className="mt-4 sm:hidden">
+        {accessories.map((item) => (
+          <AccessoryCard key={item.id} item={item} doorColor={doorColor} />
+        ))}
+      </div>
+      <div className="mt-4 hidden overflow-x-auto sm:block">
         <table className="w-full table-fixed border-collapse text-sm">
           <colgroup>
             <col />

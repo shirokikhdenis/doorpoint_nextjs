@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { StorefrontImage } from "@/features/store/storefront-image";
 import { PortfolioCard, type PortfolioCardItem } from "@/features/portfolio/portfolio-card";
 import { toPublicImageSrc } from "@/lib/client/image-src";
+import { useBodyScrollLock } from "@/lib/client/use-body-scroll-lock";
+import { useHorizontalSwipe } from "@/lib/client/use-horizontal-swipe";
 
 export type PortfolioGalleryItem = PortfolioCardItem & {
   coverImage: string;
@@ -68,13 +70,18 @@ export function PortfolioGallery({ items }: PortfolioGalleryProps) {
       if (event.key === "ArrowRight") showNext();
     };
     document.addEventListener("keydown", onKeyDown);
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     return () => {
       document.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = previousOverflow;
     };
   }, [active, closeProject, showNext, showPrev]);
+
+  useBodyScrollLock(Boolean(active));
+
+  const swipe = useHorizontalSwipe({
+    onNext: showNext,
+    onPrev: showPrev,
+    enabled: Boolean(active) && activeImages.length > 1,
+  });
 
   return (
     <>
@@ -92,25 +99,30 @@ export function PortfolioGallery({ items }: PortfolioGalleryProps) {
 
       {active ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-2 sm:p-4"
           role="dialog"
           aria-modal="true"
           aria-label={active.title}
           onClick={closeProject}
         >
           <div
-            className="relative max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-xl bg-zinc-950 p-3 sm:p-4"
+            className="relative flex max-h-[100dvh] w-full max-w-5xl flex-col overflow-y-auto rounded-xl bg-zinc-950 p-3 sm:max-h-[calc(100dvh-2rem)] sm:p-4"
             onClick={(event) => event.stopPropagation()}
           >
             <button
               type="button"
               onClick={closeProject}
-              className="absolute right-3 top-3 z-20 rounded bg-white/10 px-3 py-1 text-sm text-white hover:bg-white/20"
+              className="absolute right-3 top-3 z-20 inline-flex min-h-11 items-center rounded-md bg-white/10 px-4 text-sm text-white hover:bg-white/20"
             >
               Закрыть
             </button>
 
-            <div className="relative mx-auto mt-8 h-[min(87dvh,51rem,calc(100dvh-10rem))] w-[min(100%,calc(min(87dvh,51rem,calc(100dvh-10rem))*9/16))] overflow-hidden rounded-lg bg-black sm:mt-0">
+            <div
+              className="relative mx-auto mt-12 h-[min(80dvh,51rem,calc(100dvh-8rem))] w-full max-w-3xl overflow-hidden rounded-lg bg-black sm:mt-0"
+              onTouchStart={swipe.onTouchStart}
+              onTouchEnd={swipe.onTouchEnd}
+              onClickCapture={swipe.onClickCapture}
+            >
               {currentPhoto ? (
                 <StorefrontImage
                   src={currentPhoto}

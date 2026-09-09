@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { toPublicImageSrc, isMergedStorefrontImageUrl } from "@/lib/client/image-src";
 import { stepGalleryImage } from "@/lib/client/gallery-step";
+import { useHorizontalSwipe } from "@/lib/client/use-horizontal-swipe";
 import { StorefrontImage } from "@/features/store/storefront-image";
 
 type ProductGalleryProps = {
@@ -62,6 +63,11 @@ export function ProductGallery({
 
   const showPrev = () => onSelectThumbnail(stepGalleryImage(galleryImages, image, -1));
   const showNext = () => onSelectThumbnail(stepGalleryImage(galleryImages, image, 1));
+  const swipe = useHorizontalSwipe({
+    onNext: showNext,
+    onPrev: showPrev,
+    enabled: canFlip,
+  });
 
   useEffect(() => {
     if (!canFlip || !keyboardEnabled) return undefined;
@@ -83,7 +89,12 @@ export function ProductGallery({
 
   return (
     <div className="space-y-3">
-      <div className="relative">
+      <div
+        className="relative"
+        onTouchStart={swipe.onTouchStart}
+        onTouchEnd={swipe.onTouchEnd}
+        onClickCapture={swipe.onClickCapture}
+      >
         <button
           type="button"
           onClick={() => image && onOpenLightbox()}

@@ -2,6 +2,8 @@
 
 import { useEffect } from "react";
 import { stepGalleryImage } from "@/lib/client/gallery-step";
+import { useBodyScrollLock } from "@/lib/client/use-body-scroll-lock";
+import { useHorizontalSwipe } from "@/lib/client/use-horizontal-swipe";
 
 type ImageLightboxProps = {
   src: string;
@@ -41,13 +43,24 @@ export function ImageLightbox({
       }
     };
     document.addEventListener("keydown", onKeyDown);
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     return () => {
       document.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = previousOverflow;
     };
   }, [open, onClose, onSelect, galleryKey, src]);
+
+  useBodyScrollLock(open);
+
+  const swipe = useHorizontalSwipe({
+    onNext: () => {
+      if (!canFlip || !onSelect) return;
+      onSelect(stepGalleryImage(gallery, src, 1));
+    },
+    onPrev: () => {
+      if (!canFlip || !onSelect) return;
+      onSelect(stepGalleryImage(gallery, src, -1));
+    },
+    enabled: open && canFlip,
+  });
 
   if (!open || !src) return null;
 
@@ -104,6 +117,9 @@ export function ImageLightbox({
         alt={alt}
         className="max-h-[min(90vh,1200px)] max-w-[min(92vw,1200px)] object-contain"
         onClick={(event) => event.stopPropagation()}
+        onTouchStart={swipe.onTouchStart}
+        onTouchEnd={swipe.onTouchEnd}
+        onClickCapture={swipe.onClickCapture}
       />
     </div>
   );

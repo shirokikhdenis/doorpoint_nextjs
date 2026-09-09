@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { StorefrontImage } from "@/features/store/storefront-image";
 import { useCallback, useEffect, useState } from "react";
+import { useHorizontalSwipe } from "@/lib/client/use-horizontal-swipe";
 import { CATALOG_PAGE_SLUG } from "@/lib/catalog-page-slugs";
 import { buildCatalogPublicHref } from "@/lib/catalog-url";
 import { cn } from "@/lib/utils";
@@ -25,7 +26,7 @@ function SlideContent({
     <>
       <div className="absolute inset-0 bg-white" aria-hidden />
       {banner.backgroundImageUrl ? (
-        <div className="pointer-events-none absolute inset-y-0 right-0 w-[42%] min-w-[120px] max-w-[280px] p-4 sm:w-[45%] sm:max-w-none sm:p-6">
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-[38%] min-w-0 max-w-[280px] p-3 sm:w-[45%] sm:min-w-[120px] sm:max-w-none sm:p-6">
           <div className="relative h-full w-full">
             <StorefrontImage
               src={banner.backgroundImageUrl}
@@ -40,7 +41,7 @@ function SlideContent({
       <div
         className={cn(
           "relative z-10 flex min-h-[280px] flex-col justify-between gap-4 py-6 pb-10 pr-4 sm:pr-6",
-          banner.backgroundImageUrl ? "max-w-[58%] sm:max-w-[55%]" : "max-w-xl",
+          banner.backgroundImageUrl ? "max-w-[62%] sm:max-w-[55%]" : "max-w-xl",
           className,
         )}
       >
@@ -129,6 +130,12 @@ export function HomePromotionSlider({ banners }: HomePromotionSliderProps) {
     [count],
   );
 
+  const swipe = useHorizontalSwipe({
+    onNext: () => goTo(index + 1),
+    onPrev: () => goTo(index - 1),
+    enabled: count > 1,
+  });
+
   if (!active) {
     return <StaticPromoFallback />;
   }
@@ -136,10 +143,15 @@ export function HomePromotionSlider({ banners }: HomePromotionSliderProps) {
   const showControls = count > 1;
 
   return (
-    <div className="relative min-h-[280px] overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-md">
+    <div
+      className="relative min-h-[280px] overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-md"
+      onTouchStart={swipe.onTouchStart}
+      onTouchEnd={swipe.onTouchEnd}
+      onClickCapture={swipe.onClickCapture}
+    >
       <div className="flex min-h-[280px] items-stretch">
         {showControls ? (
-          <div className="flex shrink-0 items-center px-2 sm:px-3">
+          <div className="hidden shrink-0 items-center px-2 sm:flex sm:px-3">
             <button
               type="button"
               className={arrowButtonClass}
@@ -172,7 +184,7 @@ export function HomePromotionSlider({ banners }: HomePromotionSliderProps) {
         </div>
 
         {showControls ? (
-          <div className="flex shrink-0 items-center px-2 sm:px-3">
+          <div className="hidden shrink-0 items-center px-2 sm:flex sm:px-3">
             <button
               type="button"
               className={arrowButtonClass}
@@ -194,12 +206,18 @@ export function HomePromotionSlider({ banners }: HomePromotionSliderProps) {
               key={banner.id}
               type="button"
               className={cn(
-                "h-2 w-2 rounded-full transition",
-                i === index % count ? "bg-brand" : "bg-zinc-300 hover:bg-zinc-400",
+                "flex h-11 w-11 items-center justify-center rounded-full",
               )}
               onClick={() => goTo(i)}
               aria-label={`Акция ${i + 1}`}
-            />
+            >
+              <span
+                className={cn(
+                  "h-2 w-2 rounded-full transition",
+                  i === index % count ? "bg-brand" : "bg-zinc-300",
+                )}
+              />
+            </button>
           ))}
         </div>
       ) : null}

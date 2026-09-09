@@ -7,6 +7,7 @@ import { CatalogHeaderSearch } from "@/features/catalog/catalog-header-search";
 import { HomeCatalogSearch } from "@/features/navigation/home-catalog-search";
 import { CartNavLink } from "@/features/navigation/cart-nav-link";
 import { isCatalogPathname } from "@/lib/catalog-page-paths";
+import { useBodyScrollLock } from "@/lib/client/use-body-scroll-lock";
 import {
   siteNavLinkClass,
   storefrontHeaderContainerClass,
@@ -55,12 +56,25 @@ function NavItem({
 
 export function AppNav() {
   const pathname = usePathname();
+  const [menuPath, setMenuPath] = useState(pathname);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const showCatalogSearch = isCatalogPathname(pathname);
 
-  useEffect(() => {
+  if (menuPath !== pathname) {
+    setMenuPath(pathname);
     setIsMobileMenuOpen(false);
-  }, [pathname]);
+  }
+
+  useEffect(() => {
+    if (!isMobileMenuOpen) return undefined;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsMobileMenuOpen(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [isMobileMenuOpen]);
+
+  useBodyScrollLock(isMobileMenuOpen);
 
   const isLinkActive = (href: string) =>
     href === "/"
@@ -80,8 +94,16 @@ export function AppNav() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-zinc-200 bg-white/95 backdrop-blur print:hidden">
+      {isMobileMenuOpen ? (
+        <button
+          type="button"
+          className="fixed inset-0 z-30 bg-black/40 lg:hidden"
+          aria-label="Закрыть меню"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      ) : null}
       <nav
-        className={`${storefrontHeaderContainerClass} py-2`}
+        className={`relative z-40 ${storefrontHeaderContainerClass} py-2`}
         aria-label="Основная навигация"
       >
         <div className="flex items-center justify-between gap-2 lg:hidden">
@@ -90,10 +112,18 @@ export function AppNav() {
             aria-expanded={isMobileMenuOpen}
             aria-controls="mobile-primary-nav"
             onClick={() => setIsMobileMenuOpen((current) => !current)}
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-zinc-300 bg-white text-zinc-800 transition hover:border-zinc-400 hover:bg-zinc-50"
+            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-zinc-300 bg-white text-zinc-800 transition hover:border-zinc-400 hover:bg-zinc-50"
           >
             <span className="sr-only">{isMobileMenuOpen ? "Закрыть меню" : "Открыть меню"}</span>
-            <span className="text-lg leading-none">{isMobileMenuOpen ? "✕" : "☰"}</span>
+            {isMobileMenuOpen ? (
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                <path d="M4 7h16M4 12h16M4 17h16" />
+              </svg>
+            )}
           </button>
 
           <div className="min-w-0 flex-1">{headerActions}</div>
@@ -117,7 +147,7 @@ export function AppNav() {
       </nav>
 
       {isMobileMenuOpen ? (
-        <div id="mobile-primary-nav" className="border-t border-zinc-200 bg-white lg:hidden">
+        <div id="mobile-primary-nav" className="relative z-40 border-t border-zinc-200 bg-white lg:hidden">
           <div className={`${storefrontHeaderContainerClass} flex flex-col py-2`}>
             {links.map((link) => (
               <NavItem

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useBodyScrollLock } from "@/lib/client/use-body-scroll-lock";
 import { Button } from "@/components/ui/button";
 import { StorefrontImage } from "@/features/store/storefront-image";
 import { ARMA_FOTO_GALLERY, ARMA_FOTO_GALLERY_ID } from "@/features/arma-photos/arma-foto-copy";
@@ -90,13 +91,12 @@ export function ArmaPhotoGallery({ items, categories, onRequestQuote }: ArmaPhot
       if (event.key === "ArrowRight") showNext();
     };
     document.addEventListener("keydown", onKeyDown);
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     return () => {
       document.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = previousOverflow;
     };
   }, [activePhoto, closeViewer, showNext, showPrev]);
+
+  useBodyScrollLock(Boolean(activePhoto));
 
   return (
     <>
