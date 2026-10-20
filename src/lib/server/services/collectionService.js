@@ -26,8 +26,15 @@ const buildCollectionCatalogHref = (catalogPageSlug, manufacturer, collection, c
 
 const buildManufacturerCatalogHref = (manufacturer, catalogPageSlug = "all") => {
   const name = String(manufacturer || "").trim();
-  const path = catalogPagePath(catalogPageSlug);
+  const normalizedSlug = String(catalogPageSlug || "all").trim() || "all";
+  const path = catalogPagePath(normalizedSlug);
   if (!name) return path;
+  // General catalog has no `/catalog/{factory}` route (collides with vitrine slugs).
+  if (normalizedSlug === "all") {
+    const params = new URLSearchParams();
+    params.set(`attr_${MANUFACTURER_ATTR_CODE}`, name);
+    return `${path}?${params.toString()}`;
+  }
   const slug = slugifyPart(name) || "factory";
   if (!slug) return path;
   return `${path}/${encodeURIComponent(slug)}`;

@@ -15,6 +15,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
     label: "Работа",
     items: [
       { href: "/admin/leads", label: "Заявки" },
+      { href: "/admin/configurator", label: "Конфигуратор" },
       { href: "/admin/install-calendar", label: "График доставки/монтажа" },
       { href: "/admin/exhibition", label: "Учёт выставки" },
       { href: "/admin/direct-creatives", label: "Креативы Директ" },
@@ -80,6 +81,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
 const PAGE_TITLES: Record<string, string> = {
   "/admin": "Категории",
   "/admin/leads": "Заявки",
+  "/admin/configurator": "Конфигуратор",
   "/admin/install-calendar": "График доставки/монтажа",
   "/admin/exhibition": "Учёт выставки",
   "/admin/direct-creatives": "Креативы Директ",

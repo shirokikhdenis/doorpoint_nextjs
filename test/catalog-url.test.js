@@ -9,7 +9,9 @@ const catalogPagePath = (slug) => {
 };
 
 const manufacturerCatalogPath = (catalogPageSlug, manufacturerName) => {
-  const base = catalogPagePath(catalogPageSlug);
+  const resolved = String(catalogPageSlug || "all").trim() || "all";
+  const base = catalogPagePath(resolved);
+  if (resolved === "all") return base;
   const slug = slugifyPart(manufacturerName) || "factory";
   return `${base}/${encodeURIComponent(slug)}`;
 };
@@ -28,6 +30,31 @@ test("manufacturer landing path is /catalog/{vitrine}/{factory}", () => {
     manufacturerCatalogPath("dveri-mezhkomnatnyye", "Браво"),
     "/catalog/dveri-mezhkomnatnyye/bravo",
   );
+});
+
+test("general catalog does not put factory in path (avoids /catalog/{factory} 404)", () => {
+  assert.equal(manufacturerCatalogPath("all", "Аэлита"), "/catalog");
+  assert.equal(manufacturerCatalogPath("all", "Браво"), "/catalog");
+});
+
+test("general catalog keeps factory as query, vitrine uses path segment", () => {
+  const catalogHrefFromFilters = (catalogPage, manufacturer) => {
+    const path = manufacturer
+      ? manufacturerCatalogPath(catalogPage, manufacturer)
+      : catalogPagePath(catalogPage);
+    const params = new URLSearchParams();
+    if (manufacturer) params.set("attr_manufacturer", manufacturer);
+    const usesManufacturerPath = Boolean(manufacturer) && path !== catalogPagePath(catalogPage);
+    if (usesManufacturerPath) params.delete("attr_manufacturer");
+    const qs = params.toString();
+    return qs ? `${path}?${qs}` : path;
+  };
+
+  assert.equal(
+    catalogHrefFromFilters("all", "Аэлита"),
+    `/catalog?attr_manufacturer=${encodeURIComponent("Аэлита")}`,
+  );
+  assert.equal(catalogHrefFromFilters("dveri-mezhkomnatnyye", "Аэлита"), "/catalog/dveri-mezhkomnatnyye/aelita");
 });
 
 test("slugifyPart transliterates factory names", () => {

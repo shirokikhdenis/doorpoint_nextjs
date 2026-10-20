@@ -37,6 +37,8 @@ let interiorInstallTablesEnsured = false;
 let interiorInstallTablesEnsurePromise = null;
 let interiorInstallSpecificationEnsured = false;
 let productMergedImageUrlEnsured = false;
+let configuratorTablesEnsured = false;
+let configuratorTablesEnsurePromise = null;
 
 const ensureProductMergedImageUrlColumn = async () => {
   if (productMergedImageUrlEnsured) return;
@@ -1080,6 +1082,110 @@ const ensureInteriorInstallTables = async () => {
   await interiorInstallTablesEnsurePromise;
 };
 
+const ensureConfiguratorTables = async () => {
+  if (configuratorTablesEnsured) return;
+  if (!configuratorTablesEnsurePromise) {
+    configuratorTablesEnsurePromise = (async () => {
+      await query(`
+        CREATE TABLE IF NOT EXISTS configurator_models (
+          id BIGSERIAL PRIMARY KEY,
+          source_id BIGINT NOT NULL UNIQUE,
+          name TEXT NOT NULL,
+          type TEXT NOT NULL,
+          classification TEXT,
+          image_url TEXT NOT NULL DEFAULT '',
+          has_primary_film_color BOOLEAN NOT NULL DEFAULT FALSE,
+          has_secondary_film_color BOOLEAN NOT NULL DEFAULT FALSE,
+          has_casing_film_color BOOLEAN NOT NULL DEFAULT FALSE,
+          has_primary_paint BOOLEAN NOT NULL DEFAULT FALSE,
+          has_secondary_paint BOOLEAN NOT NULL DEFAULT FALSE,
+          has_casing_paint BOOLEAN NOT NULL DEFAULT FALSE,
+          default_primary_film_color_id BIGINT,
+          default_secondary_film_color_id BIGINT,
+          default_casing_film_color_id BIGINT,
+          default_primary_paint_id BIGINT,
+          default_secondary_paint_id BIGINT,
+          default_casing_paint_id BIGINT,
+          film_color_source TEXT,
+          paint_color_source TEXT,
+          peephole_position TEXT,
+          markup_abs INTEGER NOT NULL DEFAULT 0,
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          CONSTRAINT configurator_models_type_check CHECK (type IN ('exterior', 'interior'))
+        )
+      `);
+      await query(`
+        CREATE INDEX IF NOT EXISTS idx_configurator_models_type
+        ON configurator_models(type, sort_order, id)
+      `);
+      await query(`
+        CREATE TABLE IF NOT EXISTS configurator_nomenclature (
+          id BIGSERIAL PRIMARY KEY,
+          source_id BIGINT NOT NULL,
+          kind TEXT NOT NULL,
+          name TEXT NOT NULL,
+          image_url TEXT NOT NULL DEFAULT '',
+          base_price INTEGER NOT NULL DEFAULT 0,
+          unit TEXT,
+          properties JSONB NOT NULL DEFAULT '{}'::jsonb,
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          UNIQUE (kind, source_id)
+        )
+      `);
+      await query(`
+        CREATE INDEX IF NOT EXISTS idx_configurator_nomenclature_kind
+        ON configurator_nomenclature(kind, sort_order, id)
+      `);
+      await query(`
+        CREATE TABLE IF NOT EXISTS configurator_furniture (
+          id BIGSERIAL PRIMARY KEY,
+          source_id BIGINT NOT NULL UNIQUE,
+          title TEXT NOT NULL,
+          type TEXT NOT NULL,
+          shape TEXT NOT NULL DEFAULT '',
+          color TEXT NOT NULL DEFAULT '',
+          preview_url TEXT NOT NULL DEFAULT '',
+          interior_preview_url TEXT NOT NULL DEFAULT '',
+          overlays JSONB NOT NULL DEFAULT '{}'::jsonb,
+          handle_id BIGINT,
+          primary_cylindrical_lock_id BIGINT,
+          primary_lever_lock_id BIGINT,
+          secondary_cylindrical_lock_id BIGINT,
+          secondary_lever_lock_id BIGINT,
+          peephole_id BIGINT,
+          night_latch_id BIGINT,
+          cylinder_rod_id BIGINT,
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `);
+      await query(`
+        CREATE INDEX IF NOT EXISTS idx_configurator_furniture_filters
+        ON configurator_furniture(type, color, shape, sort_order, id)
+      `);
+      await query(`
+        CREATE TABLE IF NOT EXISTS configurator_price_options (
+          code TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          delta INTEGER NOT NULL DEFAULT 0,
+          category TEXT NOT NULL DEFAULT '',
+          comment TEXT NOT NULL DEFAULT ''
+        )
+      `);
+      configuratorTablesEnsured = true;
+    })().catch((error) => {
+      configuratorTablesEnsurePromise = null;
+      throw error;
+    });
+  }
+  await configuratorTablesEnsurePromise;
+};
+
 module.exports = {
   CATALOG_PAGE_SLUG_RENAMES,
   ensureProductBadgesColumn,
@@ -1111,4 +1217,5 @@ module.exports = {
   removeManufacturerSkuAttribute,
   ensureDoorFactoryFittingBrandTables,
   ensureInteriorInstallTables,
+  ensureConfiguratorTables,
 };

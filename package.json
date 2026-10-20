@@ -17,6 +17,7 @@
     "db:migrate:attribute-visible": "node scripts/run-sql-file.js scripts/add-attribute-is-visible-on-product.sql",
     "admin:hash-password": "node scripts/hash-admin-password.js",
     "contract:template": "node scripts/create-contract-template.js",
+    "configurator:import": "node scripts/import-dorston-configurator.js",
     "db:backup": "bash scripts/backup-db.sh",
     "db:restore": "bash scripts/restore-db.sh",
     "favicons": "node scripts/generate-favicons.mjs",

@@ -50,7 +50,7 @@ export const catalogHrefsEquivalent = (left: string, right: string): boolean => 
   }
 };
 
-/** Public catalog URL: a single manufacturer becomes `/catalog/{vitrine}/{factory}`. */
+/** Public catalog URL: a single manufacturer becomes `/catalog/{vitrine}/{factory}` (not on `all`). */
 export const catalogHrefFromFilters = (
   catalogPage: string,
   filters: CatalogFilterState,
@@ -62,7 +62,10 @@ export const catalogHrefFromFilters = (
       ? manufacturerCatalogPath(catalogPage, manufacturers[0])
       : catalogPagePath(catalogPage);
   const params = new URLSearchParams(buildCatalogFilterQuery(filters));
-  if (manufacturers.length === 1) params.delete("attr_manufacturer");
+  // Path already encodes the factory on a real vitrine; keep query on general catalog.
+  const usesManufacturerPath =
+    manufacturers.length === 1 && path !== catalogPagePath(catalogPage);
+  if (usesManufacturerPath) params.delete("attr_manufacturer");
   if (options?.catalogLabelId && Number.isFinite(options.catalogLabelId)) {
     params.set("catalogLabel", String(options.catalogLabelId));
   }
