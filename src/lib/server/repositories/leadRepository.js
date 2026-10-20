@@ -139,6 +139,8 @@ const createLeadWithItems = async (lead, items) => {
         contract_number,
         contract_date,
         delivery_days,
+        arrival_date,
+        invoice_number,
         total_price,
         status,
         manager_notes,
@@ -147,7 +149,7 @@ const createLeadWithItems = async (lead, items) => {
         discount_kind,
         discount_value
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'not_issued', '', $9, $10, 'none', 0)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'not_issued', '', $11, $12, 'none', 0)
       RETURNING ${leadSelectFields}
       `,
       [
@@ -158,6 +160,8 @@ const createLeadWithItems = async (lead, items) => {
         lead.contractNumber,
         lead.contractDate,
         lead.deliveryDays,
+        lead.arrivalDate || null,
+        lead.invoiceNumber || "",
         lead.totalPrice,
         lead.clientComment || "",
         lead.sourcePage || "",
@@ -418,9 +422,33 @@ const deleteLead = async (id) => {
   return res.rows[0] ? Number(res.rows[0].id) : null;
 };
 
+/** Recent non-empty contract numbers, newest first (for next-number suggestion). */
+const listRecentContractNumbers = async ({ type = "admin_order", limit = 200 } = {}) => {
+  await ensureLeadTables();
+  const safeLimit = Math.min(Math.max(Number(limit) || 200, 1), 500);
+  const params = [safeLimit];
+  const clauses = [`TRIM(contract_number) <> ''`];
+  if (type) {
+    params.push(String(type));
+    clauses.push(`type = $${params.length}`);
+  }
+  const res = await query(
+    `
+    SELECT contract_number AS "contractNumber"
+    FROM leads
+    WHERE ${clauses.join(" AND ")}
+    ORDER BY created_at DESC, id DESC
+    LIMIT $1
+    `,
+    params,
+  );
+  return res.rows.map((row) => String(row.contractNumber || "").trim()).filter(Boolean);
+};
+
 module.exports = {
   createLeadWithItems,
   listLeads,
+  listRecentContractNumbers,
   getLeadById,
   updateLead,
   deleteLead,

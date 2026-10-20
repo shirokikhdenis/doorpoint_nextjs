@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -41,8 +41,34 @@ export function AdminCartLeadForm({
   const [contractNumber, setContractNumber] = useState("");
   const [contractDate, setContractDate] = useState(todayIsoDate);
   const [deliveryDays, setDeliveryDays] = useState("15");
+  const [arrivalDate, setArrivalDate] = useState("");
+  const [invoiceNumber, setInvoiceNumber] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await fetch("/api/admin/leads/next-contract-number", {
+          credentials: "include",
+        });
+        if (!response.ok) return;
+        const payload = (await response.json().catch(() => null)) as {
+          contractNumber?: string;
+        } | null;
+        const next = String(payload?.contractNumber || "").trim();
+        if (!cancelled && next) {
+          setContractNumber((current) => (current.trim() ? current : next));
+        }
+      } catch {
+        // Keep empty field — user can type manually.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const products = productItems ?? items;
   const services = serviceItems ?? [];
@@ -69,6 +95,8 @@ export function AdminCartLeadForm({
           contractNumber,
           contractDate: contractDate || null,
           deliveryDays: deliveryDays.trim() ? Number(deliveryDays) : null,
+          arrivalDate: arrivalDate || null,
+          invoiceNumber: invoiceNumber.trim(),
           items: items.map((item) => ({
             id: item.id,
             name: item.name,
@@ -377,6 +405,36 @@ export function AdminCartLeadForm({
                     onChange={(event) => setDeliveryDays(event.target.value)}
                     disabled={loading}
                   />
+                </div>
+              </div>
+
+              <div className="space-y-3 rounded-lg border border-zinc-200 bg-white p-4">
+                <p className="text-sm font-semibold text-zinc-900">Для учёта</p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="admin-lead-arrival-date">Дата прихода</Label>
+                    <Input
+                      id="admin-lead-arrival-date"
+                      name="arrivalDate"
+                      type="date"
+                      value={arrivalDate}
+                      onChange={(event) => setArrivalDate(event.target.value)}
+                      disabled={loading}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="admin-lead-invoice-number">Комментарий</Label>
+                    <Input
+                      id="admin-lead-invoice-number"
+                      name="invoiceNumber"
+                      type="text"
+                      maxLength={120}
+                      placeholder="доставка, монтаж"
+                      value={invoiceNumber}
+                      onChange={(event) => setInvoiceNumber(event.target.value)}
+                      disabled={loading}
+                    />
+                  </div>
                 </div>
               </div>
 

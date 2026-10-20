@@ -5,8 +5,10 @@ const {
   validateCartLeadPayload,
   validateMeasureLeadPayload,
   validateLeadPatch,
+  ADMIN_ORDER_TYPE,
   LEAD_TYPES,
 } = require("../domain/leadValidation");
+const { suggestNextContractNumber } = require("../domain/contractNumber");
 
 const createAdminOrder = async (body) => {
   const validation = validateAdminOrderPayload(body);
@@ -122,11 +124,20 @@ const deleteLead = async (id) => {
   return { ok: true, id: deletedId };
 };
 
+const getNextContractNumber = async () => {
+  const numbers = await leadRepository.listRecentContractNumbers({
+    type: ADMIN_ORDER_TYPE,
+    limit: 200,
+  });
+  return { ok: true, contractNumber: suggestNextContractNumber(numbers) };
+};
+
 module.exports = {
   createAdminOrder,
   createCartLead,
   createMeasureLead,
   listLeads,
+  getNextContractNumber,
   getLeadById,
   updateLead,
   deleteLead,

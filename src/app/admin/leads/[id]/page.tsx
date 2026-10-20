@@ -54,6 +54,7 @@ type LeadDetail = {
   contractDate: string | null;
   deliveryDays: number | null;
   arrivalDate?: string | null;
+  invoiceNumber?: string;
   measureNote?: string;
   clientComment: string;
   sourcePage: string;
@@ -449,6 +450,9 @@ export default function AdminLeadDetailPage({ params }: { params: Promise<{ id: 
                 {lead.deliveryDays != null ? `${lead.deliveryDays} дн.` : "—"}
               </LeadFact>
               <LeadFact label="Дата прихода">{formatDate(lead.arrivalDate || null)}</LeadFact>
+              <LeadFact label="Комментарий" className="sm:col-span-2 lg:col-span-4">
+                {lead.invoiceNumber?.trim() || "—"}
+              </LeadFact>
             </dl>
           ) : null}
 

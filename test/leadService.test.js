@@ -78,6 +78,19 @@ test("validateAdminOrderPayload accepts freeform phone text", () => {
   assert.equal(result.data.phone, "написать в Telegram @client");
 });
 
+test("validateAdminOrderPayload accepts accounting fields", () => {
+  const result = validateAdminOrderPayload({
+    customerName: "Иванов Иван",
+    phone: "+79001234567",
+    arrivalDate: "2026-10-25",
+    invoiceNumber: "  счёт 42  ",
+    items: [{ name: "Дверь", price: 1000, quantity: 1 }],
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.data.arrivalDate, "2026-10-25");
+  assert.equal(result.data.invoiceNumber, "счёт 42");
+});
+
 test("validateAdminOrderPayload requires at least one item", () => {
   const result = validateAdminOrderPayload({
     customerName: "Иванов Иван",

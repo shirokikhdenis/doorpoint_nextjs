@@ -423,6 +423,10 @@ const handle = async (request, context) =>
       if (!result.ok) return json({ message: result.message }, result.status || 400);
       return json({ items: result.items });
     }
+    if (match(path, method, "GET", "leads", "next-contract-number")) {
+      const result = await leadService.getNextContractNumber();
+      return json({ contractNumber: result.contractNumber });
+    }
     if (path[0] === "leads" && path.length === 2 && method === "GET") {
       const result = await leadService.getLeadById(Number(path[1]));
       if (!result.ok) return json({ message: result.message }, result.status || 404);

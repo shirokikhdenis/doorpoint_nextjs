@@ -29,6 +29,7 @@ type LeadTab = "salon" | "website" | "measure";
 type LeadListItem = {
   id: number;
   customerName: string;
+  address: string;
   phone: string;
   contractNumber: string;
   contractDate: string | null;
@@ -94,6 +95,12 @@ const formatDateTime = (value: string) => {
 
 const leadScheduleLabel = (item: LeadListItem) =>
   [item.contractNumber, item.customerName].filter(Boolean).join(" · ");
+
+const leadClipboardText = (item: LeadListItem) =>
+  [item.address, item.phone, item.customerName]
+    .map((part) => String(part || "").trim())
+    .filter(Boolean)
+    .join("\n");
 
 const truncateText = (value: string, max = 80) => {
   const text = String(value || "").trim();
@@ -234,7 +241,22 @@ export default function AdminLeadsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [savingId, setSavingId] = useState<number | null>(null);
+  const [copiedLeadId, setCopiedLeadId] = useState<number | null>(null);
   const [schedulePanel, setSchedulePanel] = useState<SchedulePanelState | null>(null);
+
+  const copyLeadContact = async (item: LeadListItem) => {
+    const text = leadClipboardText(item);
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedLeadId(item.id);
+      window.setTimeout(() => {
+        setCopiedLeadId((current) => (current === item.id ? null : current));
+      }, 1500);
+    } catch {
+      setError("Не удалось скопировать в буфер обмена");
+    }
+  };
 
   const openSchedulePanel = (
     item: LeadListItem,
@@ -407,7 +429,7 @@ export default function AdminLeadsPage() {
   const showScheduleColumns = activeTab === "salon";
 
   const tableColumns = useMemo(() => {
-    const columns = ["Дата", "ФИО", "Телефон"];
+    const columns = ["Дата", "ФИО", "Адрес", "Телефон"];
     if (showContractColumn) columns.push("№ договора");
     if (showProductNameColumn) columns.push("Наименование товара");
     if (showCommentColumn) columns.push("Комментарий");
@@ -505,9 +527,34 @@ export default function AdminLeadsPage() {
                     {formatDateTime(item.createdAt)}
                   </AdminTableCell>
                   <AdminTableCell>{item.customerName}</AdminTableCell>
+                  <AdminTableCell className="max-w-[14rem]">
+                    {item.address?.trim() ? (
+                      <button
+                        type="button"
+                        onClick={() => void copyLeadContact(item)}
+                        title="Скопировать: адрес, телефон, ФИО"
+                        className="max-w-full text-left text-sm text-zinc-900 underline decoration-zinc-300 underline-offset-2 hover:decoration-zinc-700"
+                      >
+                        {copiedLeadId === item.id ? "Скопировано" : item.address.trim()}
+                      </button>
+                    ) : (
+                      "—"
+                    )}
+                  </AdminTableCell>
                   <AdminTableCell className="whitespace-nowrap">{item.phone}</AdminTableCell>
                   {showContractColumn ? (
-                    <AdminTableCell>{item.contractNumber || "—"}</AdminTableCell>
+                    <AdminTableCell>
+                      {item.contractNumber ? (
+                        <Link
+                          href={`/admin/leads/${item.id}`}
+                          className="text-sm text-brand underline underline-offset-2 hover:opacity-80"
+                        >
+                          {item.contractNumber}
+                        </Link>
+                      ) : (
+                        "—"
+                      )}
+                    </AdminTableCell>
                   ) : null}
                   {showProductNameColumn ? (
                     <AdminTableCell>
@@ -547,20 +594,16 @@ export default function AdminLeadsPage() {
                     />
                   </AdminTableCell>
                   <AdminTableCell className="whitespace-nowrap">
-                    {item.status === "in_transit" ? (
-                      <input
-                        type="date"
-                        value={item.arrivalDate || ""}
-                        disabled={savingId === item.id}
-                        onChange={(event) =>
-                          void handlePatch(item, { arrivalDate: event.target.value || null })
-                        }
-                        className="h-8 w-[10.5rem] rounded border border-zinc-200 bg-white px-2 text-sm disabled:bg-zinc-50"
-                        aria-label="Дата прихода"
-                      />
-                    ) : (
-                      <span className="text-zinc-400">—</span>
-                    )}
+                    <input
+                      type="date"
+                      value={item.arrivalDate || ""}
+                      disabled={savingId === item.id}
+                      onChange={(event) =>
+                        void handlePatch(item, { arrivalDate: event.target.value || null })
+                      }
+                      className="h-8 w-[10.5rem] rounded border border-zinc-200 bg-white px-2 text-sm disabled:bg-zinc-50"
+                      aria-label="Дата прихода"
+                    />
                   </AdminTableCell>
                   <AdminTableCell>
                     <LeadInvoiceNumberInput

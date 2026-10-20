@@ -98,6 +98,19 @@ const validateAdminOrderPayload = (body) => {
     return { ok: false, message: deliveryDaysResult.error };
   }
 
+  const arrivalDateResult = parseContractDate(body?.arrivalDate);
+  if (arrivalDateResult?.error) {
+    return { ok: false, message: "Некорректная дата прихода" };
+  }
+
+  const invoiceNumber = String(body?.invoiceNumber ?? "").trim();
+  if (invoiceNumber.length > INVOICE_NUMBER_MAX_LENGTH) {
+    return {
+      ok: false,
+      message: `Комментарии: не больше ${INVOICE_NUMBER_MAX_LENGTH} символов`,
+    };
+  }
+
   const rawItems = Array.isArray(body?.items) ? body.items : [];
   if (rawItems.length === 0) {
     return { ok: false, message: "Добавьте хотя бы одну позицию в корзину" };
@@ -122,6 +135,8 @@ const validateAdminOrderPayload = (body) => {
       contractNumber: String(body?.contractNumber || "").trim(),
       contractDate: contractDateResult.value,
       deliveryDays: deliveryDaysResult.value ?? 15,
+      arrivalDate: arrivalDateResult.value,
+      invoiceNumber,
       totalPrice: computeItemsTotal(items),
       clientComment: "",
       sourcePage: "",
