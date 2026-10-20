@@ -60,7 +60,9 @@ const MARKUP_STORAGE_KEY = "admin-configurator-markup-percent";
 const readStoredMarkup = () => {
   if (typeof window === "undefined") return DEFAULT_MARKUP_PERCENT;
   try {
-    return clampMarkupPercent(window.localStorage.getItem(MARKUP_STORAGE_KEY) ?? DEFAULT_MARKUP_PERCENT);
+    const raw = window.localStorage.getItem(MARKUP_STORAGE_KEY);
+    const parsed = raw == null ? DEFAULT_MARKUP_PERCENT : Number(raw);
+    return clampMarkupPercent(Number.isFinite(parsed) ? parsed : DEFAULT_MARKUP_PERCENT);
   } catch {
     return DEFAULT_MARKUP_PERCENT;
   }
