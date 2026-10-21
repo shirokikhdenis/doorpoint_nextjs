@@ -413,10 +413,29 @@ const handle = async (request, context) =>
       return json(await doorOfWeekService.getAdminPayload());
     }
 
+    if (match(path, method, "POST", "leads", "blank")) {
+      const result = await leadService.createBlankAdminOrder();
+      if (!result.ok) return json({ message: result.message }, 400);
+      return json(result.lead, 201);
+    }
     if (match(path, method, "POST", "leads")) {
       const result = await leadService.createAdminOrder(body);
       if (!result.ok) return json({ message: result.message }, 400);
       return json(result.lead, 201);
+    }
+    if (match(path, method, "GET", "fin", "summary")) {
+      const result = await leadService.getFinanceSummary(query);
+      if (!result.ok) return json({ message: result.message }, result.status || 400);
+      return json({
+        year: result.year,
+        months: result.months,
+        totals: result.totals,
+      });
+    }
+    if (match(path, method, "GET", "fin", "leads")) {
+      const result = await leadService.listFinanceLeads(query);
+      if (!result.ok) return json({ message: result.message }, result.status || 400);
+      return json({ items: result.items });
     }
     if (match(path, method, "GET", "leads")) {
       const result = await leadService.listLeads(query);

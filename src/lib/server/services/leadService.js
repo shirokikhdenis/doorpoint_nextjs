@@ -132,11 +132,76 @@ const getNextContractNumber = async () => {
   return { ok: true, contractNumber: suggestNextContractNumber(numbers) };
 };
 
+/** Empty salon lead for the admin list "+" button — fill in details afterwards. */
+const createBlankAdminOrder = async () => {
+  // No contract number yet — stays "not_issued" (numeric № would become "issued").
+  return createAdminOrder({
+    customerName: "Новая заявка",
+    phone: "н/д",
+    contractNumber: "",
+    items: [{ name: "—", price: 0, quantity: 1 }],
+  });
+};
+
+/** Only these lead statuses participate in finance accounting. */
+const FINANCE_LEAD_STATUSES = ["issued", "in_transit", "in_stock", "shipped"];
+
+const getFinanceSummary = async (query = {}) => {
+  const year = Number(query.year) || new Date().getFullYear();
+  const type = query.type ? String(query.type).trim() : undefined;
+  if (type && !LEAD_TYPES.includes(type)) {
+    return { ok: false, status: 400, message: "Некорректный тип заявки" };
+  }
+  const types = type ? [type] : ["admin_order", "cart_lead"];
+  const months = await leadRepository.listFinanceMonthlySummary({
+    year,
+    types,
+    statuses: FINANCE_LEAD_STATUSES,
+  });
+  const totals = months.reduce(
+    (acc, row) => {
+      acc.leadsCount += row.leadsCount;
+      acc.revenue += row.revenue;
+      acc.purchaseCost += row.purchaseCost;
+      acc.profit += row.profit;
+      return acc;
+    },
+    { leadsCount: 0, revenue: 0, purchaseCost: 0, profit: 0 },
+  );
+  return { ok: true, year, months, totals };
+};
+
+const listFinanceLeads = async (query = {}) => {
+  const type = query.type ? String(query.type).trim() : undefined;
+  if (type && !LEAD_TYPES.includes(type)) {
+    return { ok: false, status: 400, message: "Некорректный тип заявки" };
+  }
+  if (type === "measure_lead") {
+    return { ok: false, status: 400, message: "Заявки на замер не участвуют в финучёте" };
+  }
+  const year = query.year ? Number(query.year) : undefined;
+  const month = query.month ? String(query.month).trim() : undefined;
+  const search = query.search ? String(query.search).trim() : undefined;
+  const items = await leadRepository.listFinanceLeads({
+    year,
+    month,
+    type,
+    search,
+    statuses: FINANCE_LEAD_STATUSES,
+    limit: query.limit,
+    offset: query.offset,
+  });
+  return { ok: true, items };
+};
+
 module.exports = {
   createAdminOrder,
+  createBlankAdminOrder,
   createCartLead,
   createMeasureLead,
   listLeads,
+  listFinanceLeads,
+  getFinanceSummary,
   getNextContractNumber,
   getLeadById,
   updateLead,

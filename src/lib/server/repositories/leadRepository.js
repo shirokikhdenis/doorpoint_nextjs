@@ -15,6 +15,7 @@ const leadSelectFields = `
   invoice_number AS "invoiceNumber",
   measure_note AS "measureNote",
   total_price AS "totalPrice",
+  purchase_cost AS "purchaseCost",
   discount_kind AS "discountKind",
   discount_value AS "discountValue",
   status,
@@ -38,6 +39,7 @@ const mapLeadRow = (row) => ({
   invoiceNumber: String(row.invoiceNumber || ""),
   measureNote: String(row.measureNote || ""),
   totalPrice: Number(row.totalPrice) || 0,
+  purchaseCost: Number(row.purchaseCost) || 0,
   discountKind: normalizeDiscountKind(row.discountKind),
   discountValue: Number(row.discountValue) || 0,
   status: String(row.status || "not_issued"),
@@ -149,7 +151,7 @@ const createLeadWithItems = async (lead, items) => {
         discount_kind,
         discount_value
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'not_issued', '', $11, $12, 'none', 0)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, '', $12, $13, 'none', 0)
       RETURNING ${leadSelectFields}
       `,
       [
@@ -163,6 +165,7 @@ const createLeadWithItems = async (lead, items) => {
         lead.arrivalDate || null,
         lead.invoiceNumber || "",
         lead.totalPrice,
+        lead.status || "not_issued",
         lead.clientComment || "",
         lead.sourcePage || "",
       ],
@@ -371,6 +374,8 @@ const updateLead = async (id, patch) => {
       patch.measureNote !== undefined ? patch.measureNote : current.measureNote;
     const invoiceNumber =
       patch.invoiceNumber !== undefined ? patch.invoiceNumber : current.invoiceNumber;
+    const purchaseCost =
+      patch.purchaseCost !== undefined ? patch.purchaseCost : current.purchaseCost;
     const totals = computeLeadTotals(items, discountKind, discountValue);
 
     const updateRes = await client.query(
@@ -386,6 +391,7 @@ const updateLead = async (id, patch) => {
         arrival_date = $8,
         measure_note = $9,
         invoice_number = $10,
+        purchase_cost = $11,
         updated_at = NOW()
       WHERE id = $1
       RETURNING ${leadSelectFields}
@@ -401,6 +407,7 @@ const updateLead = async (id, patch) => {
         arrivalDate,
         measureNote,
         invoiceNumber,
+        purchaseCost,
       ],
     );
 
@@ -420,6 +427,151 @@ const deleteLead = async (id) => {
 
   const res = await query(`DELETE FROM leads WHERE id = $1 RETURNING id`, [numericId]);
   return res.rows[0] ? Number(res.rows[0].id) : null;
+};
+
+/** Month key from contract date, falling back to created_at. */
+const financeMonthExpr = `to_char(COALESCE(contract_date, (created_at AT TIME ZONE 'Europe/Moscow')::date), 'YYYY-MM')`;
+const financeYearExpr = `EXTRACT(YEAR FROM COALESCE(contract_date, (created_at AT TIME ZONE 'Europe/Moscow')::date))`;
+
+const DEFAULT_FINANCE_STATUSES = ["issued", "in_transit", "in_stock", "shipped"];
+
+/**
+ * Monthly revenue / purchase / profit for finance page.
+ * Includes salon and website leads with amounts; only financed statuses.
+ */
+const listFinanceMonthlySummary = async ({ year, types, statuses } = {}) => {
+  await ensureLeadTables();
+  const safeYear = Math.floor(Number(year));
+  if (!Number.isInteger(safeYear) || safeYear < 2000 || safeYear > 2100) {
+    return [];
+  }
+
+  const params = [safeYear];
+  const clauses = [`${financeYearExpr} = $1`];
+  let paramIndex = 2;
+
+  const typeList = Array.isArray(types)
+    ? types.map((item) => String(item).trim()).filter(Boolean)
+    : ["admin_order", "cart_lead"];
+  if (typeList.length > 0) {
+    const placeholders = typeList.map(() => `$${paramIndex++}`).join(", ");
+    clauses.push(`type IN (${placeholders})`);
+    params.push(...typeList);
+  }
+
+  const statusList = Array.isArray(statuses)
+    ? statuses.map((item) => String(item).trim()).filter(Boolean)
+    : DEFAULT_FINANCE_STATUSES;
+  if (statusList.length > 0) {
+    const placeholders = statusList.map(() => `$${paramIndex++}`).join(", ");
+    clauses.push(`status IN (${placeholders})`);
+    params.push(...statusList);
+  }
+
+  const res = await query(
+    `
+    SELECT
+      ${financeMonthExpr} AS month,
+      COUNT(*)::int AS "leadsCount",
+      COALESCE(SUM(total_price), 0)::bigint AS revenue,
+      COALESCE(SUM(purchase_cost), 0)::bigint AS "purchaseCost",
+      COALESCE(SUM(total_price - purchase_cost), 0)::bigint AS profit
+    FROM leads
+    WHERE ${clauses.join(" AND ")}
+    GROUP BY 1
+    ORDER BY 1 ASC
+    `,
+    params,
+  );
+
+  return res.rows.map((row) => ({
+    month: String(row.month || ""),
+    leadsCount: Number(row.leadsCount) || 0,
+    revenue: Number(row.revenue) || 0,
+    purchaseCost: Number(row.purchaseCost) || 0,
+    profit: Number(row.profit) || 0,
+  }));
+};
+
+const listFinanceLeads = async ({
+  year,
+  month,
+  type,
+  search,
+  statuses,
+  limit = 200,
+  offset = 0,
+} = {}) => {
+  await ensureLeadTables();
+  const safeLimit = Math.min(Math.max(Number(limit) || 200, 1), 500);
+  const safeOffset = Math.max(Number(offset) || 0, 0);
+  const params = [safeLimit, safeOffset];
+  const clauses = [];
+  let paramIndex = 3;
+
+  const typeValue = String(type || "").trim();
+  if (typeValue) {
+    clauses.push(`type = $${paramIndex}`);
+    params.push(typeValue);
+    paramIndex += 1;
+  } else {
+    clauses.push(`type IN ('admin_order', 'cart_lead')`);
+  }
+
+  const statusList = Array.isArray(statuses)
+    ? statuses.map((item) => String(item).trim()).filter(Boolean)
+    : DEFAULT_FINANCE_STATUSES;
+  if (statusList.length > 0) {
+    const placeholders = statusList.map(() => `$${paramIndex++}`).join(", ");
+    clauses.push(`status IN (${placeholders})`);
+    params.push(...statusList);
+  }
+
+  const safeYear = Math.floor(Number(year));
+  if (Number.isInteger(safeYear) && safeYear >= 2000 && safeYear <= 2100) {
+    clauses.push(`${financeYearExpr} = $${paramIndex}`);
+    params.push(safeYear);
+    paramIndex += 1;
+  }
+
+  const monthKey = String(month || "").trim();
+  if (/^\d{4}-\d{2}$/.test(monthKey)) {
+    clauses.push(`${financeMonthExpr} = $${paramIndex}`);
+    params.push(monthKey);
+    paramIndex += 1;
+  }
+
+  const searchTerm = String(search || "").trim();
+  if (searchTerm) {
+    clauses.push(
+      `(customer_name ILIKE $${paramIndex} OR contract_number ILIKE $${paramIndex} OR phone ILIKE $${paramIndex})`,
+    );
+    params.push(`%${searchTerm}%`);
+    paramIndex += 1;
+  }
+
+  const whereClause = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+
+  const res = await query(
+    `
+    SELECT
+      ${leadSelectFields},
+      (
+        SELECT li.name
+        FROM lead_items li
+        WHERE li.lead_id = leads.id
+        ORDER BY li.sort_order ASC, li.id ASC
+        LIMIT 1
+      ) AS "firstProductName"
+    FROM leads
+    ${whereClause}
+    ORDER BY COALESCE(contract_date, (created_at AT TIME ZONE 'Europe/Moscow')::date) DESC, id DESC
+    LIMIT $1 OFFSET $2
+    `,
+    params,
+  );
+
+  return res.rows.map(mapLeadRow);
 };
 
 /** Recent non-empty contract numbers, newest first (for next-number suggestion). */
@@ -448,6 +600,8 @@ const listRecentContractNumbers = async ({ type = "admin_order", limit = 200 } =
 module.exports = {
   createLeadWithItems,
   listLeads,
+  listFinanceMonthlySummary,
+  listFinanceLeads,
   listRecentContractNumbers,
   getLeadById,
   updateLead,

@@ -2,13 +2,16 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { AdminCard } from "@/features/admin/ui/admin-card";
 import { AdminEmptyState } from "@/features/admin/ui/admin-empty-state";
 import { AdminNotice } from "@/features/admin/ui/admin-notice";
 import { AdminPage } from "@/features/admin/ui/admin-page";
-import { AdminSelectField } from "@/features/admin/ui/admin-form-field";
+import {
+  AdminInputField,
+  AdminSelectField,
+} from "@/features/admin/ui/admin-form-field";
 import {
   AdminTable,
   AdminTableBody,
@@ -112,6 +115,34 @@ const parseTab = (value: string | null): LeadTab => {
   if (value === "website" || value === "measure") return value;
   return "salon";
 };
+
+const todayIsoDate = () => {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+};
+
+type CreateLeadForm = {
+  contractDate: string;
+  customerName: string;
+  address: string;
+  phone: string;
+  contractNumber: string;
+  productName: string;
+  amount: string;
+};
+
+const emptyCreateForm = (): CreateLeadForm => ({
+  contractDate: todayIsoDate(),
+  customerName: "",
+  address: "",
+  phone: "",
+  contractNumber: "",
+  productName: "",
+  amount: "",
+});
 
 function LeadProductNameInput({
   value,
@@ -239,6 +270,10 @@ export default function AdminLeadsPage() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createForm, setCreateForm] = useState<CreateLeadForm>(emptyCreateForm);
+  const [createError, setCreateError] = useState("");
   const [error, setError] = useState("");
   const [savingId, setSavingId] = useState<number | null>(null);
   const [copiedLeadId, setCopiedLeadId] = useState<number | null>(null);
@@ -324,6 +359,114 @@ export default function AdminLeadsPage() {
     }
     const query = params.toString();
     router.replace(query ? `/admin/leads?${query}` : "/admin/leads");
+  };
+
+  const openCreateLead = () => {
+    setCreateError("");
+    setError("");
+    setCreateForm(emptyCreateForm());
+    setCreateOpen(true);
+    void (async () => {
+      try {
+        const response = await fetch("/api/admin/leads/next-contract-number", {
+          credentials: "include",
+        });
+        if (!response.ok) return;
+        const payload = (await response.json().catch(() => null)) as {
+          contractNumber?: string;
+        } | null;
+        const next = String(payload?.contractNumber || "").trim();
+        if (!next) return;
+        setCreateForm((current) =>
+          current.contractNumber.trim() ? current : { ...current, contractNumber: next },
+        );
+      } catch {
+        // User can type the number manually.
+      }
+    })();
+  };
+
+  const closeCreateLead = () => {
+    if (creating) return;
+    setCreateOpen(false);
+    setCreateError("");
+  };
+
+  const handleCreateLead = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (creating) return;
+
+    const customerName = createForm.customerName.trim();
+    const phone = createForm.phone.trim();
+    const productName = createForm.productName.trim();
+    const amountRaw = createForm.amount.replace(/\s/g, "").replace(",", ".");
+    const amount = Number(amountRaw);
+
+    if (customerName.length < 2) {
+      setCreateError("Укажите ФИО (минимум 2 символа)");
+      return;
+    }
+    if (phone.length < 2) {
+      setCreateError("Укажите телефон");
+      return;
+    }
+    if (!productName) {
+      setCreateError("Укажите наименование");
+      return;
+    }
+    if (!Number.isFinite(amount) || amount < 0) {
+      setCreateError("Укажите корректную сумму");
+      return;
+    }
+
+    setCreating(true);
+    setCreateError("");
+    setError("");
+    try {
+      if (activeTab !== "salon") {
+        setActiveTab("salon");
+      }
+      setStatusFilter("");
+      setSearch("");
+      setDebouncedSearch("");
+
+      const response = await fetch("/api/admin/leads", {
+        method: "POST",
+        credentials: "include",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          customerName,
+          address: createForm.address.trim(),
+          phone,
+          contractNumber: createForm.contractNumber.trim(),
+          contractDate: createForm.contractDate || null,
+          items: [{ name: productName, price: Math.floor(amount), quantity: 1 }],
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | { message?: string; id?: number }
+        | null;
+      if (!response.ok) {
+        throw new Error(payload?.message || `Ошибка ${response.status}`);
+      }
+
+      const listParams = new URLSearchParams();
+      listParams.set("type", "admin_order");
+      listParams.set("hideEstimates", hideEstimates ? "1" : "0");
+      const listResponse = await fetch(`/api/admin/leads?${listParams.toString()}`);
+      if (!listResponse.ok) {
+        const listPayload = await listResponse.json().catch(() => ({}));
+        throw new Error(listPayload.message || "Заявка создана, но список не обновился");
+      }
+      const listPayload = (await listResponse.json()) as { items?: LeadListItem[] };
+      setItems(Array.isArray(listPayload.items) ? listPayload.items : []);
+      setCreateOpen(false);
+      setCreateForm(emptyCreateForm());
+    } catch (caught) {
+      setCreateError(caught instanceof Error ? caught.message : "Не удалось создать заявку");
+    } finally {
+      setCreating(false);
+    }
   };
 
   useEffect(() => {
@@ -440,7 +583,25 @@ export default function AdminLeadsPage() {
   }, [showAmountColumn, showCommentColumn, showContractColumn, showProductNameColumn, showScheduleColumns]);
 
   return (
-    <AdminPage title="Заявки" description={tabConfig.description} className="max-w-none">
+    <AdminPage
+      title="Заявки"
+      description={tabConfig.description}
+      className="max-w-none"
+      actions={
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="h-9 w-9 text-lg leading-none"
+          disabled={creating}
+          title="Добавить заявку"
+          aria-label="Добавить заявку"
+          onClick={openCreateLead}
+        >
+          +
+        </Button>
+      }
+    >
       {error ? <AdminNotice variant="error">{error}</AdminNotice> : null}
 
       <div className="mb-4 flex flex-wrap gap-2">
@@ -677,6 +838,121 @@ export default function AdminLeadsPage() {
             }
           }}
         />
+      ) : null}
+
+      {createOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 sm:items-center"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="create-lead-title"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closeCreateLead();
+          }}
+        >
+          <div className="w-full max-w-lg rounded-lg border border-zinc-200 bg-white p-5 shadow-lg">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <h2 id="create-lead-title" className="text-lg font-semibold text-zinc-900">
+                Новая заявка
+              </h2>
+              <button
+                type="button"
+                className="rounded px-2 py-1 text-sm text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800"
+                disabled={creating}
+                onClick={closeCreateLead}
+              >
+                Закрыть
+              </button>
+            </div>
+
+            {createError ? (
+              <div className="mb-3">
+                <AdminNotice variant="error">{createError}</AdminNotice>
+              </div>
+            ) : null}
+
+            <form className="space-y-3" onSubmit={(event) => void handleCreateLead(event)}>
+              <AdminInputField
+                id="create-lead-date"
+                label="Дата"
+                type="date"
+                required
+                value={createForm.contractDate}
+                onChange={(event) =>
+                  setCreateForm((current) => ({ ...current, contractDate: event.target.value }))
+                }
+              />
+              <AdminInputField
+                id="create-lead-name"
+                label="ФИО"
+                required
+                autoComplete="name"
+                value={createForm.customerName}
+                onChange={(event) =>
+                  setCreateForm((current) => ({ ...current, customerName: event.target.value }))
+                }
+              />
+              <AdminInputField
+                id="create-lead-address"
+                label="Адрес"
+                autoComplete="street-address"
+                value={createForm.address}
+                onChange={(event) =>
+                  setCreateForm((current) => ({ ...current, address: event.target.value }))
+                }
+              />
+              <AdminInputField
+                id="create-lead-phone"
+                label="Телефон"
+                required
+                autoComplete="tel"
+                value={createForm.phone}
+                onChange={(event) =>
+                  setCreateForm((current) => ({ ...current, phone: event.target.value }))
+                }
+              />
+              <AdminInputField
+                id="create-lead-contract"
+                label="Номер договора"
+                value={createForm.contractNumber}
+                onChange={(event) =>
+                  setCreateForm((current) => ({
+                    ...current,
+                    contractNumber: event.target.value,
+                  }))
+                }
+              />
+              <AdminInputField
+                id="create-lead-product"
+                label="Наименование"
+                required
+                value={createForm.productName}
+                onChange={(event) =>
+                  setCreateForm((current) => ({ ...current, productName: event.target.value }))
+                }
+              />
+              <AdminInputField
+                id="create-lead-amount"
+                label="Сумма"
+                required
+                inputMode="decimal"
+                placeholder="0"
+                value={createForm.amount}
+                onChange={(event) =>
+                  setCreateForm((current) => ({ ...current, amount: event.target.value }))
+                }
+              />
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" variant="outline" disabled={creating} onClick={closeCreateLead}>
+                  Отмена
+                </Button>
+                <Button type="submit" disabled={creating}>
+                  {creating ? "Создание…" : "Создать"}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
       ) : null}
     </AdminPage>
   );

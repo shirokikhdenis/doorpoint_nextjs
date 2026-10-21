@@ -125,6 +125,10 @@ const validateAdminOrderPayload = (body) => {
     items.push(itemResult.value);
   }
 
+  const contractNumber = String(body?.contractNumber || "").trim();
+  // Numeric contract number (cart create) → default status "Оформлена"
+  const status = /^\d+$/.test(contractNumber) ? "issued" : DEFAULT_LEAD_STATUS;
+
   return {
     ok: true,
     data: {
@@ -132,7 +136,7 @@ const validateAdminOrderPayload = (body) => {
       customerName,
       address: String(body?.address || "").trim(),
       phone,
-      contractNumber: String(body?.contractNumber || "").trim(),
+      contractNumber,
       contractDate: contractDateResult.value,
       deliveryDays: deliveryDaysResult.value ?? 15,
       arrivalDate: arrivalDateResult.value,
@@ -140,6 +144,7 @@ const validateAdminOrderPayload = (body) => {
       totalPrice: computeItemsTotal(items),
       clientComment: "",
       sourcePage: "",
+      status,
       items,
     },
   };
@@ -302,6 +307,14 @@ const validateLeadPatch = (body) => {
       };
     }
     data.invoiceNumber = invoiceNumber;
+  }
+
+  if (body?.purchaseCost !== undefined) {
+    const raw = Number(body.purchaseCost);
+    if (!Number.isFinite(raw) || raw < 0) {
+      return { ok: false, message: "Некорректная сумма закупа" };
+    }
+    data.purchaseCost = Math.floor(raw);
   }
 
   if (Object.keys(data).length === 0) {

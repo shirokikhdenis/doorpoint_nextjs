@@ -33,11 +33,20 @@ export function AdminTableBody({ children }: { children: React.ReactNode }) {
 export function AdminTableRow({
   children,
   className,
+  onClick,
 }: {
   children: React.ReactNode;
   className?: string;
+  onClick?: React.MouseEventHandler<HTMLTableRowElement>;
 }) {
-  return <tr className={cn("hover:bg-[var(--admin-row-hover)]", className)}>{children}</tr>;
+  return (
+    <tr
+      className={cn("hover:bg-[var(--admin-row-hover)]", className)}
+      onClick={onClick}
+    >
+      {children}
+    </tr>
+  );
 }
 
 export function AdminTableCell({

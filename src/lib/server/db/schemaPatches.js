@@ -11,6 +11,7 @@ let promotionTablesEnsured = false;
 let leadTablesEnsured = false;
 let leadMeasureNoteEnsured = false;
 let leadInvoiceNumberEnsured = false;
+let leadPurchaseCostEnsured = false;
 let leadItemManufacturerIdEnsured = false;
 let servicesTablesEnsured = false;
 let seoColumnsEnsured = false;
@@ -307,6 +308,15 @@ const ensureLeadInvoiceNumberColumn = async () => {
   leadInvoiceNumberEnsured = true;
 };
 
+const ensureLeadPurchaseCostColumn = async () => {
+  if (leadPurchaseCostEnsured) return;
+  await query(`
+    ALTER TABLE leads
+    ADD COLUMN IF NOT EXISTS purchase_cost INTEGER NOT NULL DEFAULT 0
+  `);
+  leadPurchaseCostEnsured = true;
+};
+
 const ensureLeadItemManufacturerIdColumn = async () => {
   if (leadItemManufacturerIdEnsured) return;
   await query(`
@@ -320,6 +330,7 @@ const ensureLeadTables = async () => {
   if (leadTablesEnsured) {
     await ensureLeadMeasureNoteColumn();
     await ensureLeadInvoiceNumberColumn();
+    await ensureLeadPurchaseCostColumn();
     await ensureLeadItemManufacturerIdColumn();
     return;
   }
@@ -410,6 +421,7 @@ const ensureLeadTables = async () => {
   `);
   await ensureLeadMeasureNoteColumn();
   await ensureLeadInvoiceNumberColumn();
+  await ensureLeadPurchaseCostColumn();
   await ensureLeadItemManufacturerIdColumn();
   leadTablesEnsured = true;
 };
