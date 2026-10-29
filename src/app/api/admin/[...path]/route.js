@@ -168,9 +168,20 @@ const handle = async (request, context) =>
     }
 
     if (match(path, method, "POST", "products")) {
-      const created = await adminService.createProduct(body);
-      await invalidateStorefrontCache("products");
-      return json(created, 201);
+      try {
+        const created = await adminService.createProduct(body);
+        await invalidateStorefrontCache("products");
+        return json(created, 201);
+      } catch (caught) {
+        const status = Number(caught?.statusCode) || 500;
+        if (status >= 400 && status < 500) {
+          return json(
+            { message: caught.message || "Не удалось создать товар", fields: caught.fields },
+            status,
+          );
+        }
+        throw caught;
+      }
     }
     if (match(path, method, "DELETE", "products")) {
       const idsRaw = String(query.ids || "").trim();
@@ -222,6 +233,12 @@ const handle = async (request, context) =>
         return json({ message: "badges must be an array" }, 400);
       }
       const updated = await adminService.patchProductBadges(Number(path[1]), body);
+      if (!updated) return json({ message: "Product not found" }, 404);
+      await invalidateStorefrontCache("products");
+      return json(updated);
+    }
+    if (path[0] === "products" && path.length === 3 && path[2] === "flag" && method === "PATCH") {
+      const updated = await adminService.patchProductFlag(Number(path[1]), body);
       if (!updated) return json({ message: "Product not found" }, 404);
       await invalidateStorefrontCache("products");
       return json(updated);
@@ -289,6 +306,12 @@ const handle = async (request, context) =>
         return json({ message: "code is required" }, 400);
       }
       return json(await adminService.getProductAttributeDistinctValues(query));
+    }
+    if (match(path, method, "GET", "product-attribute-codes")) {
+      if (!query.categoryId && !query.subcategoryId) {
+        return json({ message: "categoryId or subcategoryId is required" }, 400);
+      }
+      return json({ codes: await adminService.getUsedProductAttributeCodes(query) });
     }
     if (match(path, method, "POST", "import", "csv")) {
       if (!Array.isArray(body.rows)) return json({ message: "rows must be an array" }, 400);

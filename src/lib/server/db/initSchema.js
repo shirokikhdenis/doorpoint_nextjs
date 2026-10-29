@@ -119,6 +119,8 @@ CREATE TABLE products (
   price INTEGER NOT NULL,
   attrs JSONB NOT NULL DEFAULT '{}'::jsonb,
   badges TEXT[] NOT NULL DEFAULT '{}'::text[],
+  flag_label TEXT,
+  flag_color TEXT,
   is_on_sale BOOLEAN NOT NULL DEFAULT FALSE,
   compare_at_price INTEGER,
   merged_image_url TEXT,

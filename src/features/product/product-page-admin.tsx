@@ -2,12 +2,19 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AttributeCell } from "@/features/admin/products/admin-product-cells";
+import { AdminProductFlagFields } from "@/features/admin/products/admin-product-flag-fields";
 import type { AttributeDef } from "@/features/admin/products/types";
 import { uploadAdminStorefrontImage } from "@/features/admin/admin-image-upload";
 import { Button } from "@/components/ui/button";
 import { useAdminSession } from "@/lib/client/use-admin-session";
 import { isMergedStorefrontImageUrl } from "@/lib/client/image-src";
+import {
+  DEFAULT_PRODUCT_FLAG_COLOR,
+  normalizeClientFlagColor,
+  normalizeClientFlagLabel,
+} from "@/lib/client/product-flag";
 import type { ProductData } from "@/lib/client/normalizers";
+import { cn } from "@/lib/utils";
 
 const HIDDEN_ATTR_CODES = new Set(["pogonazh_id", "manufacturer_id"]);
 
@@ -17,12 +24,22 @@ type AdminProductPayload = {
     valueText?: string | null;
     valueNumber?: number | null;
   }>;
+  flagLabel?: string | null;
+  flagColor?: string | null;
 };
 
 const originalGalleryUrls = (product: ProductData) => {
   const source = product.images.length > 0 ? product.images : product.image ? [product.image] : [];
   return source.filter((url) => url && !isMergedStorefrontImageUrl(url));
 };
+
+const adminIconButtonClass = (active = false) =>
+  cn(
+    "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border transition",
+    active
+      ? "border-brand bg-brand text-white hover:bg-brand/90"
+      : "border-sky-200 bg-sky-50 text-sky-950 hover:bg-sky-100",
+  );
 
 export function useProductPageAdmin() {
   const { isAdmin, loading } = useAdminSession();
@@ -54,27 +71,123 @@ export function ProductPageAdminBar({
   onToggle: () => void;
 }) {
   return (
-    <div className="rounded-lg border border-sky-200 bg-sky-50/40 px-3 py-2.5">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-medium uppercase tracking-wide text-sky-950">
-          Режим администратора
-        </span>
-        <Button
-          type="button"
-          size="sm"
-          variant={editing ? "outline" : "brand"}
-          onClick={onToggle}
-          data-testid="product-admin-edit-toggle"
-        >
-          {editing ? "Готово" : "Редактировать карточку"}
-        </Button>
-      </div>
+    <button
+      type="button"
+      onClick={onToggle}
+      title={editing ? "Завершить редактирование" : "Редактировать карточку"}
+      aria-label={editing ? "Завершить редактирование" : "Редактировать карточку"}
+      aria-pressed={editing}
+      data-testid="product-admin-edit-toggle"
+      className={adminIconButtonClass(editing)}
+    >
       {editing ? (
-        <p className="mt-1.5 text-xs text-sky-950/80">
-          Можно добавить или удалить фото и изменить характеристики. Склейка входной двери
-          пересоберётся сама.
-        </p>
-      ) : null}
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="h-4 w-4"
+          aria-hidden="true"
+        >
+          <path d="M20 6 9 17l-5-5" />
+        </svg>
+      ) : (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="h-4 w-4"
+          aria-hidden="true"
+        >
+          <path d="M12 20h9" />
+          <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
+export function ProductPageAdminFlag({
+  product,
+  editing,
+  onReload,
+}: {
+  product: ProductData;
+  editing: boolean;
+  onReload: () => Promise<void>;
+}) {
+  const [flagLabel, setFlagLabel] = useState("");
+  const [flagColor, setFlagColor] = useState(DEFAULT_PRODUCT_FLAG_COLOR);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+
+  useEffect(() => {
+    if (!editing) return;
+    setFlagLabel(String(product.flagLabel || ""));
+    setFlagColor(String(product.flagColor || "").trim() || DEFAULT_PRODUCT_FLAG_COLOR);
+    setError("");
+    setNotice("");
+  }, [editing, product.flagLabel, product.flagColor, product.id]);
+
+  const save = async () => {
+    if (!product.id || saving) return;
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      const response = await fetch(`/api/admin/products/${product.id}/flag`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          flagLabel: normalizeClientFlagLabel(flagLabel),
+          flagColor: normalizeClientFlagColor(flagColor),
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+      if (!response.ok) {
+        throw new Error(payload?.message || "Не удалось сохранить флажок");
+      }
+      setNotice("Флажок сохранён");
+      await onReload();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Не удалось сохранить флажок");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!editing) return null;
+
+  return (
+    <div className="rounded-lg border border-zinc-200 bg-white px-3 py-3">
+      <p className="mb-3 text-xs text-zinc-500">
+        Можно добавить или удалить фото, изменить характеристики и флажок. Склейка входной двери
+        пересоберётся сама.
+      </p>
+      <AdminProductFlagFields
+        idPrefix={`product-page-${product.id}`}
+        flagLabel={flagLabel}
+        flagColor={flagColor}
+        onFlagLabelChange={setFlagLabel}
+        onFlagColorChange={setFlagColor}
+        disabled={saving}
+      />
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <Button type="button" size="sm" onClick={() => void save()} disabled={saving}>
+          {saving ? "Сохранение…" : "Сохранить флажок"}
+        </Button>
+        {notice ? <span className="text-xs text-emerald-700">{notice}</span> : null}
+        {error ? <span className="text-xs text-rose-700">{error}</span> : null}
+      </div>
     </div>
   );
 }

@@ -13,6 +13,7 @@ const {
 } = require("../domain/interiorKitPrice");
 const { ENTRY_DOORS_CATEGORY_SLUG } = require("../domain/entryDoorMerge");
 const { normalizeProductBadges, resolveProductBadges, syncSaleBadge } = require("../domain/productBadges");
+const { normalizeProductFlag } = require("../domain/productFlag");
 const {
   applySaleRulesOn,
   applySaleRulesOff,
@@ -25,6 +26,7 @@ const {
   ensureProductBadgesColumn,
   ensureProductSaleColumns,
   ensureProductMergedImageUrlColumn,
+  ensureProductFlagColumns,
   ensureProductSlugColumn,
   ensureLatinProductSlugs,
   ensureSeoColumns,
@@ -461,6 +463,7 @@ const listProducts = async (filters) => {
   await ensureProductBadgesColumn();
   await ensureProductSaleColumns();
   await ensureProductMergedImageUrlColumn();
+  await ensureProductFlagColumns();
   await ensureLatinProductSlugs();
   await ensureManufacturerIdAttribute();
   const params = [];
@@ -500,6 +503,8 @@ const listProducts = async (filters) => {
       p.is_on_sale AS "isOnSale",
       p.compare_at_price AS "compareAtPrice",
       p.badges,
+      p.flag_label AS "flagLabel",
+      p.flag_color AS "flagColor",
       p.attrs->>'pogonazh_id' AS "_pogonazhIdRaw",
       COALESCE(parent.id, c.id) AS "_rootCategoryId",
       p.attrs->>'color' AS color,
@@ -547,6 +552,10 @@ const listProducts = async (filters) => {
 
   const baseItems = itemsRes.rows.map((row) => {
     const taxonomy = splitTaxonomy(row);
+    const flag = normalizeProductFlag({
+      flagLabel: row.flagLabel,
+      flagColor: row.flagColor,
+    });
     return {
       id: Number(row.id),
       sku: row.sku,
@@ -582,6 +591,8 @@ const listProducts = async (filters) => {
           ? null
           : Number(row.compareAtPrice),
       badges: resolveProductBadges(row.badges),
+      flagLabel: flag.flagLabel,
+      flagColor: flag.flagColor,
       image: row.image || "",
       hoverImage: row.hoverImage || null,
       category: taxonomy.category,
@@ -1006,6 +1017,7 @@ const getProductById = async (id) => {
   await removeManufacturerSkuAttribute();
   await ensureProductSaleColumns();
   await ensureProductMergedImageUrlColumn();
+  await ensureProductFlagColumns();
   await ensureLatinProductSlugs();
   const numericId = Number(id);
   if (!Number.isInteger(numericId) || numericId <= 0) return null;
@@ -1022,6 +1034,8 @@ const getProductById = async (id) => {
       p.compare_at_price AS "compareAtPrice",
       p.model_key AS "modelKey",
       p.badges,
+      p.flag_label AS "flagLabel",
+      p.flag_color AS "flagColor",
       p.attrs,
       p.seo_title AS "seoTitle",
       p.seo_description AS "seoDescription",
@@ -1359,6 +1373,10 @@ const getProductById = async (id) => {
     kitPricing,
     kitPrice,
     badges: resolveProductBadges(row.badges),
+    ...normalizeProductFlag({
+      flagLabel: row.flagLabel,
+      flagColor: row.flagColor,
+    }),
     manufacturerId: (() => {
       const fromProduct = String(productAttrs.manufacturer_id ?? "").trim();
       if (fromProduct) return fromProduct;
@@ -1433,11 +1451,14 @@ const listAdminProducts = async () => {
 
 const getAdminProductById = async (id) => {
   await ensureProductMergedImageUrlColumn();
+  await ensureProductFlagColumns();
   const productRes = await query(
     `
     SELECT
       p.id, p.sku, p.name, p.price, p.attrs, p.model_key AS "modelKey",
       p.is_active AS "isActive",
+      p.flag_label AS "flagLabel",
+      p.flag_color AS "flagColor",
       p.category_id AS "leafCategoryId",
       c.parent_id AS "parentCategoryId",
       ${productImageSubquery} AS "imageUrl"
@@ -1507,6 +1528,11 @@ const getAdminProductById = async (id) => {
     };
   });
 
+  const flag = normalizeProductFlag({
+    flagLabel: row.flagLabel,
+    flagColor: row.flagColor,
+  });
+
   return {
     id: Number(row.id),
     sku: row.sku,
@@ -1517,12 +1543,51 @@ const getAdminProductById = async (id) => {
     categoryId: parentId !== null ? parentId : leafId,
     subcategoryId: parentId !== null ? leafId : null,
     modelKey: row.modelKey || null,
+    flagLabel: flag.flagLabel,
+    flagColor: flag.flagColor,
     attributes: productAttributes,
     variants,
   };
 };
 
 /** Уникальные значения product-scope атрибута из `products.attrs` (для фильтра в админке). */
+/** Attribute codes that have non-empty values on products in the given category scope. */
+const listUsedProductAttributeCodes = async ({
+  categoryId = null,
+  subcategoryId = null,
+} = {}) => {
+  const params = [];
+  const addParam = (value) => {
+    params.push(value);
+    return `$${params.length}`;
+  };
+  const whereParts = [`TRIM(COALESCE(kv.value, '')) <> ''`];
+  if (subcategoryId) {
+    whereParts.push(`p.category_id = ${addParam(Number(subcategoryId))}`);
+  } else if (categoryId) {
+    whereParts.push(
+      `(p.category_id = ${addParam(Number(categoryId))} OR c.parent_id = ${addParam(Number(categoryId))})`,
+    );
+  } else {
+    return [];
+  }
+
+  const res = await query(
+    `
+    SELECT DISTINCT kv.key AS code
+    FROM products p
+    ${taxonomyJoin}
+    CROSS JOIN LATERAL jsonb_each_text(COALESCE(p.attrs, '{}'::jsonb)) AS kv(key, value)
+    WHERE ${whereParts.join(" AND ")}
+    ORDER BY code
+    `,
+    params,
+  );
+  return res.rows
+    .map((row) => String(row.code || "").trim())
+    .filter((code) => code && /^[a-z0-9_]+$/i.test(code));
+};
+
 const listProductAttributeDistinctValues = async ({
   code,
   categoryId = null,
@@ -1824,11 +1889,21 @@ const listProductsTable = async ({
     `,
   );
   const categoriesRes = await query(
-    `SELECT id, name FROM categories WHERE parent_id IS NULL ORDER BY sort_order, name`,
+    `SELECT id, name, slug FROM categories WHERE parent_id IS NULL ORDER BY sort_order, name`,
   );
   const subcategoriesRes = await query(
     `SELECT id, parent_id AS "categoryId", name FROM categories WHERE parent_id IS NOT NULL ORDER BY sort_order, name`,
   );
+  const categories = categoriesRes.rows.map((row) => ({
+    id: Number(row.id),
+    name: String(row.name || ""),
+    slug: String(row.slug || ""),
+  }));
+  const subcategories = subcategoriesRes.rows.map((row) => ({
+    id: Number(row.id),
+    categoryId: Number(row.categoryId),
+    name: String(row.name || ""),
+  }));
 
   return {
     total: countRes.rows[0].total,
@@ -1846,8 +1921,8 @@ const listProductsTable = async ({
       isVariantAxis: row.scope === "variant",
       options: Array.isArray(row.options) ? row.options : [],
     })),
-    categories: categoriesRes.rows,
-    subcategories: subcategoriesRes.rows,
+    categories,
+    subcategories,
     rows: rowsRes.rows.map((row) => ({
       id: Number(row.id),
       sku: row.sku,
@@ -2057,6 +2132,7 @@ const resolveTargetCategoryId = (payload) => {
 
 const createProduct = async (payload) => {
   await ensureProductSlugColumn();
+  await ensureProductFlagColumns();
   return withTransaction(async (client) => {
     const attrDefs = await attributeRepository.listAttributes();
     const attrDefById = new Map(attrDefs.map((def) => [def.id, def]));
@@ -2064,14 +2140,18 @@ const createProduct = async (payload) => {
     const productAttrs = productAttrsFromPayload(partitioned.product, attrDefById);
     const targetCategoryId = resolveTargetCategoryId(payload);
     if (!targetCategoryId) throw new Error("categoryId is required");
+    const flag = normalizeProductFlag({
+      flagLabel: payload.flagLabel,
+      flagColor: payload.flagColor,
+    });
 
     const slug = await allocateUniqueSlug(client, payload.name, productAttrs);
     const inserted = await client.query(
       `
-      INSERT INTO products(category_id, sku, slug, name, model_key, price, attrs, is_active)
-      VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8)
+      INSERT INTO products(category_id, sku, slug, name, model_key, price, attrs, is_active, flag_label, flag_color)
+      VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10)
       RETURNING id, sku, slug, name, price, model_key AS "modelKey", category_id AS "categoryId",
-                is_active AS "isActive"
+                is_active AS "isActive", flag_label AS "flagLabel", flag_color AS "flagColor"
       `,
       [
         targetCategoryId,
@@ -2082,6 +2162,8 @@ const createProduct = async (payload) => {
         payload.price,
         JSON.stringify(productAttrs),
         payload.isActive !== false,
+        flag.flagLabel,
+        flag.flagColor,
       ],
     );
     const productId = Number(inserted.rows[0].id);
@@ -2112,21 +2194,35 @@ const createProduct = async (payload) => {
       );
     }
 
-    return inserted.rows[0];
+    const row = inserted.rows[0];
+    return {
+      ...row,
+      // pg returns bigint id as string — keep a numeric id for API clients
+      id: productId,
+      price: row.price === null || row.price === undefined ? null : Number(row.price),
+      categoryId: Number(row.categoryId),
+      flagLabel: flag.flagLabel,
+      flagColor: flag.flagColor,
+    };
   });
 };
 
-const updateProduct = async (id, payload) =>
-  withTransaction(async (client) => {
+const updateProduct = async (id, payload) => {
+  await ensureProductFlagColumns();
+  return withTransaction(async (client) => {
     const currentRes = await client.query(
-      `SELECT id, attrs FROM products WHERE id = $1 LIMIT 1`,
+      `
+      SELECT id, attrs, flag_label AS "flagLabel", flag_color AS "flagColor"
+      FROM products WHERE id = $1 LIMIT 1
+      `,
       [id],
     );
     if (currentRes.rows.length === 0) return null;
+    const current = currentRes.rows[0];
 
     const attrDefs = await attributeRepository.listAttributes();
     const attrDefById = new Map(attrDefs.map((def) => [def.id, def]));
-    const nextAttrs = { ...ensureAttrs(currentRes.rows[0].attrs) };
+    const nextAttrs = { ...ensureAttrs(current.attrs) };
 
     if (Array.isArray(payload.attributes)) {
       const partitioned = partitionAttributesByScope(payload.attributes, attrDefById);
@@ -2144,6 +2240,16 @@ const updateProduct = async (id, payload) =>
 
     const targetCategoryId = resolveTargetCategoryId(payload);
     if (!targetCategoryId) throw new Error("categoryId is required");
+    const flag =
+      payload.flagLabel !== undefined || payload.flagColor !== undefined
+        ? normalizeProductFlag({
+            flagLabel: payload.flagLabel,
+            flagColor: payload.flagColor,
+          })
+        : normalizeProductFlag({
+            flagLabel: current.flagLabel,
+            flagColor: current.flagColor,
+          });
 
     const updated = await client.query(
       `
@@ -2156,10 +2262,12 @@ const updateProduct = async (id, payload) =>
         price = $6,
         attrs = $7::jsonb,
         is_active = $8,
+        flag_label = $9,
+        flag_color = $10,
         updated_at = NOW()
       WHERE id = $1
       RETURNING id, sku, name, price, model_key AS "modelKey", category_id AS "categoryId",
-                is_active AS "isActive"
+                is_active AS "isActive", flag_label AS "flagLabel", flag_color AS "flagColor"
       `,
       [
         id,
@@ -2170,6 +2278,8 @@ const updateProduct = async (id, payload) =>
         payload.price,
         JSON.stringify(nextAttrs),
         payload.isActive !== false,
+        flag.flagLabel,
+        flag.flagColor,
       ],
     );
 
@@ -2181,8 +2291,14 @@ const updateProduct = async (id, payload) =>
       await writeVariants(client, Number(id), payload.variants, attrDefById);
     }
 
-    return updated.rows[0];
+    return {
+      ...updated.rows[0],
+      id: Number(updated.rows[0].id),
+      flagLabel: flag.flagLabel,
+      flagColor: flag.flagColor,
+    };
   });
+};
 
 const patchProductAttributes = async (id, payload = {}) => {
   const numericId = Number(id);
@@ -2516,6 +2632,28 @@ const patchProductBadges = async (id, badges) => {
   return {
     id: Number(res.rows[0].id),
     badges: normalizeProductBadges(res.rows[0].badges),
+  };
+};
+
+const patchProductFlag = async (id, { flagLabel, flagColor } = {}) => {
+  await ensureProductFlagColumns();
+  const numericId = Number(id);
+  if (!Number.isInteger(numericId) || numericId <= 0) return null;
+  const flag = normalizeProductFlag({ flagLabel, flagColor });
+  const res = await query(
+    `
+    UPDATE products
+    SET flag_label = $2, flag_color = $3, updated_at = NOW()
+    WHERE id = $1
+    RETURNING id, flag_label AS "flagLabel", flag_color AS "flagColor"
+    `,
+    [numericId, flag.flagLabel, flag.flagColor],
+  );
+  if (!res.rows[0]) return null;
+  return {
+    id: Number(res.rows[0].id),
+    flagLabel: flag.flagLabel,
+    flagColor: flag.flagColor,
   };
 };
 
@@ -3273,6 +3411,7 @@ module.exports = {
   listProductsTable,
   listProductsForExport,
   listProductAttributeDistinctValues,
+  listUsedProductAttributeCodes,
   createProduct,
   updateProduct,
   patchProductAttributes,
@@ -3283,6 +3422,7 @@ module.exports = {
   listVariantSkusForProductSkus,
   mapStorefrontPricesByManufacturerIds,
   patchProductBadges,
+  patchProductFlag,
   patchProductSale,
   patchProductDisplayOrder,
   patchProductSeo,

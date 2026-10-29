@@ -6,7 +6,9 @@ import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { AdminInputField, AdminSelectField } from "@/features/admin/ui/admin-form-field";
 import { AdminNotice } from "@/features/admin/ui/admin-notice";
+import { DEFAULT_PRODUCT_FLAG_COLOR } from "@/lib/client/product-flag";
 import { cn } from "@/lib/utils";
+import { AdminProductFlagFields } from "./admin-product-flag-fields";
 import type { AttributeDef, CategoryRef, SubcategoryRef } from "./types";
 
 type ProductAttributeValue = {
@@ -25,6 +27,8 @@ type ProductForEdit = {
   categoryId: number;
   subcategoryId: number | null;
   modelKey: string | null;
+  flagLabel?: string | null;
+  flagColor?: string | null;
   attributes: ProductAttributeValue[];
 };
 
@@ -79,6 +83,8 @@ export function AdminProductEditor({
   const [price, setPrice] = useState("0");
   const [modelKey, setModelKey] = useState("");
   const [isActive, setIsActive] = useState(true);
+  const [flagLabel, setFlagLabel] = useState("");
+  const [flagColor, setFlagColor] = useState(DEFAULT_PRODUCT_FLAG_COLOR);
   const [categoryId, setCategoryId] = useState(0);
   const [subcategoryId, setSubcategoryId] = useState(0);
   const [attrValues, setAttrValues] = useState<Record<number, string>>({});
@@ -99,7 +105,8 @@ export function AdminProductEditor({
   }, [productAttributes, attrOrderIds]);
 
   const categorySubcategories = useMemo(
-    () => subcategories.filter((item) => item.categoryId === categoryId),
+    () =>
+      subcategories.filter((item) => Number(item.categoryId) === Number(categoryId)),
     [subcategories, categoryId],
   );
 
@@ -122,6 +129,8 @@ export function AdminProductEditor({
     setPrice(String(product.price ?? 0));
     setModelKey(product.modelKey || "");
     setIsActive(product.isActive !== false);
+    setFlagLabel(String(product.flagLabel || ""));
+    setFlagColor(String(product.flagColor || "").trim() || DEFAULT_PRODUCT_FLAG_COLOR);
     setCategoryId(Number(product.categoryId) || 0);
     setSubcategoryId(Number(product.subcategoryId) || 0);
     const byId = new Map((product.attributes || []).map((entry) => [Number(entry.attributeId), entry]));
@@ -227,6 +236,8 @@ export function AdminProductEditor({
           subcategoryId: subcategoryId || null,
           modelKey: modelKey.trim() || null,
           isActive,
+          flagLabel,
+          flagColor,
           attributes: payloadAttributes,
         }),
       });
@@ -356,6 +367,14 @@ export function AdminProductEditor({
                           />
                           Активен на витрине
                         </label>
+                        <AdminProductFlagFields
+                          idPrefix={`product-${productId}`}
+                          flagLabel={flagLabel}
+                          flagColor={flagColor}
+                          onFlagLabelChange={setFlagLabel}
+                          onFlagColorChange={setFlagColor}
+                          disabled={saving || loading}
+                        />
                       </section>
 
                       <section className="space-y-3">

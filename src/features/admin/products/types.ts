@@ -9,7 +9,7 @@ export type AttributeDef = {
   options?: Array<string | { value: string }>;
 };
 
-export type CategoryRef = { id: number; name: string };
+export type CategoryRef = { id: number; name: string; slug?: string };
 export type SubcategoryRef = { id: number; categoryId: number; name: string };
 
 export type ProductRow = {

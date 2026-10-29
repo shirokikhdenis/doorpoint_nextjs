@@ -38,6 +38,7 @@ let interiorInstallTablesEnsured = false;
 let interiorInstallTablesEnsurePromise = null;
 let interiorInstallSpecificationEnsured = false;
 let productMergedImageUrlEnsured = false;
+let productFlagColumnsEnsured = false;
 let configuratorTablesEnsured = false;
 let configuratorTablesEnsurePromise = null;
 
@@ -45,6 +46,13 @@ const ensureProductMergedImageUrlColumn = async () => {
   if (productMergedImageUrlEnsured) return;
   await query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS merged_image_url TEXT`);
   productMergedImageUrlEnsured = true;
+};
+
+const ensureProductFlagColumns = async () => {
+  if (productFlagColumnsEnsured) return;
+  await query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS flag_label TEXT`);
+  await query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS flag_color TEXT`);
+  productFlagColumnsEnsured = true;
 };
 
 const ensureManufacturerIdAttribute = async () => {
@@ -1203,6 +1211,7 @@ module.exports = {
   ensureProductBadgesColumn,
   ensureProductSaleColumns,
   ensureProductMergedImageUrlColumn,
+  ensureProductFlagColumns,
   ensureProductSlugColumn,
   ensureLatinProductSlugs,
   ensurePortfolioTables,

@@ -59,7 +59,11 @@ export function CatalogProductCard({
       onMouseLeave={onMouseLeave}
     >
       <div className="relative">
-        <ProductCardBadges badges={item.badges || []} />
+        <ProductCardBadges
+          badges={item.badges || []}
+          flagLabel={item.flagLabel}
+          flagColor={item.flagColor}
+        />
         <CatalogProductLink
           href={productHref(item)}
           className="block"

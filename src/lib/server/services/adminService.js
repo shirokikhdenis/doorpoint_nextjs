@@ -8,6 +8,9 @@ const catalogPageLabelRepository = require("../repositories/catalogPageLabelRepo
 const saleSettingsRepository = require("../repositories/saleSettingsRepository");
 const storefrontSettingsRepository = require("../repositories/storefrontSettingsRepository");
 const { describeSaleRule } = require("../domain/salePricing");
+const {
+  validateProductCreatePayload,
+} = require("../domain/productRequiredAttrs");
 
 const slugify = (value) =>
   String(value || "")
@@ -277,18 +280,70 @@ const createAttributeOption = async (payload) =>
     sortOrder: Number(payload.sortOrder) || 0
   });
 
-const createProduct = async (payload) =>
-  productRepository.createProduct({
+const resolveRootCategorySlug = async (categoryId) => {
+  const id = Number(categoryId);
+  if (!Number.isInteger(id) || id <= 0) return "";
+  const categories = await categoryRepository.listCategories();
+  const match = categories.find((item) => Number(item.id) === id);
+  return match ? String(match.slug || "") : "";
+};
+
+const createProduct = async (payload) => {
+  const attributes = Array.isArray(payload.attributes) ? payload.attributes : [];
+  const variants = Array.isArray(payload.variants) ? payload.variants : undefined;
+  const imageUrls = Array.isArray(payload.imageUrls)
+    ? payload.imageUrls.map((url) => String(url || "").trim()).filter(Boolean)
+    : [];
+  const imageUrl =
+    String(payload.imageUrl || "").trim() || imageUrls[0] || undefined;
+
+  if (payload.enforceRequiredAttrs === true || payload.enforceRequiredAttrs === "1") {
+    const attrDefs = await attributeRepository.listAttributes();
+    const rootSlug = await resolveRootCategorySlug(payload.categoryId);
+    const validation = validateProductCreatePayload({
+      rootSlug,
+      attributes,
+      variants,
+      imageUrl,
+      imageUrls,
+      attrDefs,
+      requireImage: true,
+    });
+    if (!validation.ok) {
+      const error = new Error(validation.message);
+      error.statusCode = 400;
+      error.fields = validation.fields;
+      throw error;
+    }
+  }
+
+  const created = await productRepository.createProduct({
     sku: payload.sku,
     name: payload.name,
     categoryId: Number(payload.categoryId),
     subcategoryId: payload.subcategoryId ? Number(payload.subcategoryId) : null,
     price: Number(payload.price),
-    imageUrl: payload.imageUrl,
+    modelKey: payload.modelKey != null ? String(payload.modelKey).trim() || null : null,
+    imageUrl,
     isActive: payload.isActive !== false,
-    attributes: Array.isArray(payload.attributes) ? payload.attributes : [],
-    variants: Array.isArray(payload.variants) ? payload.variants : undefined
+    flagLabel: payload.flagLabel,
+    flagColor: payload.flagColor,
+    attributes,
+    variants,
   });
+
+  if (!created?.id) return created;
+
+  // createProduct writes only the primary imageUrl; persist the full gallery when needed
+  if (imageUrls.length > 1) {
+    await productRepository.replaceProductImages(Number(created.id), imageUrls);
+  }
+
+  // Same rule as replaceProductImages / CSV import: entry doors with 2 originals → one merged card image
+  const { syncEntryDoorMergedImage } = require("./entryDoorMergeService");
+  const merge = await syncEntryDoorMergedImage({ sku: created.sku });
+  return { ...created, merge };
+};
 
 const updateProduct = async (id, payload) =>
   productRepository.updateProduct(Number(id), {
@@ -297,10 +352,13 @@ const updateProduct = async (id, payload) =>
     categoryId: Number(payload.categoryId),
     subcategoryId: payload.subcategoryId ? Number(payload.subcategoryId) : null,
     price: Number(payload.price),
+    modelKey: payload.modelKey != null ? String(payload.modelKey).trim() || null : null,
     imageUrl: payload.imageUrl,
     isActive: payload.isActive !== false,
+    flagLabel: payload.flagLabel,
+    flagColor: payload.flagColor,
     attributes: Array.isArray(payload.attributes) ? payload.attributes : [],
-    variants: Array.isArray(payload.variants) ? payload.variants : undefined
+    variants: Array.isArray(payload.variants) ? payload.variants : undefined,
   });
 
 const getProductForEdit = async (id) => productRepository.getAdminProductById(Number(id));
@@ -408,6 +466,12 @@ const patchProductDisplayOrder = async (id, body) =>
 const patchProductBadges = async (id, body) =>
   productRepository.patchProductBadges(Number(id), body?.badges);
 
+const patchProductFlag = async (id, body) =>
+  productRepository.patchProductFlag(Number(id), {
+    flagLabel: body?.flagLabel,
+    flagColor: body?.flagColor,
+  });
+
 const patchProductSale = async (id, body) => {
   const result = await productRepository.patchProductSale(Number(id), body);
   if (result && result.error) return { error: result.error };
@@ -436,6 +500,12 @@ const getProductAttributeDistinctValues = async (query) =>
     categoryId: query.categoryId ? Number(query.categoryId) : null,
     subcategoryId: query.subcategoryId ? Number(query.subcategoryId) : null,
     search: String(query.search || ""),
+  });
+
+const getUsedProductAttributeCodes = async (query) =>
+  productRepository.listUsedProductAttributeCodes({
+    categoryId: query.categoryId ? Number(query.categoryId) : null,
+    subcategoryId: query.subcategoryId ? Number(query.subcategoryId) : null,
   });
 
 module.exports = {
@@ -469,11 +539,13 @@ module.exports = {
   updateStorefrontSettings,
   patchProductDisplayOrder,
   patchProductBadges,
+  patchProductFlag,
   patchProductSale,
   patchProductSeo,
   patchProductAttributes,
   replaceProductImages,
   getProductAttributeDistinctValues,
+  getUsedProductAttributeCodes,
   listCatalogPageLabels,
   createCatalogPageLabel,
   updateCatalogPageLabel,

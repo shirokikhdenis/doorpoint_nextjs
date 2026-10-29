@@ -97,7 +97,7 @@ export function AdminProductsFilters({
   const [dangerOpen, setDangerOpen] = useState(false);
 
   const visibleSubcategories = categoryId
-    ? subcategories.filter((sub) => sub.categoryId === categoryId)
+    ? subcategories.filter((sub) => Number(sub.categoryId) === Number(categoryId))
     : subcategories;
 
   useEffect(() => {

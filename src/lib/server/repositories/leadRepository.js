@@ -220,7 +220,15 @@ const createLeadWithItems = async (lead, items) => {
   });
 };
 
-const listLeads = async ({ limit = 50, offset = 0, status, type, search, excludeStatuses } = {}) => {
+const listLeads = async ({
+  limit = 50,
+  offset = 0,
+  status,
+  statuses,
+  type,
+  search,
+  excludeStatuses,
+} = {}) => {
   await ensureLeadTables();
   const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 200);
   const safeOffset = Math.max(Number(offset) || 0, 0);
@@ -233,10 +241,19 @@ const listLeads = async ({ limit = 50, offset = 0, status, type, search, exclude
     params.push(String(type));
     paramIndex += 1;
   }
-  if (status) {
+  const statusList = Array.isArray(statuses)
+    ? statuses.map((item) => String(item).trim()).filter(Boolean)
+    : status
+      ? [String(status).trim()].filter(Boolean)
+      : [];
+  if (statusList.length === 1) {
     clauses.push(`status = $${paramIndex}`);
-    params.push(String(status));
+    params.push(statusList[0]);
     paramIndex += 1;
+  } else if (statusList.length > 1) {
+    const placeholders = statusList.map(() => `$${paramIndex++}`).join(", ");
+    clauses.push(`status IN (${placeholders})`);
+    params.push(...statusList);
   }
   const excluded = Array.isArray(excludeStatuses)
     ? excludeStatuses.map((item) => String(item).trim()).filter(Boolean)

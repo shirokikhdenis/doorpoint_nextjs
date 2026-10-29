@@ -10,6 +10,7 @@ import { AdminProductsSaleRules } from "@/features/admin/products/admin-products
 import { AdminProductsFilters } from "@/features/admin/products/admin-products-filters";
 import { AdminProductsPagination } from "@/features/admin/products/admin-products-pagination";
 import { AdminProductsTable } from "@/features/admin/products/admin-products-table";
+import { AdminProductCreate } from "@/features/admin/products/admin-product-create";
 import { AdminProductsToolbar } from "@/features/admin/products/admin-products-toolbar";
 import { runBulkProductAction } from "@/features/admin/products/bulk-actions";
 import { loadColumnVisibility, saveColumnVisibility } from "@/features/admin/products/column-visibility";
@@ -23,6 +24,7 @@ export default function AdminProductsPage() {
   const [deleting, setDeleting] = useState(false);
   const [bulkLoading, setBulkLoading] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
+  const [createOpen, setCreateOpen] = useState(false);
 
   const [search, setSearch] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
@@ -502,9 +504,14 @@ export default function AdminProductsPage() {
       description="Управление каталогом: фильтры, массовые действия, настройка колонок и быстрое редактирование цен и статусов."
       className="max-w-none"
       actions={
-        <Button variant="outline" size="sm" asChild>
-          <Link href="/admin/import">Импорт CSV</Link>
-        </Button>
+        <>
+          <Button type="button" size="sm" onClick={() => setCreateOpen(true)}>
+            + Товар
+          </Button>
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/admin/import">Импорт CSV</Link>
+          </Button>
+        </>
       }
     >
       {notice ? (
@@ -679,6 +686,19 @@ export default function AdminProductsPage() {
         ) : null}
       </section>
       </div>
+
+      <AdminProductCreate
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={() => {
+          setNotice("Товар создан");
+          setNoticeVariant("success");
+          triggerReload();
+        }}
+        attributes={attributes}
+        categories={data?.categories || []}
+        subcategories={data?.subcategories || []}
+      />
     </AdminPage>
   );
 }

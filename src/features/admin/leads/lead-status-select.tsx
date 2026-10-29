@@ -26,7 +26,7 @@ export function LeadStatusSelect({
       aria-label="Статус заявки"
       onChange={(event) => onChange(event.target.value)}
       className={cn(
-        "w-full min-w-[9.5rem] cursor-pointer rounded border border-black/15 bg-transparent px-2 py-1.5 text-xs font-medium outline-none disabled:cursor-wait",
+        "w-full min-w-0 cursor-pointer rounded border border-black/15 bg-transparent px-1.5 py-1 text-xs font-medium outline-none disabled:cursor-wait",
         className,
       )}
     >

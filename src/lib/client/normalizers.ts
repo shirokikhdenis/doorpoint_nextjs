@@ -1,5 +1,6 @@
 import { toPublicImageSrc } from "@/lib/client/image-src";
 import { parseProductBadges, type ProductBadge } from "@/lib/client/product-badges";
+import { parseProductFlag } from "@/lib/client/product-flag";
 
 export type { ProductBadge };
 
@@ -71,6 +72,9 @@ export type ProductCard = {
   /** Варианты стекла той же модели (тот же model_key + name, тот же color); для чипов в выдаче. */
   glassOptions?: ProductGlassOption[];
   badges?: ProductBadge[];
+  /** Произвольный флажок (текст + цвет), независим от hit/sale. */
+  flagLabel?: string;
+  flagColor?: string;
   /** Цена комплекта (полотно + коробка + наличники) для межкомнатных дверей. */
   kitPrice?: number | null;
 };
@@ -227,6 +231,8 @@ export type ProductData = {
   manufacturerLogo?: string;
   manufacturerId?: string | null;
   badges?: ProductBadge[];
+  flagLabel?: string;
+  flagColor?: string;
   kitPricing?: KitPricing | null;
   kitPrice?: number | null;
   relatedFittingsCardsPerRow?: number;
@@ -398,6 +404,7 @@ export const normalizeProductsResponse = (value: unknown): ProductCard[] => {
         : Number(item.compareAtPrice),
     glassOptions: parseGlassOptions(item.glassOptions),
     badges: parseProductBadges(item.badges),
+    ...parseProductFlag(item.flagLabel, item.flagColor),
     kitPrice:
       item.kitPrice === null || item.kitPrice === undefined
         ? null
@@ -635,6 +642,7 @@ export const normalizeProductData = (value: unknown): ProductData => {
       : undefined,
     manufacturerId: source.manufacturerId ? String(source.manufacturerId).trim() || null : null,
     badges: parseProductBadges(source.badges),
+    ...parseProductFlag(source.flagLabel, source.flagColor),
     kitPricing: normalizeKitPricing(source.kitPricing),
     kitPrice:
       source.kitPrice === null || source.kitPrice === undefined

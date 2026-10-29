@@ -7,8 +7,10 @@ const {
   validateLeadPatch,
   ADMIN_ORDER_TYPE,
   LEAD_TYPES,
+  LEAD_STATUSES,
 } = require("../domain/leadValidation");
 const { suggestNextContractNumber } = require("../domain/contractNumber");
+const LEAD_STATUS_SET = new Set(LEAD_STATUSES);
 
 const createAdminOrder = async (body) => {
   const validation = validateAdminOrderPayload(body);
@@ -40,8 +42,20 @@ const createMeasureLead = async (body, meta = {}) => {
   return { ok: true, lead };
 };
 
+const parseStatusFilter = (value) => {
+  if (value === undefined || value === null || value === "") return [];
+  const raw = Array.isArray(value) ? value : String(value).split(",");
+  return [
+    ...new Set(
+      raw
+        .map((item) => String(item).trim())
+        .filter((item) => item && LEAD_STATUS_SET.has(item)),
+    ),
+  ];
+};
+
 const listLeads = async (query = {}) => {
-  const status = query.status ? String(query.status).trim() : undefined;
+  const statuses = parseStatusFilter(query.status ?? query.statuses);
   const type = query.type ? String(query.type).trim() : undefined;
   if (type && !LEAD_TYPES.includes(type)) {
     return { ok: false, status: 400, message: "Некорректный тип заявки" };
@@ -53,9 +67,9 @@ const listLeads = async (query = {}) => {
   const hideEstimates =
     query.hideEstimates === "0" || query.hideEstimates === "false" ? false : true;
   const excludeStatuses =
-    hideEstimates && status !== "estimate" ? ["estimate"] : undefined;
+    hideEstimates && !statuses.includes("estimate") ? ["estimate"] : undefined;
   const items = await leadRepository.listLeads({
-    status,
+    statuses,
     type,
     limit,
     offset,

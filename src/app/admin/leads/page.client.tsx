@@ -2,16 +2,21 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import { Button } from "@/components/ui/button";
 import { AdminCard } from "@/features/admin/ui/admin-card";
 import { AdminEmptyState } from "@/features/admin/ui/admin-empty-state";
 import { AdminNotice } from "@/features/admin/ui/admin-notice";
 import { AdminPage } from "@/features/admin/ui/admin-page";
-import {
-  AdminInputField,
-  AdminSelectField,
-} from "@/features/admin/ui/admin-form-field";
+import { AdminInputField } from "@/features/admin/ui/admin-form-field";
 import {
   AdminTable,
   AdminTableBody,
@@ -24,7 +29,11 @@ import { LeadScheduleCell } from "@/features/admin/leads/lead-schedule-cell";
 import { LeadScheduleSidePanel } from "@/features/admin/leads/lead-schedule-side-panel";
 import type { CalendarEntryKind, InteriorInstallation } from "@/features/admin/install-calendar/types";
 import { formatPrice } from "@/lib/client/format";
-import { LEAD_STATUS_COLORS, LEAD_STATUS_OPTIONS } from "@/lib/client/lead-status";
+import {
+  LEAD_STATUS_COLORS,
+  LEAD_STATUS_LABELS,
+  LEAD_STATUS_OPTIONS,
+} from "@/lib/client/lead-status";
 import { cn } from "@/lib/utils";
 
 type LeadTab = "salon" | "website" | "measure";
@@ -52,6 +61,15 @@ type LeadListItem = {
   deliveryEndDate?: string | null;
   createdAt: string;
   items?: Array<{ name?: string }>;
+};
+
+type LeadLineItem = {
+  id: number;
+  name: string;
+  sku?: string;
+  color?: string;
+  price: number;
+  quantity: number;
 };
 
 type SchedulePanelState = {
@@ -87,7 +105,7 @@ const formatDateTime = (value: string) => {
     return new Date(value).toLocaleString("ru-RU", {
       day: "2-digit",
       month: "2-digit",
-      year: "numeric",
+      year: "2-digit",
       hour: "2-digit",
       minute: "2-digit",
     });
@@ -95,6 +113,9 @@ const formatDateTime = (value: string) => {
     return value;
   }
 };
+
+const cellPad = "px-1.5 py-1.5";
+const cellHead = cn(cellPad, "whitespace-normal break-words leading-tight");
 
 const leadScheduleLabel = (item: LeadListItem) =>
   [item.contractNumber, item.customerName].filter(Boolean).join(" · ");
@@ -144,6 +165,114 @@ const emptyCreateForm = (): CreateLeadForm => ({
   amount: "",
 });
 
+function LeadStatusMultiFilter({
+  selected,
+  onChange,
+}: {
+  selected: string[];
+  onChange: (next: string[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  const toggle = (value: string) => {
+    onChange(
+      selected.includes(value)
+        ? selected.filter((item) => item !== value)
+        : [...selected, value],
+    );
+  };
+
+  const label =
+    selected.length === 0
+      ? "Все"
+      : selected.length === 1
+        ? (LEAD_STATUS_LABELS[selected[0]] ?? selected[0])
+        : `Выбрано: ${selected.length}`;
+
+  return (
+    <div ref={rootRef} className="relative min-w-[12rem]">
+      <label className="mb-1 block text-sm text-zinc-600" htmlFor="lead-status-filter">
+        Статус
+      </label>
+      <button
+        id="lead-status-filter"
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+        className="flex h-10 w-full items-center justify-between gap-2 rounded border border-zinc-200 bg-white px-3 text-left text-sm text-zinc-900 hover:bg-zinc-50"
+      >
+        <span className="truncate">{label}</span>
+        <span className="shrink-0 text-zinc-400" aria-hidden>
+          ▾
+        </span>
+      </button>
+      {open ? (
+        <div
+          role="listbox"
+          aria-multiselectable="true"
+          className="absolute left-0 z-30 mt-1 w-full min-w-[14rem] rounded-md border border-zinc-200 bg-white py-1 shadow-lg"
+        >
+          <div className="flex items-center justify-between gap-2 border-b border-zinc-100 px-3 py-1.5">
+            <button
+              type="button"
+              className="text-xs text-zinc-600 hover:text-zinc-900"
+              onClick={() => onChange([])}
+            >
+              Все
+            </button>
+            {selected.length > 0 ? (
+              <button
+                type="button"
+                className="text-xs text-zinc-600 hover:text-zinc-900"
+                onClick={() => onChange([])}
+              >
+                Сбросить
+              </button>
+            ) : null}
+          </div>
+          {LEAD_STATUS_OPTIONS.map((item) => {
+            const checked = selected.includes(item.value);
+            return (
+              <label
+                key={item.value}
+                className="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm text-zinc-800 hover:bg-zinc-50"
+              >
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() => toggle(item.value)}
+                  className="size-4 rounded border-zinc-300"
+                />
+                <span>{item.label}</span>
+              </label>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function LeadProductNameInput({
   value,
   disabled,
@@ -175,7 +304,7 @@ function LeadProductNameInput({
           event.currentTarget.blur();
         }
       }}
-      className="h-8 w-[14rem] max-w-[20vw] rounded border border-zinc-200 bg-white px-2 text-sm disabled:bg-zinc-50"
+      className="h-7 w-full min-w-0 rounded border border-zinc-200 bg-white px-1.5 text-xs disabled:bg-zinc-50"
       aria-label="Наименование товара"
       placeholder="—"
     />
@@ -213,7 +342,7 @@ function LeadInvoiceNumberInput({
           event.currentTarget.blur();
         }
       }}
-      className="h-8 w-[9rem] rounded border border-zinc-200 bg-white px-2 text-sm disabled:bg-zinc-50"
+      className="h-7 w-full min-w-0 rounded border border-zinc-200 bg-white px-1.5 text-xs disabled:bg-zinc-50"
       aria-label="Комментарии"
       placeholder="—"
     />
@@ -251,7 +380,7 @@ function LeadMeasureNoteInput({
           event.currentTarget.blur();
         }
       }}
-      className="h-8 w-[11rem] rounded border border-zinc-200 bg-white px-2 text-sm disabled:bg-zinc-50"
+      className="h-7 w-full min-w-0 rounded border border-zinc-200 bg-white px-1.5 text-xs disabled:bg-zinc-50"
       aria-label="Замер"
       placeholder="Текст замера"
     />
@@ -265,7 +394,7 @@ export default function AdminLeadsPage() {
   const tabConfig = TAB_CONFIG[activeTab];
 
   const [items, setItems] = useState<LeadListItem[]>([]);
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [hideEstimates, setHideEstimates] = useState(true);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -278,6 +407,10 @@ export default function AdminLeadsPage() {
   const [savingId, setSavingId] = useState<number | null>(null);
   const [copiedLeadId, setCopiedLeadId] = useState<number | null>(null);
   const [schedulePanel, setSchedulePanel] = useState<SchedulePanelState | null>(null);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [expandedItems, setExpandedItems] = useState<Record<number, LeadLineItem[]>>({});
+  const [expandLoadingId, setExpandLoadingId] = useState<number | null>(null);
+  const [expandError, setExpandError] = useState("");
 
   const copyLeadContact = async (item: LeadListItem) => {
     const text = leadClipboardText(item);
@@ -351,6 +484,8 @@ export default function AdminLeadsPage() {
   };
 
   const setActiveTab = (tab: LeadTab) => {
+    setExpandedId(null);
+    setExpandError("");
     const params = new URLSearchParams(searchParams.toString());
     if (tab === "salon") {
       params.delete("tab");
@@ -359,6 +494,39 @@ export default function AdminLeadsPage() {
     }
     const query = params.toString();
     router.replace(query ? `/admin/leads?${query}` : "/admin/leads");
+  };
+
+  const toggleExpandLead = async (leadId: number) => {
+    if (expandedId === leadId) {
+      setExpandedId(null);
+      setExpandError("");
+      return;
+    }
+    setExpandedId(leadId);
+    setExpandError("");
+    if (expandedItems[leadId]) return;
+
+    setExpandLoadingId(leadId);
+    try {
+      const response = await fetch(`/api/admin/leads/${leadId}`, {
+        credentials: "include",
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | { message?: string; items?: LeadLineItem[] }
+        | null;
+      if (!response.ok) {
+        throw new Error(payload?.message || `Ошибка ${response.status}`);
+      }
+      const lines = Array.isArray(payload?.items) ? payload.items : [];
+      setExpandedItems((current) => ({ ...current, [leadId]: lines }));
+    } catch (caught) {
+      setExpandError(
+        caught instanceof Error ? caught.message : "Не удалось загрузить позиции",
+      );
+      setExpandedItems((current) => ({ ...current, [leadId]: [] }));
+    } finally {
+      setExpandLoadingId(null);
+    }
   };
 
   const openCreateLead = () => {
@@ -426,7 +594,7 @@ export default function AdminLeadsPage() {
       if (activeTab !== "salon") {
         setActiveTab("salon");
       }
-      setStatusFilter("");
+      setStatusFilter([]);
       setSearch("");
       setDebouncedSearch("");
 
@@ -477,7 +645,7 @@ export default function AdminLeadsPage() {
   const reload = useCallback(async () => {
     const params = new URLSearchParams();
     params.set("type", tabConfig.type);
-    if (statusFilter) params.set("status", statusFilter);
+    if (statusFilter.length > 0) params.set("status", statusFilter.join(","));
     params.set("hideEstimates", hideEstimates ? "1" : "0");
     if (debouncedSearch) params.set("search", debouncedSearch);
     const response = await fetch(`/api/admin/leads?${params.toString()}`);
@@ -582,6 +750,8 @@ export default function AdminLeadsPage() {
     return columns;
   }, [showAmountColumn, showCommentColumn, showContractColumn, showProductNameColumn, showScheduleColumns]);
 
+  const tableColSpan = tableColumns.length + 1;
+
   return (
     <AdminPage
       title="Заявки"
@@ -622,7 +792,7 @@ export default function AdminLeadsPage() {
         ))}
       </div>
 
-      <AdminCard>
+      <AdminCard contentClassName="p-3 sm:p-4">
         <div className="mb-4 flex flex-wrap items-end gap-4">
           <div className="min-w-[220px] flex-1">
             <label className="mb-1 block text-sm text-zinc-600" htmlFor="lead-search">
@@ -646,21 +816,7 @@ export default function AdminLeadsPage() {
             />
             Скрыть расчеты
           </label>
-          <div className="max-w-xs">
-            <AdminSelectField
-              id="lead-status-filter"
-              label="Статус"
-              value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value)}
-            >
-              <option value="">Все</option>
-              {LEAD_STATUS_OPTIONS.map((item) => (
-                <option key={item.value} value={item.value}>
-                  {item.label}
-                </option>
-              ))}
-            </AdminSelectField>
-          </div>
+          <LeadStatusMultiFilter selected={statusFilter} onChange={setStatusFilter} />
         </div>
 
         {loading ? (
@@ -670,31 +826,51 @@ export default function AdminLeadsPage() {
             title={debouncedSearch ? "Ничего не найдено" : "Заявок пока нет"}
           />
         ) : (
-          <AdminTable>
+          <AdminTable
+            className="overflow-x-auto"
+            tableClassName="w-full table-fixed text-xs leading-snug"
+          >
             <AdminTableHead>
               <AdminTableRow>
+                <AdminTableCell header className={cn(cellPad, "w-8")} />
                 {tableColumns.map((column) => (
-                  <AdminTableCell key={column} header>
+                  <AdminTableCell key={column} header className={cellHead}>
                     {column}
                   </AdminTableCell>
                 ))}
-                <AdminTableCell header />
               </AdminTableRow>
             </AdminTableHead>
             <AdminTableBody>
               {items.map((item) => (
-                <AdminTableRow key={item.id}>
-                  <AdminTableCell className="whitespace-nowrap">
+                <Fragment key={item.id}>
+                <AdminTableRow>
+                  <AdminTableCell className={cn(cellPad, "w-8 align-middle")}>
+                    <button
+                      type="button"
+                      onClick={() => void toggleExpandLead(item.id)}
+                      aria-expanded={expandedId === item.id}
+                      aria-label={
+                        expandedId === item.id ? "Свернуть позиции" : "Показать позиции"
+                      }
+                      title={expandedId === item.id ? "Свернуть" : "Позиции заявки"}
+                      className="inline-flex h-7 w-7 items-center justify-center rounded border border-zinc-200 bg-white text-sm text-zinc-700 hover:bg-zinc-50"
+                    >
+                      {expandLoadingId === item.id ? "…" : expandedId === item.id ? "▾" : "▸"}
+                    </button>
+                  </AdminTableCell>
+                  <AdminTableCell className={cn(cellPad, "whitespace-nowrap tabular-nums")}>
                     {formatDateTime(item.createdAt)}
                   </AdminTableCell>
-                  <AdminTableCell>{item.customerName}</AdminTableCell>
-                  <AdminTableCell className="max-w-[14rem]">
+                  <AdminTableCell className={cn(cellPad, "break-words")}>
+                    {item.customerName}
+                  </AdminTableCell>
+                  <AdminTableCell className={cn(cellPad, "break-words")}>
                     {item.address?.trim() ? (
                       <button
                         type="button"
                         onClick={() => void copyLeadContact(item)}
                         title="Скопировать: адрес, телефон, ФИО"
-                        className="max-w-full text-left text-sm text-zinc-900 underline decoration-zinc-300 underline-offset-2 hover:decoration-zinc-700"
+                        className="line-clamp-3 max-w-full text-left text-xs text-zinc-900 underline decoration-zinc-300 underline-offset-2 hover:decoration-zinc-700"
                       >
                         {copiedLeadId === item.id ? "Скопировано" : item.address.trim()}
                       </button>
@@ -702,13 +878,15 @@ export default function AdminLeadsPage() {
                       "—"
                     )}
                   </AdminTableCell>
-                  <AdminTableCell className="whitespace-nowrap">{item.phone}</AdminTableCell>
+                  <AdminTableCell className={cn(cellPad, "break-all tabular-nums")}>
+                    {item.phone}
+                  </AdminTableCell>
                   {showContractColumn ? (
-                    <AdminTableCell>
+                    <AdminTableCell className={cn(cellPad, "break-all")}>
                       {item.contractNumber ? (
                         <Link
                           href={`/admin/leads/${item.id}`}
-                          className="text-sm text-brand underline underline-offset-2 hover:opacity-80"
+                          className="text-xs text-brand underline underline-offset-2 hover:opacity-80"
                         >
                           {item.contractNumber}
                         </Link>
@@ -718,7 +896,7 @@ export default function AdminLeadsPage() {
                     </AdminTableCell>
                   ) : null}
                   {showProductNameColumn ? (
-                    <AdminTableCell>
+                    <AdminTableCell className={cellPad}>
                       {item.firstProductItemId ? (
                         <LeadProductNameInput
                           value={item.firstProductName || ""}
@@ -733,16 +911,17 @@ export default function AdminLeadsPage() {
                     </AdminTableCell>
                   ) : null}
                   {showCommentColumn ? (
-                    <AdminTableCell className="max-w-xs">
-                      {truncateText(item.clientComment) || "—"}
+                    <AdminTableCell className={cn(cellPad, "break-words")}>
+                      {truncateText(item.clientComment, 60) || "—"}
                     </AdminTableCell>
                   ) : null}
                   {showAmountColumn ? (
-                    <AdminTableCell className="whitespace-nowrap font-medium">
+                    <AdminTableCell className={cn(cellPad, "whitespace-nowrap font-medium tabular-nums")}>
                       {formatPrice(item.totalPrice)}
                     </AdminTableCell>
                   ) : null}
                   <AdminTableCell
+                    className={cellPad}
                     style={{
                       backgroundColor: (LEAD_STATUS_COLORS[item.status] || LEAD_STATUS_COLORS.not_issued)
                         .background,
@@ -752,9 +931,10 @@ export default function AdminLeadsPage() {
                       value={item.status}
                       disabled={savingId === item.id}
                       onChange={(status) => void handlePatch(item, { status })}
+                      className="min-w-0 w-full px-1 py-1 text-[11px]"
                     />
                   </AdminTableCell>
-                  <AdminTableCell className="whitespace-nowrap">
+                  <AdminTableCell className={cellPad}>
                     <input
                       type="date"
                       value={item.arrivalDate || ""}
@@ -762,18 +942,18 @@ export default function AdminLeadsPage() {
                       onChange={(event) =>
                         void handlePatch(item, { arrivalDate: event.target.value || null })
                       }
-                      className="h-8 w-[10.5rem] rounded border border-zinc-200 bg-white px-2 text-sm disabled:bg-zinc-50"
+                      className="h-7 w-full min-w-0 rounded border border-zinc-200 bg-white px-1 text-xs disabled:bg-zinc-50"
                       aria-label="Дата прихода"
                     />
                   </AdminTableCell>
-                  <AdminTableCell>
+                  <AdminTableCell className={cellPad}>
                     <LeadInvoiceNumberInput
                       value={item.invoiceNumber || ""}
                       disabled={savingId === item.id}
                       onSave={(invoiceNumber) => void handlePatch(item, { invoiceNumber })}
                     />
                   </AdminTableCell>
-                  <AdminTableCell>
+                  <AdminTableCell className={cellPad}>
                     {item.status === "measure" ? (
                       <LeadMeasureNoteInput
                         value={item.measureNote || ""}
@@ -786,7 +966,7 @@ export default function AdminLeadsPage() {
                   </AdminTableCell>
                   {showScheduleColumns ? (
                     <>
-                      <AdminTableCell className="whitespace-nowrap">
+                      <AdminTableCell className={cn(cellPad, "break-words")}>
                         <LeadScheduleCell
                           from={item.deliveryDate}
                           to={item.deliveryEndDate}
@@ -798,7 +978,7 @@ export default function AdminLeadsPage() {
                           }
                         />
                       </AdminTableCell>
-                      <AdminTableCell className="whitespace-nowrap">
+                      <AdminTableCell className={cn(cellPad, "break-words")}>
                         <LeadScheduleCell
                           from={item.installDate}
                           to={item.installEndDate}
@@ -810,12 +990,60 @@ export default function AdminLeadsPage() {
                       </AdminTableCell>
                     </>
                   ) : null}
-                  <AdminTableCell className="text-right">
-                    <Button variant="outline" size="sm" asChild>
-                      <Link href={`/admin/leads/${item.id}`}>Открыть</Link>
-                    </Button>
-                  </AdminTableCell>
                 </AdminTableRow>
+                {expandedId === item.id ? (
+                  <AdminTableRow className="bg-zinc-50 hover:bg-zinc-50">
+                    <AdminTableCell colSpan={tableColSpan} className="px-3 py-3">
+                      {expandLoadingId === item.id ? (
+                        <p className="text-sm text-zinc-500">Загрузка позиций…</p>
+                      ) : expandError ? (
+                        <p className="text-sm text-red-600">{expandError}</p>
+                      ) : (expandedItems[item.id] || []).length === 0 ? (
+                        <p className="text-sm text-zinc-500">В заявке нет позиций</p>
+                      ) : (
+                        <div className="overflow-x-auto rounded border border-zinc-200 bg-white">
+                          <table className="w-full text-left text-xs">
+                            <thead className="bg-zinc-50 text-[11px] uppercase tracking-wide text-zinc-500">
+                              <tr>
+                                <th className="px-3 py-2 font-semibold">Наименование</th>
+                                <th className="px-3 py-2 font-semibold">Артикул</th>
+                                <th className="px-3 py-2 font-semibold">Цвет</th>
+                                <th className="px-3 py-2 font-semibold text-right">Цена</th>
+                                <th className="px-3 py-2 font-semibold text-right">Кол-во</th>
+                                <th className="px-3 py-2 font-semibold text-right">Сумма</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-zinc-100">
+                              {(expandedItems[item.id] || []).map((line) => (
+                                <tr key={line.id}>
+                                  <td className="px-3 py-2 break-words text-zinc-900">
+                                    {line.name || "—"}
+                                  </td>
+                                  <td className="px-3 py-2 whitespace-nowrap text-zinc-600">
+                                    {line.sku || "—"}
+                                  </td>
+                                  <td className="px-3 py-2 break-words text-zinc-600">
+                                    {line.color || "—"}
+                                  </td>
+                                  <td className="px-3 py-2 whitespace-nowrap text-right tabular-nums">
+                                    {formatPrice(line.price)}
+                                  </td>
+                                  <td className="px-3 py-2 whitespace-nowrap text-right tabular-nums">
+                                    {line.quantity}
+                                  </td>
+                                  <td className="px-3 py-2 whitespace-nowrap text-right font-medium tabular-nums">
+                                    {formatPrice(line.price * line.quantity)}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </AdminTableCell>
+                  </AdminTableRow>
+                ) : null}
+                </Fragment>
               ))}
             </AdminTableBody>
           </AdminTable>

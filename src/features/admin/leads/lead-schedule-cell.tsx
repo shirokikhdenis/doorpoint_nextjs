@@ -36,10 +36,10 @@ export function LeadScheduleCell({
         variant="outline"
         size="sm"
         disabled={disabled}
-        className="h-8 whitespace-nowrap"
+        className="h-7 px-2 text-xs whitespace-nowrap"
         onClick={onAdd}
       >
-        Добавить
+        +
       </Button>
     );
   }
