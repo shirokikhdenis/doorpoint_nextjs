@@ -12,9 +12,12 @@ import { CartLeadForm } from "@/features/store/cart-lead-form";
 import { AdminCartLeadForm } from "@/features/store/admin-cart-lead-form";
 import {
   ADMIN_CART_SERVICE_DEFS,
+  clearAdminCartServiceLines,
   createInitialAdminCartServiceLines,
+  readAdminCartServiceLines,
   sumAdminServiceLines,
   toAdminServiceCartItems,
+  writeAdminCartServiceLines,
   type AdminCartServiceKey,
   type AdminCartServiceLineState,
 } from "@/features/store/admin-cart-service-lines";
@@ -27,6 +30,13 @@ import {
   writeAdminCartCustomLines,
   type AdminCartCustomLineState,
 } from "@/features/store/admin-cart-custom-lines";
+import {
+  clearAdminCartDiscount,
+  readAdminCartDiscount,
+  writeAdminCartDiscount,
+  type AdminCartDiscountState,
+} from "@/features/store/admin-cart-discount";
+import { computeLeadTotals, type DiscountKind } from "@/lib/client/lead-pricing";
 import { useAdminSession } from "@/lib/client/use-admin-session";
 import {
   resolveCartManufacturerArticle,
@@ -41,6 +51,12 @@ import {
 import { downloadCartKp } from "@/lib/client/admin-cart-kp";
 
 const formatSiteUrlForPrint = () => getSiteUrl().replace(/^https?:\/\//, "");
+
+const DISCOUNT_OPTIONS: Array<{ value: DiscountKind; label: string }> = [
+  { value: "none", label: "Без скидки" },
+  { value: "percent", label: "Процент" },
+  { value: "amount", label: "Сумма, ₽" },
+];
 
 const formatToday = () => {
   try {
@@ -885,10 +901,14 @@ export default function CartPage() {
   const [isExporting, setIsExporting] = useState(false);
   const [isGeneratingKp, setIsGeneratingKp] = useState(false);
   const [kpError, setKpError] = useState("");
-  const [serviceLines, setServiceLines] = useState(createInitialAdminCartServiceLines);
+  const [serviceLines, setServiceLines] = useState<AdminCartServiceLineState[]>(() =>
+    readAdminCartServiceLines(),
+  );
   const [customLines, setCustomLines] = useState<AdminCartCustomLineState[]>(() =>
     readAdminCartCustomLines(),
   );
+  const [discount, setDiscount] = useState<AdminCartDiscountState>(() => readAdminCartDiscount());
+  const [adminCartHydrated, setAdminCartHydrated] = useState(false);
 
   const adminMode = !adminLoading && isAdmin;
   const kpDoors = useMemo(() => listCartKpDoors(items), [items]);
@@ -903,6 +923,18 @@ export default function CartPage() {
     [adminMode, customLines],
   );
   const productTotal = totalPrice + customTotal;
+  const productItemsForDiscount = useMemo(
+    () => [...items, ...customCartItems],
+    [items, customCartItems],
+  );
+  const productTotals = useMemo(
+    () =>
+      adminMode
+        ? computeLeadTotals(productItemsForDiscount, discount.kind, discount.value)
+        : { subtotal: productTotal, discountAmount: 0, total: productTotal },
+    [adminMode, productItemsForDiscount, discount.kind, discount.value, productTotal],
+  );
+  const discountedProductTotal = productTotals.total;
   const serviceCartItems = useMemo(
     () => (adminMode ? toAdminServiceCartItems(serviceLines) : []),
     [adminMode, serviceLines],
@@ -915,15 +947,47 @@ export default function CartPage() {
     () => (adminMode ? [...items, ...customCartItems, ...serviceCartItems] : items),
     [adminMode, items, customCartItems, serviceCartItems],
   );
-  const invoiceTotal = productTotal + serviceTotal;
+  const invoiceTotal = discountedProductTotal + serviceTotal;
   const hasEnabledServices = serviceLines.some((line) => line.enabled);
   const hasClearableContent =
     items.length > 0 || customLines.length > 0 || hasEnabledServices;
 
   useEffect(() => {
-    if (!adminMode) return;
+    if (!adminMode) {
+      setAdminCartHydrated(false);
+      return;
+    }
+    setCustomLines(readAdminCartCustomLines());
+    setServiceLines(readAdminCartServiceLines());
+    setDiscount(readAdminCartDiscount());
+    setAdminCartHydrated(true);
+  }, [adminMode]);
+
+  useEffect(() => {
+    if (!adminMode || !adminCartHydrated) return;
     writeAdminCartCustomLines(customLines);
-  }, [adminMode, customLines]);
+  }, [adminMode, adminCartHydrated, customLines]);
+
+  useEffect(() => {
+    if (!adminMode || !adminCartHydrated) return;
+    writeAdminCartServiceLines(serviceLines);
+  }, [adminMode, adminCartHydrated, serviceLines]);
+
+  useEffect(() => {
+    if (!adminMode || !adminCartHydrated) return;
+    writeAdminCartDiscount(discount);
+  }, [adminMode, adminCartHydrated, discount]);
+
+  const updateDiscount = (patch: Partial<AdminCartDiscountState>) => {
+    setDiscount((current) => {
+      const kind = patch.kind !== undefined ? patch.kind : current.kind;
+      const value =
+        kind === "none"
+          ? 0
+          : Math.max(0, Math.floor(Number(patch.value !== undefined ? patch.value : current.value) || 0));
+      return { kind, value };
+    });
+  };
 
   const updateServiceLine = (
     key: AdminCartServiceKey,
@@ -957,8 +1021,11 @@ export default function CartPage() {
     if (!ok) return;
     clear();
     setServiceLines(createInitialAdminCartServiceLines());
+    clearAdminCartServiceLines();
     setCustomLines([]);
     clearAdminCartCustomLines();
+    setDiscount({ kind: "none", value: 0 });
+    clearAdminCartDiscount();
   };
 
   const handlePrint = () => {
@@ -970,7 +1037,10 @@ export default function CartPage() {
     setIsGeneratingKp(true);
     setKpError("");
     try {
-      await downloadCartKp(invoiceItems);
+      await downloadCartKp(invoiceItems, {
+        discountKind: discount.kind,
+        discountValue: discount.value,
+      });
     } catch (caught) {
       setKpError(caught instanceof Error ? caught.message : "Не удалось сформировать КП");
     } finally {
@@ -1296,21 +1366,54 @@ export default function CartPage() {
               </tr>
             ) : null}
             {adminMode ? (
-              <tr className="bg-zinc-50/80 print:break-inside-avoid print:bg-transparent">
-                <td colSpan={4} className="px-4 py-2.5 text-sm font-medium text-zinc-700 print:hidden">
-                  Стоимость товара
-                </td>
-                <td
-                  colSpan={3}
-                  className="hidden px-4 py-2.5 text-sm font-medium text-zinc-700 print:table-cell"
-                >
-                  Стоимость товара
-                </td>
-                <td className="whitespace-nowrap px-4 py-2.5 text-right text-sm font-semibold text-zinc-900">
-                  {formatPrice(productTotal)}
-                </td>
-                <td className="print:hidden" />
-              </tr>
+              <>
+                <tr className="bg-zinc-50/80 print:break-inside-avoid print:bg-transparent">
+                  <td colSpan={4} className="px-4 py-2.5 text-sm font-medium text-zinc-700 print:hidden">
+                    Стоимость товара
+                  </td>
+                  <td
+                    colSpan={3}
+                    className="hidden px-4 py-2.5 text-sm font-medium text-zinc-700 print:table-cell"
+                  >
+                    Стоимость товара
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-2.5 text-right text-sm font-semibold text-zinc-900">
+                    {formatPrice(productTotal)}
+                  </td>
+                  <td className="print:hidden" />
+                </tr>
+                {productTotals.discountAmount > 0 ? (
+                  <>
+                    <tr className="bg-rose-50/50 print:break-inside-avoid print:bg-transparent">
+                      <td colSpan={4} className="px-4 py-2 text-sm text-rose-700 print:hidden">
+                        Скидка
+                      </td>
+                      <td colSpan={3} className="hidden px-4 py-2 text-sm text-rose-700 print:table-cell">
+                        Скидка
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-2 text-right text-sm font-medium text-rose-700">
+                        −{formatPrice(productTotals.discountAmount)}
+                      </td>
+                      <td className="print:hidden" />
+                    </tr>
+                    <tr className="bg-zinc-50/80 print:break-inside-avoid print:bg-transparent">
+                      <td colSpan={4} className="px-4 py-2.5 text-sm font-medium text-zinc-700 print:hidden">
+                        Товар со скидкой
+                      </td>
+                      <td
+                        colSpan={3}
+                        className="hidden px-4 py-2.5 text-sm font-medium text-zinc-700 print:table-cell"
+                      >
+                        Товар со скидкой
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-2.5 text-right text-sm font-semibold text-zinc-900">
+                        {formatPrice(discountedProductTotal)}
+                      </td>
+                      <td className="print:hidden" />
+                    </tr>
+                  </>
+                ) : null}
+              </>
             ) : null}
 
             {adminMode && serviceCartItems.length > 0 ? (
@@ -1400,6 +1503,37 @@ export default function CartPage() {
         </fieldset>
       ) : null}
 
+      {adminMode ? (
+        <div className="mt-6 flex flex-wrap items-center justify-end gap-3 print:hidden">
+          <span className="text-sm font-medium text-zinc-700">Скидка на товар</span>
+          <select
+            className="rounded border border-zinc-200 px-3 py-1.5 text-sm"
+            value={discount.kind}
+            onChange={(event) => updateDiscount({ kind: event.target.value as DiscountKind })}
+          >
+            {DISCOUNT_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          {discount.kind !== "none" ? (
+            <>
+              <input
+                type="number"
+                min={0}
+                max={discount.kind === "percent" ? 100 : undefined}
+                step={1}
+                className="w-28 rounded border border-zinc-200 px-2 py-1.5 text-sm"
+                value={discount.value}
+                onChange={(event) => updateDiscount({ value: Number(event.target.value) || 0 })}
+              />
+              <span className="text-sm text-zinc-500">{discount.kind === "percent" ? "%" : "₽"}</span>
+            </>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="mt-6 space-y-1 text-right">
         {adminMode ? (
           <>
@@ -1407,15 +1541,30 @@ export default function CartPage() {
               Стоимость товара:{" "}
               <span className="font-medium text-zinc-900">{formatPrice(productTotal)}</span>
             </p>
+            {productTotals.discountAmount > 0 ? (
+              <>
+                <p className="text-sm text-rose-700">
+                  Скидка:{" "}
+                  <span className="font-medium">−{formatPrice(productTotals.discountAmount)}</span>
+                </p>
+                <p className="text-sm text-zinc-600">
+                  Товар со скидкой:{" "}
+                  <span className="font-medium text-zinc-900">
+                    {formatPrice(discountedProductTotal)}
+                  </span>
+                </p>
+              </>
+            ) : null}
             {serviceCartItems.length > 0 ? (
               <p className="text-sm text-zinc-600">
                 Стоимость услуг:{" "}
                 <span className="font-medium text-zinc-900">{formatPrice(serviceTotal)}</span>
               </p>
             ) : null}
-            {serviceCartItems.length > 0 ? (
+            {serviceCartItems.length > 0 || productTotals.discountAmount > 0 ? (
               <p className="text-lg font-semibold text-zinc-900">
-                Стоимость под ключ: {formatPrice(invoiceTotal)}
+                {serviceCartItems.length > 0 ? "Стоимость под ключ" : "Итого"}:{" "}
+                {formatPrice(invoiceTotal)}
               </p>
             ) : null}
           </>
@@ -1435,9 +1584,11 @@ export default function CartPage() {
           items={invoiceItems}
           productItems={[...items, ...customCartItems]}
           serviceItems={serviceCartItems}
-          productTotal={productTotal}
+          productTotal={discountedProductTotal}
           serviceTotal={serviceTotal}
           totalPrice={invoiceTotal}
+          discountKind={discount.kind}
+          discountValue={discount.value}
           manufacturerArticles={manufacturerArticles}
         />
       ) : (

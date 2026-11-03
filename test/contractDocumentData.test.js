@@ -75,3 +75,30 @@ test("buildContractData uses dash when delivery days missing", () => {
 test("buildContractFilename sanitizes contract number", () => {
   assert.equal(buildContractFilename({ contractNumber: "Д/007", id: 1 }), "dogovor-Д-007.docx");
 });
+
+test("buildContractData applies discount to itogo and exposes skidka", () => {
+  const data = buildContractData({
+    id: 9,
+    customerName: "Иванов",
+    phone: "+7900",
+    discountKind: "percent",
+    discountValue: 10,
+    items: [{ name: "Дверь", price: 10000, quantity: 1 }],
+  });
+
+  assert.match(data.subtotalFormatted, /10/);
+  assert.match(data.skidka, /1/);
+  assert.match(data.discountFormatted, /1/);
+  assert.match(data.itogo, /9/);
+  assert.equal(data.itogo, data.totalPriceFormatted);
+  assert.match(data.itogoPropisju, /девять/i);
+});
+
+test("buildContractData shows dash for skidka when no discount", () => {
+  const data = buildContractData({
+    id: 1,
+    items: [{ name: "Дверь", price: 5000, quantity: 1 }],
+  });
+  assert.equal(data.skidka, "—");
+  assert.match(data.itogo, /5/);
+});

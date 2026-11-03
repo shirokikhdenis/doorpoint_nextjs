@@ -25,6 +25,8 @@ export type CartItem = {
   hardwareServices?: CartHardwareService[];
   hideCartImage?: boolean;
   noProductLink?: boolean;
+  /** Admin cart service line (montage/delivery) — excluded from goods discount base. */
+  isService?: boolean;
 };
 
 export type CartLineRef = Pick<

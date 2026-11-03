@@ -180,4 +180,16 @@ export const cartStore = {
     persistAndNotify([]);
     return [];
   },
+
+  /** Replace entire cart (used when loading an order into the cart). */
+  replaceItems(items: Partial<CartItem>[], options?: AddCartItemOptions): CartItem[] {
+    const next = (Array.isArray(items) ? items : [])
+      .map((item) => sanitizeItem(item))
+      .filter((item) => item.id > 0 && item.name);
+    persistAndNotify(next);
+    if (options?.toast !== false) {
+      cartToast.show(options?.toast ?? "Корзина обновлена");
+    }
+    return next;
+  },
 };

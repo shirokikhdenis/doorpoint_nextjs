@@ -77,6 +77,7 @@ const mapLeadItemRow = (row) => ({
   sku: String(row.sku || ""),
   manufacturerId: String(row.manufacturerId || "").trim(),
   color: String(row.color || ""),
+  image: String(row.image || "").trim(),
   price: Number(row.price) || 0,
   quantity: Number(row.quantity) || 0,
   sortOrder: Number(row.sortOrder) || 0,
@@ -110,6 +111,29 @@ const leadItemSelectSql = `
       NULLIF(TRIM(p.attrs->>'manufacturer_id'), '')
     ) AS "manufacturerId",
     li.color,
+    COALESCE(
+      NULLIF(BTRIM(p.merged_image_url), ''),
+      (
+        SELECT pi.image_url
+        FROM product_images pi
+        WHERE pi.product_id = p.id
+          AND NULLIF(BTRIM(pi.image_url), '') IS NOT NULL
+          AND upper(trim(pi.image_url)) <> 'X'
+        ORDER BY pi.sort_order, pi.id
+        LIMIT 1
+      ),
+      (
+        SELECT pv.image_url
+        FROM product_variants pv
+        WHERE pv.product_id = p.id
+          AND pv.is_active = TRUE
+          AND NULLIF(BTRIM(pv.image_url), '') IS NOT NULL
+          AND upper(trim(pv.image_url)) <> 'X'
+        ORDER BY pv.sort_order, pv.id
+        LIMIT 1
+      ),
+      ''
+    ) AS image,
     li.price,
     li.quantity,
     li.sort_order AS "sortOrder"
@@ -125,6 +149,24 @@ const selectLeadItemsByLeadId = async (leadId, client) => {
   `;
   const itemsRes = client ? await client.query(sql, [leadId]) : await query(sql, [leadId]);
   return itemsRes.rows.map(mapLeadItemRow);
+};
+
+/** Batch-load line items for many leads (finance CSV with nomenclature). */
+const listLeadItemsByLeadIds = async (leadIds) => {
+  await ensureLeadTables();
+  const ids = Array.isArray(leadIds)
+    ? [...new Set(leadIds.map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0))]
+    : [];
+  if (ids.length === 0) return [];
+  const res = await query(
+    `
+    ${leadItemSelectSql}
+    WHERE li.lead_id = ANY($1::bigint[])
+    ORDER BY li.lead_id ASC, li.sort_order ASC, li.id ASC
+    `,
+    [ids],
+  );
+  return res.rows.map(mapLeadItemRow);
 };
 
 const createLeadWithItems = async (lead, items) => {
@@ -151,7 +193,7 @@ const createLeadWithItems = async (lead, items) => {
         discount_kind,
         discount_value
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, '', $12, $13, 'none', 0)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, '', $12, $13, $14, $15)
       RETURNING ${leadSelectFields}
       `,
       [
@@ -168,6 +210,8 @@ const createLeadWithItems = async (lead, items) => {
         lead.status || "not_issued",
         lead.clientComment || "",
         lead.sourcePage || "",
+        normalizeDiscountKind(lead.discountKind),
+        Math.max(0, Math.floor(Number(lead.discountValue) || 0)),
       ],
     );
 
@@ -447,10 +491,12 @@ const deleteLead = async (id) => {
 };
 
 /** Month key from contract date, falling back to created_at. */
-const financeMonthExpr = `to_char(COALESCE(contract_date, (created_at AT TIME ZONE 'Europe/Moscow')::date), 'YYYY-MM')`;
-const financeYearExpr = `EXTRACT(YEAR FROM COALESCE(contract_date, (created_at AT TIME ZONE 'Europe/Moscow')::date))`;
+const financeDateExpr = `COALESCE(contract_date, (created_at AT TIME ZONE 'Europe/Moscow')::date)`;
+const financeMonthExpr = `to_char(${financeDateExpr}, 'YYYY-MM')`;
+const financeYearExpr = `EXTRACT(YEAR FROM ${financeDateExpr})`;
 
 const DEFAULT_FINANCE_STATUSES = ["issued", "in_transit", "in_stock", "shipped"];
+const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
  * Monthly revenue / purchase / profit for finance page.
@@ -513,6 +559,8 @@ const listFinanceMonthlySummary = async ({ year, types, statuses } = {}) => {
 const listFinanceLeads = async ({
   year,
   month,
+  dateFrom,
+  dateTo,
   type,
   search,
   statuses,
@@ -520,7 +568,8 @@ const listFinanceLeads = async ({
   offset = 0,
 } = {}) => {
   await ensureLeadTables();
-  const safeLimit = Math.min(Math.max(Number(limit) || 200, 1), 500);
+  const maxLimit = Number(limit) > 500 ? 10000 : 500;
+  const safeLimit = Math.min(Math.max(Number(limit) || 200, 1), maxLimit);
   const safeOffset = Math.max(Number(offset) || 0, 0);
   const params = [safeLimit, safeOffset];
   const clauses = [];
@@ -544,18 +593,35 @@ const listFinanceLeads = async ({
     params.push(...statusList);
   }
 
-  const safeYear = Math.floor(Number(year));
-  if (Number.isInteger(safeYear) && safeYear >= 2000 && safeYear <= 2100) {
-    clauses.push(`${financeYearExpr} = $${paramIndex}`);
-    params.push(safeYear);
+  const fromKey = String(dateFrom || "").trim();
+  const toKey = String(dateTo || "").trim();
+  const hasDateRange = DATE_ONLY_RE.test(fromKey) || DATE_ONLY_RE.test(toKey);
+
+  if (DATE_ONLY_RE.test(fromKey)) {
+    clauses.push(`${financeDateExpr} >= $${paramIndex}::date`);
+    params.push(fromKey);
+    paramIndex += 1;
+  }
+  if (DATE_ONLY_RE.test(toKey)) {
+    clauses.push(`${financeDateExpr} <= $${paramIndex}::date`);
+    params.push(toKey);
     paramIndex += 1;
   }
 
-  const monthKey = String(month || "").trim();
-  if (/^\d{4}-\d{2}$/.test(monthKey)) {
-    clauses.push(`${financeMonthExpr} = $${paramIndex}`);
-    params.push(monthKey);
-    paramIndex += 1;
+  if (!hasDateRange) {
+    const safeYear = Math.floor(Number(year));
+    if (Number.isInteger(safeYear) && safeYear >= 2000 && safeYear <= 2100) {
+      clauses.push(`${financeYearExpr} = $${paramIndex}`);
+      params.push(safeYear);
+      paramIndex += 1;
+    }
+
+    const monthKey = String(month || "").trim();
+    if (/^\d{4}-\d{2}$/.test(monthKey)) {
+      clauses.push(`${financeMonthExpr} = $${paramIndex}`);
+      params.push(monthKey);
+      paramIndex += 1;
+    }
   }
 
   const searchTerm = String(search || "").trim();
@@ -582,7 +648,7 @@ const listFinanceLeads = async ({
       ) AS "firstProductName"
     FROM leads
     ${whereClause}
-    ORDER BY COALESCE(contract_date, (created_at AT TIME ZONE 'Europe/Moscow')::date) DESC, id DESC
+    ORDER BY ${financeDateExpr} DESC, id DESC
     LIMIT $1 OFFSET $2
     `,
     params,
@@ -619,6 +685,7 @@ module.exports = {
   listLeads,
   listFinanceMonthlySummary,
   listFinanceLeads,
+  listLeadItemsByLeadIds,
   listRecentContractNumbers,
   getLeadById,
   updateLead,

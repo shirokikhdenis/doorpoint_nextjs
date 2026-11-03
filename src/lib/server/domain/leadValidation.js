@@ -8,6 +8,7 @@ const MEASURE_LEAD_TYPE = "measure_lead";
 const LEAD_TYPES = [ADMIN_ORDER_TYPE, CART_LEAD_TYPE, MEASURE_LEAD_TYPE];
 const measureLeadService = require("../services/measureLeadService");
 const { formatCartItemName } = require("../../cart-item-name");
+const { computeLeadTotals, normalizeDiscountKind } = require("./leadPricing");
 
 const normalizePhone = (value) => String(value || "").replace(/[^\d+]/g, "").trim();
 
@@ -129,6 +130,17 @@ const validateAdminOrderPayload = (body) => {
   // Numeric contract number (cart create) → default status "Оформлена"
   const status = /^\d+$/.test(contractNumber) ? "issued" : DEFAULT_LEAD_STATUS;
 
+  const discountKind = normalizeDiscountKind(body?.discountKind);
+  const discountValueRaw = Number(body?.discountValue);
+  const discountValue =
+    discountKind === "none"
+      ? 0
+      : Math.max(0, Math.floor(Number.isFinite(discountValueRaw) ? discountValueRaw : 0));
+  if (discountKind === "percent" && discountValue > 100) {
+    return { ok: false, message: "Скидка не может быть больше 100%" };
+  }
+  const totals = computeLeadTotals(items, discountKind, discountValue);
+
   return {
     ok: true,
     data: {
@@ -141,7 +153,9 @@ const validateAdminOrderPayload = (body) => {
       deliveryDays: deliveryDaysResult.value ?? 15,
       arrivalDate: arrivalDateResult.value,
       invoiceNumber,
-      totalPrice: computeItemsTotal(items),
+      discountKind: totals.discountKind,
+      discountValue: totals.discountValue,
+      totalPrice: totals.total,
       clientComment: "",
       sourcePage: "",
       status,
@@ -227,7 +241,6 @@ const validateLeadPatch = (body) => {
   }
 
   if (body?.discountKind !== undefined) {
-    const { normalizeDiscountKind } = require("./leadPricing");
     data.discountKind = normalizeDiscountKind(body.discountKind);
     if (data.discountKind === "none") {
       data.discountValue = 0;

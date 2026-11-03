@@ -24,3 +24,31 @@ test("renderContractDocx produces non-empty docx buffer", async () => {
   assert.ok(buffer.length > 1000);
   assert.equal(buffer.subarray(0, 2).toString("utf8"), "PK");
 });
+
+test("renderContractDocx embeds discounted total and skidka", async () => {
+  const PizZip = require("pizzip");
+  const buffer = await renderContractDocx({
+    id: 2,
+    customerName: "Тестов Тест",
+    phone: "+79001234567",
+    address: "Архангельск",
+    contractNumber: "Д-DISC",
+    contractDate: "2026-06-15",
+    discountKind: "amount",
+    discountValue: 1500,
+    items: [{ name: "Дверь", sku: "SKU1", color: "Белый", price: 10000, quantity: 1 }],
+  });
+
+  const zip = new PizZip(buffer);
+  const text = zip
+    .file("word/document.xml")
+    .asText()
+    .replace(/<[^>]+>/g, " ");
+
+  assert.match(text, /8[\s\u00a0]?500/);
+  assert.match(text, /1[\s\u00a0]?500/);
+  assert.match(text, /Скидка/);
+  assert.match(text, /Сумма без скидки/);
+  assert.doesNotMatch(text, /\{skidka\}/);
+  assert.doesNotMatch(text, /\{itogo\}/);
+});

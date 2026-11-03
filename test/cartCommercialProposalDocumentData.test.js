@@ -73,7 +73,41 @@ test("buildCartKpPayload builds invoice lines and door metadata", () => {
   assert.match(result.door.productPageUrl, /\/product\/bravo-0$/);
   assert.equal(result.lines.length, 2);
   assert.equal(result.total, 13000);
+  assert.equal(result.hasDiscount, false);
   assert.match(result.totalFormatted, /₽/);
+});
+
+test("buildCartKpPayload applies goods discount and keeps services full price", () => {
+  const result = buildCartKpPayload({
+    items: [
+      {
+        id: 100,
+        categorySlug: "interior-doors",
+        name: "Браво-0",
+        price: 10000,
+        quantity: 1,
+      },
+      {
+        id: 0,
+        name: "Монтаж",
+        price: 3000,
+        quantity: 1,
+        isService: true,
+        noProductLink: true,
+        hideCartImage: true,
+      },
+    ],
+    discountKind: "percent",
+    discountValue: 10,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.subtotal, 13000);
+  assert.equal(result.discountAmount, 1000);
+  assert.equal(result.goodsTotal, 9000);
+  assert.equal(result.servicesTotal, 3000);
+  assert.equal(result.total, 12000);
+  assert.equal(result.hasDiscount, true);
 });
 
 test("buildCartKpFilenameBase sanitizes name when sku missing", () => {

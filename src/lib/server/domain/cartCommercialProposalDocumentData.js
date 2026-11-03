@@ -3,6 +3,7 @@ const {
   buildProductPageUrl,
 } = require("./kpPdfCompany");
 const { formatCartItemName } = require("../../cart-item-name");
+const { computeLeadTotals } = require("./leadPricing");
 const {
   formatKpPrice,
   formatKpDate,
@@ -82,9 +83,21 @@ const buildCartKpFilenameBase = (doorProduct, doorItem) => {
 };
 
 /**
- * @param {{ items: unknown[], doorProduct?: object, generatedAt?: Date }} input
+ * @param {{
+ *   items: unknown[],
+ *   doorProduct?: object,
+ *   generatedAt?: Date,
+ *   discountKind?: string,
+ *   discountValue?: number,
+ * }} input
  */
-const buildCartKpPayload = ({ items, doorProduct = null, generatedAt = new Date() } = {}) => {
+const buildCartKpPayload = ({
+  items,
+  doorProduct = null,
+  generatedAt = new Date(),
+  discountKind = "none",
+  discountValue = 0,
+} = {}) => {
   const doors = listCartKpDoors(items);
   const doorItem = doors[0] || null;
   if (!doorItem) {
@@ -114,7 +127,20 @@ const buildCartKpPayload = ({ items, doorProduct = null, generatedAt = new Date(
   const productRef = slug || doorItem.id;
   const productPageUrl = buildProductPageUrl(productRef);
   const lines = buildCartKpLines(items);
-  const total = lines.reduce((sum, line) => sum + line.sum, 0);
+
+  const sourceItems = Array.isArray(items) ? items : [];
+  const goodsItems = sourceItems.filter((item) => item?.isService !== true);
+  const serviceItems = sourceItems.filter((item) => item?.isService === true);
+  const goodsPricing = computeLeadTotals(goodsItems, discountKind, discountValue);
+  const servicesTotal = serviceItems.reduce(
+    (sum, item) =>
+      sum + (Number(item?.price) || 0) * Math.max(1, Number(item?.quantity) || 1),
+    0,
+  );
+  const subtotal = goodsPricing.subtotal + servicesTotal;
+  const discountAmount = goodsPricing.discountAmount;
+  const total = goodsPricing.total + servicesTotal;
+  const hasDiscount = discountAmount > 0;
 
   return {
     ok: true,
@@ -133,6 +159,19 @@ const buildCartKpPayload = ({ items, doorProduct = null, generatedAt = new Date(
       productPageLinkLabel: slug ? `/product/${slug}` : productPageUrl.replace(/^https?:\/\//, ""),
     },
     lines,
+    subtotal,
+    subtotalFormatted: formatKpPrice(subtotal),
+    discountAmount,
+    discountAmountFormatted: formatKpPrice(discountAmount),
+    discountKind: goodsPricing.discountKind,
+    discountValue: goodsPricing.discountValue,
+    hasDiscount,
+    goodsSubtotal: goodsPricing.subtotal,
+    goodsSubtotalFormatted: formatKpPrice(goodsPricing.subtotal),
+    goodsTotal: goodsPricing.total,
+    goodsTotalFormatted: formatKpPrice(goodsPricing.total),
+    servicesTotal,
+    servicesTotalFormatted: formatKpPrice(servicesTotal),
     total,
     totalFormatted: formatKpPrice(total),
   };

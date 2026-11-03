@@ -195,10 +195,14 @@ const listFinanceLeads = async (query = {}) => {
   }
   const year = query.year ? Number(query.year) : undefined;
   const month = query.month ? String(query.month).trim() : undefined;
+  const dateFrom = query.dateFrom || query.from ? String(query.dateFrom || query.from).trim() : undefined;
+  const dateTo = query.dateTo || query.to ? String(query.dateTo || query.to).trim() : undefined;
   const search = query.search ? String(query.search).trim() : undefined;
   const items = await leadRepository.listFinanceLeads({
     year,
     month,
+    dateFrom,
+    dateTo,
     type,
     search,
     statuses: FINANCE_LEAD_STATUSES,
@@ -208,6 +212,208 @@ const listFinanceLeads = async (query = {}) => {
   return { ok: true, items };
 };
 
+const FINANCE_STATUS_LABELS = {
+  issued: "Оформлена",
+  in_transit: "В пути",
+  in_stock: "На складе",
+  shipped: "Отгружена",
+};
+
+const FINANCE_TYPE_LABELS = {
+  admin_order: "Салон",
+  cart_lead: "Сайт",
+};
+
+const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+const escapeCsvCell = (value) => {
+  const text = String(value ?? "");
+  if (/[",;\n\r]/.test(text)) return `"${text.replace(/"/g, '""')}"`;
+  return text;
+};
+
+const formatFinanceCsvDate = (value) => {
+  if (!value) return "";
+  const raw = String(value);
+  const dateOnly = raw.slice(0, 10);
+  if (DATE_ONLY_RE.test(dateOnly)) {
+    const [y, m, d] = dateOnly.split("-");
+    return `${d}.${m}.${y}`;
+  }
+  try {
+    return new Date(raw).toLocaleDateString("ru-RU");
+  } catch {
+    return raw;
+  }
+};
+
+const buildFinanceLeadsCsv = (items) => {
+  const header = [
+    "Дата",
+    "Источник",
+    "ФИО",
+    "Телефон",
+    "№ договора",
+    "Товар",
+    "Сумма договора",
+    "Закуп",
+    "Прибыль",
+    "Статус",
+  ];
+  const lines = [header.map(escapeCsvCell).join(";")];
+  for (const item of items) {
+    const total = Number(item.totalPrice) || 0;
+    const purchase = Number(item.purchaseCost) || 0;
+    const dateValue = item.contractDate || item.createdAt;
+    lines.push(
+      [
+        formatFinanceCsvDate(dateValue),
+        FINANCE_TYPE_LABELS[item.type] || item.type || "",
+        item.customerName || "",
+        item.phone || "",
+        item.contractNumber || "",
+        item.firstProductName || "",
+        total,
+        purchase,
+        total - purchase,
+        FINANCE_STATUS_LABELS[item.status] || item.status || "",
+      ]
+        .map(escapeCsvCell)
+        .join(";"),
+    );
+  }
+  return `\uFEFF${lines.join("\r\n")}\r\n`;
+};
+
+/** One CSV row per lead line item (nomenclature), with lead context repeated. */
+const buildFinanceLeadsWithItemsCsv = (leads, lineItems) => {
+  const itemsByLeadId = new Map();
+  for (const line of lineItems) {
+    const leadId = Number(line.leadId);
+    if (!itemsByLeadId.has(leadId)) itemsByLeadId.set(leadId, []);
+    itemsByLeadId.get(leadId).push(line);
+  }
+
+  const header = [
+    "Дата",
+    "Источник",
+    "ФИО",
+    "Телефон",
+    "№ договора",
+    "Статус",
+    "Сумма договора",
+    "Закуп",
+    "Прибыль",
+    "Наименование",
+    "Артикул",
+    "Артикул пр-ля",
+    "Цвет",
+    "Цена",
+    "Кол-во",
+    "Сумма позиции",
+  ];
+  const lines = [header.map(escapeCsvCell).join(";")];
+
+  for (const lead of leads) {
+    const total = Number(lead.totalPrice) || 0;
+    const purchase = Number(lead.purchaseCost) || 0;
+    const dateValue = lead.contractDate || lead.createdAt;
+    const leadCols = [
+      formatFinanceCsvDate(dateValue),
+      FINANCE_TYPE_LABELS[lead.type] || lead.type || "",
+      lead.customerName || "",
+      lead.phone || "",
+      lead.contractNumber || "",
+      FINANCE_STATUS_LABELS[lead.status] || lead.status || "",
+      total,
+      purchase,
+      total - purchase,
+    ];
+    const leadLines = itemsByLeadId.get(Number(lead.id)) || [];
+    if (leadLines.length === 0) {
+      lines.push(
+        [...leadCols, "", "", "", "", "", "", ""]
+          .map(escapeCsvCell)
+          .join(";"),
+      );
+      continue;
+    }
+    for (const line of leadLines) {
+      const price = Number(line.price) || 0;
+      const quantity = Number(line.quantity) || 0;
+      lines.push(
+        [
+          ...leadCols,
+          line.name || "",
+          line.sku || "",
+          line.manufacturerId || "",
+          line.color || "",
+          price,
+          quantity,
+          price * quantity,
+        ]
+          .map(escapeCsvCell)
+          .join(";"),
+      );
+    }
+  }
+
+  return `\uFEFF${lines.join("\r\n")}\r\n`;
+};
+
+const isTruthyQueryFlag = (value) => {
+  const raw = String(value ?? "")
+    .trim()
+    .toLowerCase();
+  return raw === "1" || raw === "true" || raw === "yes" || raw === "items" || raw === "nomenclature";
+};
+
+const exportFinanceLeadsCsv = async (query = {}) => {
+  const type = query.type ? String(query.type).trim() : undefined;
+  if (type && !LEAD_TYPES.includes(type)) {
+    return { ok: false, status: 400, message: "Некорректный тип заявки" };
+  }
+  if (type === "measure_lead") {
+    return { ok: false, status: 400, message: "Заявки на замер не участвуют в финучёте" };
+  }
+
+  const dateFrom = String(query.dateFrom || query.from || "").trim();
+  const dateTo = String(query.dateTo || query.to || "").trim();
+  if (!DATE_ONLY_RE.test(dateFrom) || !DATE_ONLY_RE.test(dateTo)) {
+    return { ok: false, status: 400, message: "Укажите период: dateFrom и dateTo (ГГГГ-ММ-ДД)" };
+  }
+  if (dateFrom > dateTo) {
+    return { ok: false, status: 400, message: "Дата начала периода не может быть позже даты окончания" };
+  }
+
+  const withItems =
+    isTruthyQueryFlag(query.withItems) ||
+    isTruthyQueryFlag(query.items) ||
+    String(query.mode || "").trim().toLowerCase() === "items";
+
+  const search = query.search ? String(query.search).trim() : undefined;
+  const leads = await leadRepository.listFinanceLeads({
+    dateFrom,
+    dateTo,
+    type,
+    search,
+    statuses: FINANCE_LEAD_STATUSES,
+    limit: 10000,
+    offset: 0,
+  });
+
+  if (!withItems) {
+    const csv = buildFinanceLeadsCsv(leads);
+    const filename = `fin-leads-${dateFrom}_${dateTo}.csv`;
+    return { ok: true, csv, filename, count: leads.length };
+  }
+
+  const lineItems = await leadRepository.listLeadItemsByLeadIds(leads.map((lead) => lead.id));
+  const csv = buildFinanceLeadsWithItemsCsv(leads, lineItems);
+  const filename = `fin-leads-items-${dateFrom}_${dateTo}.csv`;
+  return { ok: true, csv, filename, count: leads.length, lineCount: lineItems.length };
+};
+
 module.exports = {
   createAdminOrder,
   createBlankAdminOrder,
@@ -215,6 +421,7 @@ module.exports = {
   createMeasureLead,
   listLeads,
   listFinanceLeads,
+  exportFinanceLeadsCsv,
   getFinanceSummary,
   getNextContractNumber,
   getLeadById,

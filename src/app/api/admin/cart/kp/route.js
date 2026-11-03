@@ -31,7 +31,12 @@ export const POST = (request) =>
       return json({ message: "format must be pdf or png" }, 400);
     }
 
-    const result = await cartCommercialProposalService.generateCartKpFiles({ items, format });
+    const result = await cartCommercialProposalService.generateCartKpFiles({
+      items,
+      format,
+      discountKind: body?.discountKind,
+      discountValue: body?.discountValue,
+    });
     if (!result.ok) {
       return json({ message: result.message }, result.status || 400);
     }

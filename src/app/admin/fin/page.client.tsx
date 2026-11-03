@@ -106,6 +106,67 @@ const leadMonthKey = (item: FinanceLead) => {
   }
 };
 
+const lastDayOfMonth = (year: number, monthIndex: number) =>
+  new Date(year, monthIndex + 1, 0).getDate();
+
+const periodFromYearMonth = (year: number, monthKey: string) => {
+  if (/^\d{4}-\d{2}$/.test(monthKey)) {
+    const monthIndex = Number(monthKey.slice(5, 7)) - 1;
+    const y = Number(monthKey.slice(0, 4));
+    const last = lastDayOfMonth(y, monthIndex);
+    return {
+      from: `${monthKey}-01`,
+      to: `${monthKey}-${String(last).padStart(2, "0")}`,
+    };
+  }
+  return {
+    from: `${year}-01-01`,
+    to: `${year}-12-31`,
+  };
+};
+
+const downloadFinanceLeadsCsv = async ({
+  dateFrom,
+  dateTo,
+  type,
+  search,
+  withItems = false,
+}: {
+  dateFrom: string;
+  dateTo: string;
+  type?: string;
+  search?: string;
+  withItems?: boolean;
+}) => {
+  const params = new URLSearchParams();
+  params.set("dateFrom", dateFrom);
+  params.set("dateTo", dateTo);
+  if (type) params.set("type", type);
+  if (search) params.set("search", search);
+  if (withItems) params.set("withItems", "1");
+  const response = await fetch(`/api/admin/fin/leads/export?${params.toString()}`, {
+    credentials: "include",
+  });
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => ({}))) as { message?: string };
+    throw new Error(payload.message || `Ошибка экспорта (${response.status})`);
+  }
+  const blob = await response.blob();
+  const disposition = response.headers.get("content-disposition") || "";
+  const match = /filename="([^"]+)"/i.exec(disposition);
+  const filename =
+    match?.[1] ||
+    (withItems
+      ? `fin-leads-items-${dateFrom}_${dateTo}.csv`
+      : `fin-leads-${dateFrom}_${dateTo}.csv`);
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+};
+
 function PurchaseCostInput({
   value,
   disabled,
@@ -165,6 +226,11 @@ export default function AdminFinPage() {
   const [loadingLeads, setLoadingLeads] = useState(true);
   const [error, setError] = useState("");
   const [savingId, setSavingId] = useState<number | null>(null);
+  const initialPeriod = periodFromYearMonth(currentYear, "");
+  const [exportFrom, setExportFrom] = useState(initialPeriod.from);
+  const [exportTo, setExportTo] = useState(initialPeriod.to);
+  const [exporting, setExporting] = useState(false);
+  const [exportWithItems, setExportWithItems] = useState(false);
 
   const yearOptions = useMemo(() => {
     const years: number[] = [];
@@ -176,6 +242,12 @@ export default function AdminFinPage() {
     const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
     return () => window.clearTimeout(timer);
   }, [search]);
+
+  useEffect(() => {
+    const period = periodFromYearMonth(year, selectedMonth);
+    setExportFrom(period.from);
+    setExportTo(period.to);
+  }, [year, selectedMonth]);
 
   const typeQuery = typeFilter === "all" ? "" : typeFilter;
 
@@ -483,6 +555,69 @@ export default function AdminFinPage() {
               className="w-full max-w-md rounded border border-zinc-200 px-3 py-2 text-sm"
             />
           </div>
+          <div>
+            <label className="mb-1 block text-sm text-zinc-600" htmlFor="fin-export-from">
+              Период с
+            </label>
+            <input
+              id="fin-export-from"
+              type="date"
+              value={exportFrom}
+              onChange={(event) => setExportFrom(event.target.value)}
+              className="rounded border border-zinc-200 px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm text-zinc-600" htmlFor="fin-export-to">
+              по
+            </label>
+            <input
+              id="fin-export-to"
+              type="date"
+              value={exportTo}
+              onChange={(event) => setExportTo(event.target.value)}
+              className="rounded border border-zinc-200 px-3 py-2 text-sm"
+            />
+          </div>
+          <label className="flex items-center gap-2 self-end pb-2 text-sm text-zinc-700">
+            <input
+              type="checkbox"
+              checked={exportWithItems}
+              onChange={(event) => setExportWithItems(event.target.checked)}
+              className="h-4 w-4 rounded border-zinc-300"
+            />
+            С номенклатурой
+          </label>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={exporting || !exportFrom || !exportTo}
+            onClick={() => {
+              void (async () => {
+                setExporting(true);
+                setError("");
+                try {
+                  await downloadFinanceLeadsCsv({
+                    dateFrom: exportFrom,
+                    dateTo: exportTo,
+                    type: typeQuery || undefined,
+                    search: debouncedSearch || undefined,
+                    withItems: exportWithItems,
+                  });
+                } catch (caught) {
+                  setError(caught instanceof Error ? caught.message : "Не удалось экспортировать CSV");
+                } finally {
+                  setExporting(false);
+                }
+              })();
+            }}
+          >
+            {exporting
+              ? "Экспорт…"
+              : exportWithItems
+                ? "Экспорт CSV с номенклатурой"
+                : "Экспорт CSV"}
+          </Button>
           <p className="self-end pb-2 text-sm text-zinc-500">
             {selectedMonth
               ? `Заявки: ${formatMonthLabel(selectedMonth)}`

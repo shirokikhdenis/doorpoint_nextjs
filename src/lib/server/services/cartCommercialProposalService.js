@@ -224,8 +224,29 @@ const drawInvoiceTable = (doc, payload, startY) => {
     drawRow(line);
   }
 
-  y = ensureSpace(doc, y, 36);
+  const totalsBlockHeight = payload.hasDiscount ? (payload.servicesTotal > 0 ? 72 : 56) : 36;
+  y = ensureSpace(doc, y, totalsBlockHeight);
   y += 8;
+  if (payload.hasDiscount) {
+    doc
+      .font(FONT_REGULAR)
+      .fontSize(10)
+      .fillColor(TEXT_MUTED)
+      .text(`Сумма без скидки: ${payload.subtotalFormatted}`, PAGE_MARGIN, y, {
+        width,
+        align: "right",
+      });
+    y = doc.y + 4;
+    doc
+      .font(FONT_REGULAR)
+      .fontSize(10)
+      .fillColor(TEXT_PRIMARY)
+      .text(`Скидка: −${payload.discountAmountFormatted}`, PAGE_MARGIN, y, {
+        width,
+        align: "right",
+      });
+    y = doc.y + 6;
+  }
   doc
     .font(FONT_BOLD)
     .fontSize(12)
@@ -318,8 +339,17 @@ const renderCartKpPng = async (payload) => {
     .join("");
 
   const tableStart = pad + 70 + imageH + 48;
-  const tableHeight = 40 + payload.lines.length * 44 + 70;
+  const totalsExtra = payload.hasDiscount ? 56 : 0;
+  const tableHeight = 40 + payload.lines.length * 44 + 70 + totalsExtra;
   const height = tableStart + tableHeight + 120;
+  const totalsY = tableStart + 36 + payload.lines.length * 44 + 36;
+  const totalsBlock = payload.hasDiscount
+    ? `
+  <text x="${width - pad}" y="${totalsY}" text-anchor="end" font-family="Geometria" font-size="18" fill="${TEXT_MUTED}">Сумма без скидки: ${xmlEscape(payload.subtotalFormatted)}</text>
+  <text x="${width - pad}" y="${totalsY + 28}" text-anchor="end" font-family="Geometria" font-size="18" fill="${TEXT_PRIMARY}">Скидка: −${xmlEscape(payload.discountAmountFormatted)}</text>
+  <text x="${width - pad}" y="${totalsY + 64}" text-anchor="end" font-family="GeometriaBold" font-size="28" fill="${TEXT_PRIMARY}">Итого: ${xmlEscape(payload.totalFormatted)}</text>`
+    : `
+  <text x="${width - pad}" y="${totalsY}" text-anchor="end" font-family="GeometriaBold" font-size="28" fill="${TEXT_PRIMARY}">Итого: ${xmlEscape(payload.totalFormatted)}</text>`;
 
   const doorName = xmlEscape(payload.door.displayName.slice(0, 90));
   const svg = `<?xml version="1.0" encoding="UTF-8"?>
@@ -368,7 +398,7 @@ const renderCartKpPng = async (payload) => {
   <g transform="translate(${pad}, ${tableStart + 36})">
     ${linesSvg}
   </g>
-  <text x="${width - pad}" y="${tableStart + 36 + payload.lines.length * 44 + 36}" text-anchor="end" font-family="GeometriaBold" font-size="28" fill="${TEXT_PRIMARY}">Итого: ${xmlEscape(payload.totalFormatted)}</text>
+  ${totalsBlock}
   <line x1="${pad}" y1="${height - 110}" x2="${width - pad}" y2="${height - 110}" stroke="${BRAND_COLOR}" stroke-width="3"/>
   <text x="${pad}" y="${height - 74}" font-family="Geometria" font-size="18" fill="${TEXT_PRIMARY}">${xmlEscape(`${SITE_PHONE_DISPLAY}  ·  ${SITE_EMAIL}`)}</text>
   <text x="${pad}" y="${height - 48}" font-family="Geometria" font-size="16" fill="${TEXT_MUTED}">${xmlEscape(SITE_ADDRESS_SHORT)}</text>
@@ -387,9 +417,19 @@ const resolveDoorProduct = async (items) => {
   return catalogService.getProductById(Number(doors[0].id));
 };
 
-const generateCartKpFiles = async ({ items, format = "both" } = {}) => {
+const generateCartKpFiles = async ({
+  items,
+  format = "both",
+  discountKind = "none",
+  discountValue = 0,
+} = {}) => {
   const doorProduct = await resolveDoorProduct(items);
-  const payload = buildCartKpPayload({ items, doorProduct });
+  const payload = buildCartKpPayload({
+    items,
+    doorProduct,
+    discountKind,
+    discountValue,
+  });
   if (!payload.ok) {
     return { ok: false, status: 400, message: payload.message };
   }

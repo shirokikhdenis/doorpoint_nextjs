@@ -91,6 +91,31 @@ test("validateAdminOrderPayload accepts accounting fields", () => {
   assert.equal(result.data.invoiceNumber, "счёт 42");
 });
 
+test("validateAdminOrderPayload transfers cart discount", () => {
+  const result = validateAdminOrderPayload({
+    customerName: "Иванов Иван",
+    phone: "+79001234567",
+    discountKind: "percent",
+    discountValue: 10,
+    items: [{ name: "Дверь", price: 10000, quantity: 1 }],
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.data.discountKind, "percent");
+  assert.equal(result.data.discountValue, 10);
+  assert.equal(result.data.totalPrice, 9000);
+});
+
+test("validateAdminOrderPayload rejects percent discount over 100", () => {
+  const result = validateAdminOrderPayload({
+    customerName: "Иванов Иван",
+    phone: "+79001234567",
+    discountKind: "percent",
+    discountValue: 150,
+    items: [{ name: "Дверь", price: 1000, quantity: 1 }],
+  });
+  assert.equal(result.ok, false);
+});
+
 test("validateAdminOrderPayload requires at least one item", () => {
   const result = validateAdminOrderPayload({
     customerName: "Иванов Иван",

@@ -21,12 +21,26 @@ const downloadBlob = async (blob: Blob, filename: string) => {
   URL.revokeObjectURL(url);
 };
 
-const downloadCartKpFormat = async (items: unknown[], format: "pdf" | "png") => {
+type CartKpDiscountOptions = {
+  discountKind?: "none" | "percent" | "amount";
+  discountValue?: number;
+};
+
+const downloadCartKpFormat = async (
+  items: unknown[],
+  format: "pdf" | "png",
+  discount?: CartKpDiscountOptions,
+) => {
   const response = await fetch("/api/admin/cart/kp", {
     method: "POST",
     credentials: "include",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ items, format }),
+    body: JSON.stringify({
+      items,
+      format,
+      discountKind: discount?.discountKind || "none",
+      discountValue: discount?.discountValue || 0,
+    }),
   });
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));
@@ -43,7 +57,7 @@ const downloadCartKpFormat = async (items: unknown[], format: "pdf" | "png") => 
 };
 
 /** Скачивает PDF и PNG коммерческого предложения по составу корзины. */
-export const downloadCartKp = async (items: unknown[]) => {
-  await downloadCartKpFormat(items, "pdf");
-  await downloadCartKpFormat(items, "png");
+export const downloadCartKp = async (items: unknown[], discount?: CartKpDiscountOptions) => {
+  await downloadCartKpFormat(items, "pdf", discount);
+  await downloadCartKpFormat(items, "png", discount);
 };

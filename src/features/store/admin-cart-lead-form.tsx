@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { CartItem } from "@/lib/client/cart-types";
 import { formatCartItemName } from "@/lib/client/cart-item-name";
+import type { DiscountKind } from "@/lib/client/lead-pricing";
 import { resolveCartManufacturerArticle } from "@/lib/client/use-cart-manufacturer-articles";
 import { formatPrice } from "@/lib/client/format";
 
@@ -18,6 +19,8 @@ type AdminCartLeadFormProps = {
   productTotal?: number;
   serviceTotal?: number;
   totalPrice: number;
+  discountKind?: DiscountKind;
+  discountValue?: number;
   manufacturerArticles?: Map<number, string>;
   onSubmitted?: () => void;
 };
@@ -31,6 +34,8 @@ export function AdminCartLeadForm({
   productTotal,
   serviceTotal,
   totalPrice,
+  discountKind = "none",
+  discountValue = 0,
   manufacturerArticles,
   onSubmitted,
 }: AdminCartLeadFormProps) {
@@ -97,6 +102,8 @@ export function AdminCartLeadForm({
           deliveryDays: deliveryDays.trim() ? Number(deliveryDays) : null,
           arrivalDate: arrivalDate || null,
           invoiceNumber: invoiceNumber.trim(),
+          discountKind,
+          discountValue: discountKind === "none" ? 0 : Math.max(0, Math.floor(Number(discountValue) || 0)),
           items: items.map((item) => ({
             id: item.id,
             name: item.name,

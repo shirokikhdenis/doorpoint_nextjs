@@ -18,15 +18,23 @@ import { formatCartItemName } from "@/lib/client/cart-item-name";
 import { formatPrice } from "@/lib/client/format";
 import { computeLeadTotals, type DiscountKind } from "@/lib/client/lead-pricing";
 import { LeadStatusSelect } from "@/features/admin/leads/lead-status-select";
+import { loadLeadIntoCart } from "@/features/store/load-lead-into-cart";
+import { cartStore } from "@/lib/client/cart-store";
+import {
+  readAdminCartCustomLines,
+} from "@/features/store/admin-cart-custom-lines";
+import { readAdminCartServiceLines } from "@/features/store/admin-cart-service-lines";
 import { DEFAULT_LEAD_STATUS } from "@/lib/client/lead-status";
 import { cn } from "@/lib/utils";
 
 type LeadItem = {
   id: number;
+  productId?: number | null;
   name: string;
   sku: string;
   manufacturerId?: string;
   color: string;
+  image?: string;
   price: number;
   quantity: number;
 };
@@ -375,6 +383,53 @@ export default function AdminLeadDetailPage({ params }: { params: Promise<{ id: 
     }
   };
 
+  const onLoadIntoCart = () => {
+    if (!lead || !hasOrderItems(lead)) return;
+
+    const cartBusy =
+      cartStore.getItems().length > 0 ||
+      readAdminCartCustomLines().length > 0 ||
+      readAdminCartServiceLines().some((line) => line.enabled);
+    if (cartBusy) {
+      const ok = window.confirm(
+        "В корзине уже есть позиции. Заменить содержимое составом этой заявки?",
+      );
+      if (!ok) return;
+    }
+
+    try {
+      const draftsById = new Map(itemDrafts.map((draft) => [draft.id, draft]));
+      const items = lead.items.map((item) => {
+        const draft = draftsById.get(item.id);
+        const price = Number(draft?.price);
+        const quantity = Number(draft?.quantity);
+        return {
+          productId: item.productId ?? null,
+          name: item.name,
+          sku: item.sku,
+          manufacturerId: item.manufacturerId,
+          color: item.color,
+          image: item.image,
+          price: Number.isFinite(price) && price >= 0 ? Math.floor(price) : item.price,
+          quantity:
+            Number.isInteger(quantity) && quantity >= 1 ? quantity : item.quantity,
+        };
+      });
+      const loaded = loadLeadIntoCart({
+        items,
+        discountKind,
+        discountValue: Number(discountValue) || 0,
+      });
+      if (loaded === 0) {
+        setError("В заявке нет позиций для загрузки в корзину");
+        return;
+      }
+      router.push("/cart");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Не удалось загрузить в корзину");
+    }
+  };
+
   if (loading) {
     return (
       <AdminPage title="Заявка">
@@ -416,9 +471,14 @@ export default function AdminLeadDetailPage({ params }: { params: Promise<{ id: 
             {typeLabel}
           </span>
           {hasOrderItems(lead) ? (
-            <Button size="sm" asChild>
-              <a href={`/api/admin/leads/${lead.id}/contract`}>Скачать договор (.docx)</a>
-            </Button>
+            <>
+              <Button size="sm" variant="outline" type="button" onClick={onLoadIntoCart}>
+                В корзину
+              </Button>
+              <Button size="sm" asChild>
+                <a href={`/api/admin/leads/${lead.id}/contract`}>Скачать договор (.docx)</a>
+              </Button>
+            </>
           ) : null}
           <AdminConfirmButton
             confirmMessage={`Удалить заявку «${lead.customerName || `№${lead.id}`}»? Действие нельзя отменить.`}
