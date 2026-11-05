@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import { HomeArmaFotoTeaser } from "@/features/home/home-arma-foto-teaser";
 import { HomeCategoryTiles } from "@/features/home/home-category-tiles";
-import type { HomeDoorOfWeekItem } from "@/features/home/home-door-of-week";
+import {
+  HomeDoorOfWeekSection,
+  type HomeDoorOfWeekItem,
+} from "@/features/home/home-door-of-week";
 import { HomeFactoryLogos } from "@/features/home/home-factory-logos";
 import { HomeHero } from "@/features/home/home-hero";
 import { HomePortfolioTeaser } from "@/features/home/home-portfolio-teaser";
@@ -146,11 +149,26 @@ export default async function HomePage() {
       <WebsiteJsonLd />
       <main className={cn(storefrontPageContainerClass, "space-y-12 py-6 lg:space-y-16 lg:py-8")}>
         <HomeHero />
-        <HomePromotions banners={promotionBanners} cards={promoCards} doorOfWeekItems={doorOfWeekItems} />
-        <HomeCategoryTiles
-          interiorCoverImage={homeData.interiorCoverImage}
-          entryCoverImage={homeData.entryCoverImage}
-        />
+        <HomePromotions banners={promotionBanners} cards={promoCards} />
+        {/* Mobile: categories → door of week. Desktop: door of week → categories. */}
+        {doorOfWeekItems.length > 0 ? (
+          <div className="flex flex-col gap-12 lg:gap-16">
+            <div className="order-2 lg:order-1">
+              <HomeDoorOfWeekSection items={doorOfWeekItems} />
+            </div>
+            <div className="order-1 lg:order-2">
+              <HomeCategoryTiles
+                interiorCoverImage={homeData.interiorCoverImage}
+                entryCoverImage={homeData.entryCoverImage}
+              />
+            </div>
+          </div>
+        ) : (
+          <HomeCategoryTiles
+            interiorCoverImage={homeData.interiorCoverImage}
+            entryCoverImage={homeData.entryCoverImage}
+          />
+        )}
         <HomeFactoryLogos items={factoryLogos} />
         <HomeProductHits
           title="Межкомнатные хиты продаж"

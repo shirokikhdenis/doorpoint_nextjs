@@ -89,3 +89,18 @@ export function HomeDoorOfWeek({ item }: HomeDoorOfWeekProps) {
     </article>
   );
 }
+
+export function HomeDoorOfWeekSection({ items }: { items: HomeDoorOfWeekItem[] }) {
+  if (!items.length) return null;
+  return (
+    <div
+      className={
+        items.length > 1 ? "grid items-stretch gap-4 xl:grid-cols-2" : "grid gap-4"
+      }
+    >
+      {items.map((item) => (
+        <HomeDoorOfWeek key={item.slot} item={item} />
+      ))}
+    </div>
+  );
+}
