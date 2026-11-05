@@ -2,6 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { CatalogActiveFilterChips } from "@/features/catalog/catalog-active-filter-chips";
+import { CatalogBravoColorFacets } from "@/features/catalog/catalog-bravo-color-facets";
 import { resolveCatalogGridLayout } from "@/features/catalog/catalog-constants";
 import { CatalogFilterDrawer } from "@/features/catalog/catalog-filter-drawer";
 import { CatalogFilterSidebar } from "@/features/catalog/catalog-filter-sidebar";
@@ -18,12 +19,15 @@ import { useCatalogProducts } from "@/features/catalog/use-catalog-products";
 import { MeasureLeadForm } from "@/features/store/measure-lead-form";
 import type { CatalogShellInitial } from "@/lib/server/catalog-shell";
 import type { CatalogMeta } from "@/lib/client/normalizers";
+import { useAdminSession } from "@/lib/client/use-admin-session";
 
 type CatalogPageClientProps = {
   initial: CatalogShellInitial;
 };
 
 function CatalogPageContent({ initial }: CatalogPageClientProps) {
+  const { isAdmin, loading: adminLoading } = useAdminSession();
+  const adminMode = !adminLoading && isAdmin;
   const [meta, setMeta] = useState<CatalogMeta>(initial.meta);
   const filters = useCatalogFilters(meta, {
     initialCatalogPage: initial.catalogPage,
@@ -37,14 +41,23 @@ function CatalogPageContent({ initial }: CatalogPageClientProps) {
     };
   }, []);
 
-  const { products, total, page, setPage, loading, loadingMore, error, isRestoringReturn } =
-    useCatalogProducts({
-      catalogPage: filters.catalogPage,
-      setCatalogPage: filters.setCatalogPage,
-      query: filters.query,
-      setMeta,
-      initial,
-    });
+  const {
+    products,
+    total,
+    page,
+    setPage,
+    loading,
+    loadingMore,
+    error,
+    isRestoringReturn,
+    colorFacets,
+  } = useCatalogProducts({
+    catalogPage: filters.catalogPage,
+    setCatalogPage: filters.setCatalogPage,
+    query: filters.query,
+    setMeta,
+    initial,
+  });
 
   const rememberScrollForProduct = useCallback(() => {
     if (typeof window === "undefined") return;
@@ -123,7 +136,7 @@ function CatalogPageContent({ initial }: CatalogPageClientProps) {
           </CatalogFilterDrawer>
 
           <div className="min-w-0 flex-1 space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-2 lg:hidden">
                 <button
                   type="button"
@@ -136,6 +149,13 @@ function CatalogPageContent({ initial }: CatalogPageClientProps) {
                   {products.length > 0 ? `${products.length} из ${total}` : "Подберите параметры"}
                 </span>
               </div>
+              {adminMode ? (
+                <CatalogBravoColorFacets
+                  facets={colorFacets}
+                  selected={filters.attrSelections.color || []}
+                  onSelect={filters.selectBravoColorFacet}
+                />
+              ) : null}
               <div className="ml-auto flex min-w-0 items-center gap-2">
                 <label htmlFor="catalog-sort" className="shrink-0 text-xs text-zinc-500 sm:text-sm">
                   Сортировка

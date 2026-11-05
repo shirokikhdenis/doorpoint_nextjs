@@ -20,6 +20,7 @@ const createInitialCatalogSessionState = (catalogPage, searchKey) => ({
   error: "",
   restore: null,
   restoreScrollApplied: false,
+  colorFacets: [],
 });
 
 const catalogSessionReducer = (state, action) => {
@@ -35,6 +36,7 @@ const catalogSessionReducer = (state, action) => {
         status: state.restore ? "restoring" : "idle",
         error: "",
         restoreScrollApplied: false,
+        colorFacets: Array.isArray(action.colorFacets) ? action.colorFacets : [],
       };
 
     case "USER_FILTER_CHANGE":
@@ -81,6 +83,11 @@ const catalogSessionReducer = (state, action) => {
       const nextTotal = action.append
         ? Math.max(state.total, action.total)
         : action.total;
+      const nextFacets = Array.isArray(action.colorFacets)
+        ? action.colorFacets
+        : action.append
+          ? state.colorFacets
+          : [];
       return {
         ...state,
         searchKey: action.searchKey,
@@ -91,6 +98,7 @@ const catalogSessionReducer = (state, action) => {
         page: action.page,
         status: state.restore && !state.restoreScrollApplied ? "restoring" : "idle",
         error: "",
+        colorFacets: nextFacets,
       };
     }
 
@@ -124,6 +132,9 @@ const catalogSessionReducer = (state, action) => {
         searchKey: action.searchKey,
         status: "restoring",
         error: "",
+        colorFacets: Array.isArray(action.colorFacets)
+          ? action.colorFacets
+          : state.colorFacets,
       };
 
     case "RESTORE_SCROLL_APPLIED":

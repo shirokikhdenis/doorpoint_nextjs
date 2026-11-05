@@ -1,5 +1,5 @@
 import type { CatalogFilterState } from "@/features/catalog/catalog-types";
-import type { ProductCard } from "@/lib/client/normalizers";
+import type { CatalogColorFacet, ProductCard } from "@/lib/client/normalizers";
 
 export type CatalogReturnPayload = {
   catalogPage: string;
@@ -35,6 +35,7 @@ export type CatalogSessionState = {
   error: string;
   restore: CatalogRestoreTarget | null;
   restoreScrollApplied: boolean;
+  colorFacets: CatalogColorFacet[];
 };
 
 export type CatalogSessionAction =
@@ -45,6 +46,7 @@ export type CatalogSessionAction =
       products: ProductCard[];
       total: number;
       page?: number;
+      colorFacets?: CatalogColorFacet[];
     }
   | { type: "USER_FILTER_CHANGE"; searchKey: string }
   | { type: "VITRINE_CHANGE"; catalogPage: string; searchKey: string }
@@ -57,6 +59,7 @@ export type CatalogSessionAction =
       products: ProductCard[];
       total: number;
       append: boolean;
+      colorFacets?: CatalogColorFacet[];
     }
   | { type: "FETCH_ERROR"; message: string }
   | { type: "RESTORE_BEGIN"; restore: CatalogRestoreTarget }
@@ -66,6 +69,7 @@ export type CatalogSessionAction =
       total: number;
       page: number;
       searchKey: string;
+      colorFacets?: CatalogColorFacet[];
     }
   | { type: "RESTORE_SCROLL_APPLIED" };
 
@@ -82,4 +86,5 @@ export const createInitialCatalogSessionState = (
   error: "",
   restore: null,
   restoreScrollApplied: false,
+  colorFacets: [],
 });

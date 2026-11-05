@@ -51,6 +51,29 @@ export type CatalogMeta = {
 };
 export type ProductGlassOption = { id: number; label: string };
 
+/** Sibling color for Bravo catalog cards (pictogram + product photo). */
+export type ProductColorOption = {
+  id: number;
+  slug?: string;
+  /** Product name for this color (important for fittings). */
+  name?: string;
+  color: string;
+  /** Product photo for this color (switches the card image). */
+  image: string;
+  /** Coating pictogram shown as the clickable swatch. */
+  swatch: string;
+  price: number;
+};
+
+/** Bravo storefront color pictogram filter facet. */
+export type CatalogColorFacet = {
+  color: string;
+  swatch: string;
+  count: number;
+  /** Coating subcategory slug (пэт / экошпон / …) for this color. */
+  subcategorySlug?: string;
+};
+
 export type ProductCard = {
   id: number;
   sku?: string;
@@ -71,6 +94,8 @@ export type ProductCard = {
   compareAtPrice?: number | null;
   /** Варианты стекла той же модели (тот же model_key + name, тот же color); для чипов в выдаче. */
   glassOptions?: ProductGlassOption[];
+  /** Варианты цвета Браво (пиктограммы на витрине). */
+  colorOptions?: ProductColorOption[];
   badges?: ProductBadge[];
   /** Произвольный флажок (текст + цвет), независим от hit/sale. */
   flagLabel?: string;
@@ -381,6 +406,38 @@ const normalizeOptionalImage = (value: unknown) => {
   return src || undefined;
 };
 
+const parseColorOptions = (raw: unknown): ProductColorOption[] => {
+  let arr: unknown[] = [];
+  if (Array.isArray(raw)) arr = raw;
+  else if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      arr = Array.isArray(parsed) ? parsed : [];
+    } catch {
+      arr = [];
+    }
+  }
+  return arr
+    .map((entry) => {
+      const o = entry && typeof entry === "object" ? (entry as Record<string, unknown>) : {};
+      const id = Number(o.id);
+      const color = String(o.color || "").trim();
+      if (!Number.isInteger(id) || id <= 0 || !color) return null;
+      const image = normalizeOptionalImage(o.image) || "";
+      const swatch = normalizeOptionalImage(o.swatch) || image;
+      return {
+        id,
+        slug: o.slug ? String(o.slug) : undefined,
+        name: o.name ? String(o.name) : undefined,
+        color,
+        image,
+        swatch,
+        price: Number(o.price) || 0,
+      };
+    })
+    .filter(Boolean) as ProductColorOption[];
+};
+
 export const normalizeProductsResponse = (value: unknown): ProductCard[] => {
   const source = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
   return asArray<Record<string, unknown>>(source.items).map((item) => ({
@@ -403,6 +460,7 @@ export const normalizeProductsResponse = (value: unknown): ProductCard[] => {
         ? null
         : Number(item.compareAtPrice),
     glassOptions: parseGlassOptions(item.glassOptions),
+    colorOptions: parseColorOptions(item.colorOptions),
     badges: parseProductBadges(item.badges),
     ...parseProductFlag(item.flagLabel, item.flagColor),
     kitPrice:
@@ -410,6 +468,26 @@ export const normalizeProductsResponse = (value: unknown): ProductCard[] => {
         ? null
         : Number(item.kitPrice) || null,
   }));
+};
+
+export const normalizeColorFacets = (value: unknown): CatalogColorFacet[] => {
+  const source =
+    value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>).colorFacets
+      : value;
+  return asArray<Record<string, unknown>>(source)
+    .map((entry) => {
+      const color = String(entry.color || "").trim();
+      if (!color) return null;
+      const subcategorySlug = String(entry.subcategorySlug || "").trim();
+      return {
+        color,
+        swatch: normalizeOptionalImage(entry.swatch) || "",
+        count: Number(entry.count) || 0,
+        subcategorySlug: subcategorySlug || undefined,
+      };
+    })
+    .filter((entry): entry is CatalogColorFacet => Boolean(entry));
 };
 
 const normalizeRelatedFittingItem = (

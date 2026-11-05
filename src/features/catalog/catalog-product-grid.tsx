@@ -110,7 +110,7 @@ export function CatalogProductGrid({
               onMouseEnter={() => setHoveredProductId(item.id)}
               onMouseLeave={() => setHoveredProductId(null)}
               onNavigateToProduct={onRememberScroll}
-              onAddToCart={() => addItem(buildCatalogCartItem(item))}
+              onAddToCart={(activeItem) => addItem(buildCatalogCartItem(activeItem))}
               imageHeight={cardImageHeight}
             />
           );

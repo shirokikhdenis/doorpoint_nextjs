@@ -201,6 +201,41 @@ export function useCatalogFilters(meta: CatalogMeta, options?: UseCatalogFilters
     });
   };
 
+  /**
+   * Bravo pictogram strip: exclusive color select + coating subcategory.
+   * Without the subcategory the storefront filter path is unreliable when
+   * browsing «all categories».
+   */
+  const selectBravoColorFacet = (color: string, subcategorySlug?: string) => {
+    notifyUserFilterChange();
+    const trimmedColor = String(color || "").trim();
+    if (!trimmedColor) return;
+
+    setAttrSelections((prev) => {
+      const current = prev.color || [];
+      const isSelected = current.includes(trimmedColor);
+      if (isSelected) {
+        const next = { ...prev };
+        delete next.color;
+        return next;
+      }
+      return { ...prev, color: [trimmedColor] };
+    });
+
+    const slug = String(subcategorySlug || "").trim();
+    if (!slug) return;
+
+    setSubcategories((prev) => {
+      const currentColors = attrSelections.color || [];
+      const turningOff = currentColors.includes(trimmedColor);
+      if (turningOff) {
+        if (prev.length === 1 && prev[0] === slug) return [];
+        return prev.filter((entry) => entry !== slug);
+      }
+      return [slug];
+    });
+  };
+
   const selectManufacturerCollection = (manufacturer: string, collection: string) => {
     const collectionCode = meta.collectionAttrCode?.trim() || "collection";
     notifyUserFilterChange();
@@ -480,6 +515,7 @@ export function useCatalogFilters(meta: CatalogMeta, options?: UseCatalogFilters
     clearAllFilters,
     toggle,
     toggleAttrValue,
+    selectBravoColorFacet,
     selectManufacturerCollection,
     selectManufacturer,
     updatePriceRange,

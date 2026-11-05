@@ -96,10 +96,14 @@ const getProducts = async (query) => {
       const filterAttrs = page.filterAttributes || [];
       if (filterAttrs.length > 0) {
         const allowedCodes = new Set(filterAttrs.map((a) => a.code));
+        // Витрина межкомнатных может держать в сайдбаре `ottenok` вместо `color`,
+        // но ряд пиктограмм Браво и прямые ссылки шлют attr_color — его нельзя выкидывать.
+        const passthroughAttrCodes = new Set(["color"]);
         // Числовые диапазоны приходят как `thickness_min` / `thickness_max` — нужно
         // нормализовать ключ перед проверкой, иначе фильтр тихо выкидывается.
         Object.keys(filters.attributeFilters).forEach((rawCode) => {
           const baseCode = rawCode.replace(/_(min|max)$/, "");
+          if (passthroughAttrCodes.has(baseCode)) return;
           if (!allowedCodes.has(baseCode)) delete filters.attributeFilters[rawCode];
         });
       }
@@ -149,17 +153,57 @@ const getProducts = async (query) => {
       }
     }
   }
+
+  // Пиктограммы Браво шлют attr_color без подкатегории. Без покрытия (ПЭТ/экошпон…)
+  // фильтр по цвету на «всех категориях» выглядит сломанным — выводим покрытие по цвету.
+  const selectedColors = (() => {
+    const raw = filters.attributeFilters?.color;
+    if (Array.isArray(raw)) {
+      return raw.map((item) => String(item || "").trim()).filter(Boolean);
+    }
+    const value = String(raw || "").trim();
+    return value ? [value] : [];
+  })();
+  if (
+    productRepository.isBravoManufacturerSelected(filters) &&
+    selectedColors.length > 0 &&
+    (!Array.isArray(filters.subcategories) || filters.subcategories.length === 0)
+  ) {
+    const attributeFiltersWithoutColor = { ...(filters.attributeFilters || {}) };
+    delete attributeFiltersWithoutColor.color;
+    const inferred = await productRepository.listBravoCoatingSubcategorySlugsForColors(
+      { ...filters, attributeFilters: attributeFiltersWithoutColor },
+      selectedColors,
+    );
+    if (inferred.length > 0) {
+      if (filters.scopeCategories?.length) {
+        const allowed = await subcategoryRepository.listSubcategorySlugsUnderCategorySlugs(
+          filters.scopeCategories,
+        );
+        const allowedSet = new Set(allowed);
+        filters.subcategories = inferred.filter((slug) => allowedSet.has(slug));
+      } else {
+        filters.subcategories = inferred;
+      }
+    }
+  }
+
   const storefrontSettings = await storefrontSettingsRepository.getStorefrontSettings();
-  const { total, items } = await productRepository.listProducts({
+  const productFilters = {
     ...filters,
     includeKitPrice: storefrontSettings.showCatalogKitPrice,
-  });
+  };
+  const [{ total, items }, colorFacets] = await Promise.all([
+    productRepository.listProducts(productFilters),
+    productRepository.listBravoColorFacets(filters),
+  ]);
   return {
     items,
     total,
     page: filters.page,
     limit: filters.limit,
-    totalPages: Math.max(1, Math.ceil(total / filters.limit))
+    totalPages: Math.max(1, Math.ceil(total / filters.limit)),
+    colorFacets,
   };
 };
 

@@ -25,6 +25,7 @@ import { ProductVariantSelectors } from "@/features/product/product-variant-sele
 import {
   computeInteriorKitPrice,
   productCategoryCatalogHref,
+  productManufacturerColorCatalogHref,
   productSubcategoryCatalogHref,
   resolveProductDisplayPrice,
   variantCartSuffix,
@@ -74,6 +75,9 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
   }
 
   const product = page.product;
+  const manufacturerForColorCatalog =
+    product.manufacturerName ||
+    product.attributes.find((entry) => entry.code === "manufacturer")?.value;
   const image = page.displayedImage || page.targetImage;
   const galleryImages =
     product.images.length > 0 ? product.images : product.image ? [product.image] : [];
@@ -334,17 +338,37 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
             <div className="mt-8 border-t border-zinc-200 pt-6">
               <h2 className="text-lg font-semibold text-zinc-900">Характеристики</h2>
             <div className="mt-3 space-y-0">
-              {product.attributes.map((attr) => (
-                <div
-                  key={attr.code}
-                  className="grid grid-cols-1 gap-x-4 gap-y-1 border-b border-zinc-200 py-2 text-sm sm:grid-cols-[minmax(9rem,38%)_1fr]"
-                >
-                  <span className="text-zinc-600">{attr.name}</span>
-                  <strong className="min-w-0 break-words font-medium sm:text-right">
-                    {attr.value || "-"}
-                  </strong>
-                </div>
-              ))}
+              {product.attributes.map((attr) => {
+                const colorCatalogHref =
+                  attr.code === "color"
+                    ? productManufacturerColorCatalogHref(
+                        product.categorySlug,
+                        manufacturerForColorCatalog,
+                        attr.value,
+                      )
+                    : null;
+                return (
+                  <div
+                    key={attr.code}
+                    className="grid grid-cols-1 gap-x-4 gap-y-1 border-b border-zinc-200 py-2 text-sm sm:grid-cols-[minmax(9rem,38%)_1fr]"
+                  >
+                    <span className="text-zinc-600">{attr.name}</span>
+                    <strong className="min-w-0 break-words font-medium sm:text-right">
+                      {colorCatalogHref ? (
+                        <Link
+                          href={colorCatalogHref}
+                          prefetch={false}
+                          className="text-brand underline-offset-2 hover:underline"
+                        >
+                          {attr.value}
+                        </Link>
+                      ) : (
+                        attr.value || "-"
+                      )}
+                    </strong>
+                  </div>
+                );
+              })}
             </div>
             </div>
             ) : null}

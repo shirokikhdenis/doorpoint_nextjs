@@ -12,7 +12,9 @@ import type { CatalogFilterState } from "@/features/catalog/catalog-types";
 import {
   normalizeCatalogMeta,
   normalizeCatalogPages,
+  normalizeColorFacets,
   normalizeProductsResponse,
+  type CatalogColorFacet,
   type CatalogMeta,
   type CatalogPageItem,
   type ProductCard,
@@ -37,6 +39,8 @@ export type CatalogShellInitial = {
   page: number;
   limit: number;
   manufacturerSlugSegment?: string;
+  /** Bravo color pictogram filters for the current facet context. */
+  colorFacets: CatalogColorFacet[];
 };
 
 const loadCatalogShell = cache(
@@ -99,6 +103,7 @@ const loadCatalogShell = cache(
       page,
       limit,
       manufacturerSlugSegment: manufacturerName ? manufacturerSlug(manufacturerName) : undefined,
+      colorFacets: normalizeColorFacets(productsRaw),
     };
   },
 );

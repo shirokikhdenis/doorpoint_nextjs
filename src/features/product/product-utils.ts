@@ -40,8 +40,13 @@ export const variantCartSuffix = (variant: Variant): string => {
   return axes.map((attribute) => attribute.value).join(", ");
 };
 
+import type { CatalogFilterState } from "@/features/catalog/catalog-types";
 import { CATALOG_PAGE_SLUG } from "@/lib/catalog-page-slugs";
-import { buildCatalogPublicHrefFromFlat, catalogPagePath } from "@/lib/catalog-url";
+import {
+  buildCatalogPublicHrefFromFlat,
+  catalogHrefFromFilters,
+  catalogPagePath,
+} from "@/lib/catalog-url";
 
 /** Корневая категория товара → slug витрины каталога. */
 const PRODUCT_CATEGORY_TO_CATALOG_PAGE: Record<string, string> = {
@@ -82,6 +87,38 @@ export const productSubcategoryCatalogHref = (
   const catalogPage = PRODUCT_CATEGORY_TO_CATALOG_PAGE[rootSlug];
   if (!catalogPage) return null;
   return buildCatalogPublicHrefFromFlat(catalogPage, { subcategories: subSlug });
+};
+
+const emptyCatalogFilterState = (): CatalogFilterState => ({
+  search: "",
+  sort: "popularity",
+  categories: [],
+  subcategories: [],
+  attrSelections: {},
+  attrRanges: {},
+  priceRange: { min: "", max: "" },
+  onSale: false,
+});
+
+/** Витрина производителя с фильтром по цвету покрытия из характеристик. */
+export const productManufacturerColorCatalogHref = (
+  categorySlug?: string | null,
+  manufacturerName?: string | null,
+  color?: string | null,
+): string | null => {
+  const rootSlug = String(categorySlug ?? "").trim();
+  const manufacturer = String(manufacturerName ?? "").trim();
+  const colorValue = String(color ?? "").trim();
+  const catalogPage = PRODUCT_CATEGORY_TO_CATALOG_PAGE[rootSlug];
+  if (!catalogPage || !manufacturer || !colorValue) return null;
+
+  return catalogHrefFromFilters(catalogPage, {
+    ...emptyCatalogFilterState(),
+    attrSelections: {
+      manufacturer: [manufacturer],
+      color: [colorValue],
+    },
+  });
 };
 
 const DEFAULT_CATALOG_FALLBACK = "/catalog";

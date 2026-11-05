@@ -22,7 +22,11 @@ const {
 } = require("../domain/salePricing");
 const saleSettingsRepository = require("./saleSettingsRepository");
 const { allocateUniqueSlug, findRedirectProductId } = require("../domain/productSlug");
-const { applyBravoDecorSwatches } = require("../../bravo-decor-swatch");
+const {
+  applyBravoDecorSwatches,
+  normalizeDecorKey,
+  withBravoSwatchField,
+} = require("../../bravo-decor-swatch");
 const bravoDecorSwatches = require("../services/bravoDecorSwatches");
 const {
   ensureProductBadgesColumn,
@@ -461,6 +465,143 @@ const loadAttributeDefMap = async () => {
   return attributeDefCache;
 };
 
+/** True when the catalog request is scoped to Bravo (e.g. /catalog/.../bravo). */
+const isBravoManufacturerSelected = (filters) => {
+  const values = parseFilterValues(filters?.attributeFilters?.manufacturer);
+  return values.some((name) => {
+    const normalized = String(name || "")
+      .trim()
+      .toLowerCase()
+      .replace(/ё/g, "е");
+    return normalized === "браво" || normalized.startsWith("браво ");
+  });
+};
+
+/**
+ * Subcategory slugs (ПЭТ / Экошпон / …) that contain the given Bravo colors
+ * under the current non-color filters. Picks the dominant leaf per color so
+ * accessory categories (доборы/коробки) do not dilute the coating scope.
+ */
+const listBravoCoatingSubcategorySlugsForColors = async (filters, colors) => {
+  const colorValues = (Array.isArray(colors) ? colors : [])
+    .map((item) => String(item || "").trim())
+    .filter(Boolean);
+  if (colorValues.length === 0) return [];
+
+  const params = [];
+  const addParam = (value) => {
+    params.push(value);
+    return `$${params.length}`;
+  };
+
+  const attrDefByCode = await loadAttributeDefMap();
+  const where = buildScopeWhere(filters, addParam);
+  applyAttributeFilters(filters, addParam, where, attrDefByCode);
+  where.push(`NULLIF(BTRIM(p.attrs->>'color'), '') = ANY(${addParam(colorValues)})`);
+  where.push(`parent.id IS NOT NULL`);
+
+  const res = await query(
+    `
+    SELECT slug
+    FROM (
+      SELECT
+        NULLIF(BTRIM(p.attrs->>'color'), '') AS color,
+        c.slug AS slug,
+        COUNT(DISTINCT p.id)::int AS product_count,
+        ROW_NUMBER() OVER (
+          PARTITION BY NULLIF(BTRIM(p.attrs->>'color'), '')
+          ORDER BY COUNT(DISTINCT p.id) DESC, c.slug ASC
+        ) AS rn
+      FROM products p
+      ${taxonomyJoin}
+      WHERE ${where.join(" AND ")}
+      GROUP BY 1, 2
+    ) ranked
+    WHERE rn = 1
+    `,
+    params,
+  );
+  return [
+    ...new Set(res.rows.map((row) => String(row.slug || "").trim()).filter(Boolean)),
+  ];
+};
+
+/**
+ * Color pictogram facets for the Bravo storefront row.
+ * Respects current filters (category ПЭТ, collection, price…).
+ * Ignores attr_color in the facet query so the strip keeps sibling shades,
+ * but when a color is selected without an explicit subcategory filter the strip
+ * is scoped to that color's coating (Экошпон / ПЭТ / …) so other coatings
+ * do not appear.
+ */
+const listBravoColorFacets = async (filters) => {
+  if (!isBravoManufacturerSelected(filters)) return [];
+
+  const attributeFilters = { ...(filters.attributeFilters || {}) };
+  const selectedColors = parseFilterValues(attributeFilters.color);
+  delete attributeFilters.color;
+
+  let subcategories = Array.isArray(filters.subcategories) ? [...filters.subcategories] : [];
+  if (selectedColors.length > 0 && subcategories.length === 0) {
+    const inferred = await listBravoCoatingSubcategorySlugsForColors(
+      { ...filters, attributeFilters },
+      selectedColors,
+    );
+    if (inferred.length > 0) subcategories = inferred;
+  }
+
+  const facetFilters = { ...filters, attributeFilters, subcategories };
+  const params = [];
+  const addParam = (value) => {
+    params.push(value);
+    return `$${params.length}`;
+  };
+
+  const attrDefByCode = await loadAttributeDefMap();
+  const where = buildScopeWhere(facetFilters, addParam);
+  applyAttributeFilters(facetFilters, addParam, where, attrDefByCode);
+  where.push(`NULLIF(BTRIM(p.attrs->>'color'), '') IS NOT NULL`);
+
+  const whereSql = `WHERE ${where.join(" AND ")}`;
+  const res = await query(
+    `
+    SELECT
+      NULLIF(BTRIM(p.attrs->>'color'), '') AS color,
+      MIN(c.slug) AS "subcategorySlug",
+      COUNT(DISTINCT p.id)::int AS count
+    FROM products p
+    ${taxonomyJoin}
+    ${whereSql}
+    GROUP BY 1
+    ORDER BY color ASC
+    `,
+    params,
+  );
+
+  let swatchMap = new Map();
+  try {
+    swatchMap = await bravoDecorSwatches.getBravoDecorSwatchMap();
+  } catch (error) {
+    console.warn("Bravo decor swatches unavailable for color facets:", error?.message || error);
+  }
+
+  return res.rows
+    .map((row) => {
+      const color = String(row.color || "").trim();
+      if (!color) return null;
+      const key = normalizeDecorKey(color);
+      const swatch = key ? String(swatchMap.get(key) || "").trim() : "";
+      const subcategorySlug = String(row.subcategorySlug || "").trim();
+      return {
+        color,
+        swatch,
+        count: Number(row.count) || 0,
+        subcategorySlug: subcategorySlug || undefined,
+      };
+    })
+    .filter(Boolean);
+};
+
 const listProducts = async (filters) => {
   await ensureProductBadgesColumn();
   await ensureProductSaleColumns();
@@ -501,6 +642,7 @@ const listProducts = async (filters) => {
       p.sku,
       p.slug,
       p.name,
+      p.model_key AS "modelKey",
       p.price,
       p.is_on_sale AS "isOnSale",
       p.compare_at_price AS "compareAtPrice",
@@ -563,6 +705,7 @@ const listProducts = async (filters) => {
       sku: row.sku,
       slug: row.slug || null,
       name: row.name,
+      modelKey: row.modelKey || null,
       color: row.color || null,
       glass: row.glass || null,
       manufacturerId:
@@ -606,11 +749,188 @@ const listProducts = async (filters) => {
     };
   });
 
+  const withColors = await attachBravoColorOptionsToListItems(baseItems);
+
   const items = filters.includeKitPrice === false
-    ? baseItems.map(({ _pogonazhIdRaw, _rootCategoryId, ...rest }) => ({ ...rest, kitPrice: null }))
-    : await attachInteriorKitPricesToListItems(baseItems);
+    ? withColors.map(({ _pogonazhIdRaw, _rootCategoryId, modelKey, ...rest }) => ({
+        ...rest,
+        kitPrice: null,
+      }))
+    : await attachInteriorKitPricesToListItems(withColors);
 
   return { total: countRes.rows[0].total, items };
+};
+
+const BRAVO_MANUFACTURER_KEY = "браво";
+
+const colorGroupKey = (kind, modelKey, name, glass) =>
+  `${String(kind || "")}\0${String(modelKey || "")}\0${String(name || "")}\0${String(glass || "").trim()}`;
+
+const isBravoManufacturer = (value) =>
+  String(value || "").trim().toLowerCase() === BRAVO_MANUFACTURER_KEY;
+
+const isFittingsListItem = (item) => String(item?.categorySlug || "") === FITTINGS_ROOT_SLUG;
+
+const dedupeColorOptions = (entries) => {
+  const deduped = [];
+  const seenColors = new Set();
+  for (const entry of entries) {
+    const colorKey = String(entry.color || "")
+      .trim()
+      .toLowerCase();
+    if (!colorKey || seenColors.has(colorKey)) continue;
+    seenColors.add(colorKey);
+    deduped.push(entry);
+  }
+  return deduped;
+};
+
+/** Sibling color cards for Bravo doors/fittings on the storefront grid. */
+const attachBravoColorOptionsToListItems = async (items) => {
+  const list = Array.isArray(items) ? items : [];
+  if (list.length === 0) return list;
+
+  const bravoTargets = list.filter(
+    (item) => isBravoManufacturer(item.manufacturer) && item.modelKey && item.name,
+  );
+  if (bravoTargets.length === 0) {
+    return list.map(({ modelKey, ...rest }) => ({ ...rest, colorOptions: [] }));
+  }
+
+  const doorTargets = bravoTargets.filter((item) => !isFittingsListItem(item));
+  const fittingsTargets = bravoTargets.filter((item) => isFittingsListItem(item));
+
+  const byGroup = new Map();
+
+  let swatchMap = new Map();
+  try {
+    swatchMap = await bravoDecorSwatches.getBravoDecorSwatchMap();
+  } catch (error) {
+    console.warn("Bravo decor swatches unavailable for catalog:", error?.message || error);
+  }
+
+  if (doorTargets.length > 0) {
+    const pairKeys = new Set();
+    const modelKeys = [];
+    const names = [];
+    for (const item of doorTargets) {
+      const key = `${item.modelKey}\0${item.name}`;
+      if (pairKeys.has(key)) continue;
+      pairKeys.add(key);
+      modelKeys.push(String(item.modelKey));
+      names.push(String(item.name));
+    }
+
+    try {
+      const res = await query(
+        `
+        SELECT
+          p.id,
+          p.slug,
+          p.model_key AS "modelKey",
+          p.name,
+          p.price,
+          p.attrs->>'color' AS color,
+          COALESCE(NULLIF(TRIM(p.attrs->>'glass'), ''), '') AS glass,
+          ${productImageSubquery} AS image
+        FROM products p
+        WHERE p.is_active = TRUE
+          AND (p.model_key, p.name) IN (
+            SELECT * FROM unnest($1::text[], $2::text[]) AS t(model_key, name)
+          )
+        ORDER BY p.id ASC
+        `,
+        [modelKeys, names],
+      );
+
+      for (const row of res.rows) {
+        const color = String(row.color || "").trim();
+        if (!color) continue;
+        const group = colorGroupKey("door", row.modelKey, row.name, row.glass);
+        if (!byGroup.has(group)) byGroup.set(group, []);
+        byGroup.get(group).push({
+          id: Number(row.id),
+          slug: row.slug || null,
+          name: String(row.name || ""),
+          color,
+          image: String(row.image || ""),
+          price: Number(row.price) || 0,
+        });
+      }
+    } catch (error) {
+      console.warn("Bravo door color options query failed:", error?.message || error);
+    }
+  }
+
+  if (fittingsTargets.length > 0) {
+    const modelKeySet = new Set();
+    const modelKeys = [];
+    for (const item of fittingsTargets) {
+      const key = String(item.modelKey);
+      if (modelKeySet.has(key)) continue;
+      modelKeySet.add(key);
+      modelKeys.push(key);
+    }
+
+    try {
+      const res = await query(
+        `
+        SELECT
+          p.id,
+          p.slug,
+          p.model_key AS "modelKey",
+          p.name,
+          p.price,
+          p.attrs->>'handle_color_code' AS "handleColorCode",
+          COALESCE(NULLIF(TRIM(p.attrs->>'glass'), ''), '') AS glass,
+          ${productImageSubquery} AS image
+        FROM products p
+        WHERE p.is_active = TRUE
+          AND p.model_key = ANY($1::text[])
+        ORDER BY p.id ASC
+        `,
+        [modelKeys],
+      );
+
+      for (const row of res.rows) {
+        const color =
+          String(row.handleColorCode || "").trim() ||
+          fittingsColorLabelFromName(row.name, row.modelKey);
+        if (!color) continue;
+        const group = colorGroupKey("fittings", row.modelKey, "", row.glass);
+        if (!byGroup.has(group)) byGroup.set(group, []);
+        byGroup.get(group).push({
+          id: Number(row.id),
+          slug: row.slug || null,
+          name: String(row.name || ""),
+          color,
+          image: String(row.image || ""),
+          price: Number(row.price) || 0,
+        });
+      }
+    } catch (error) {
+      console.warn("Bravo fittings color options query failed:", error?.message || error);
+    }
+  }
+
+  for (const [group, entries] of byGroup) {
+    byGroup.set(group, withBravoSwatchField(dedupeColorOptions(entries), swatchMap));
+  }
+
+  return list.map((item) => {
+    const { modelKey, ...rest } = item;
+    if (!isBravoManufacturer(item.manufacturer) || !modelKey) {
+      return { ...rest, colorOptions: [] };
+    }
+    const group = isFittingsListItem(item)
+      ? colorGroupKey("fittings", modelKey, "", item.glass || "")
+      : colorGroupKey("door", modelKey, item.name, item.glass || "");
+    const options = byGroup.get(group) || [];
+    return {
+      ...rest,
+      colorOptions: options.length > 1 ? options : [],
+    };
+  });
 };
 
 const attachInteriorKitPricesToListItems = async (items) => {
@@ -3408,6 +3728,9 @@ const listEntryDoorMergeCandidates = async () => {
 
 module.exports = {
   listProducts,
+  listBravoColorFacets,
+  listBravoCoatingSubcategorySlugsForColors,
+  isBravoManufacturerSelected,
   listFilterMeta,
   listManufacturerCollectionTree,
   listActiveProductSlugs,

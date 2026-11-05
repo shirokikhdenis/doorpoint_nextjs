@@ -231,7 +231,7 @@ export const buildCatalogActiveFilterChips = (
     for (const value of values) {
       chips.push({
         id: `attr:${code}:${value}`,
-        label: attr?.name || code,
+        label: attr?.name || (code === "color" ? "Цвет" : code),
         value,
         kind: "attrValue",
         code,

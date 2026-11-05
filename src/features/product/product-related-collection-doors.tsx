@@ -58,7 +58,7 @@ export function ProductRelatedCollectionDoors({
               onMouseEnter={() => setHoveredProductId(item.id)}
               onMouseLeave={() => setHoveredProductId(null)}
               onNavigateToProduct={() => {}}
-              onAddToCart={() => addItem(buildCatalogCartItem(item))}
+              onAddToCart={(activeItem) => addItem(buildCatalogCartItem(activeItem))}
             />
           );
         })}

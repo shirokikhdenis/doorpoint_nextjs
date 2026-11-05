@@ -18,6 +18,7 @@ import {
   CatalogPageItem,
   normalizeCatalogMeta,
   normalizeCatalogPages,
+  normalizeColorFacets,
   normalizeProductsResponse,
 } from "@/lib/client/normalizers";
 import { isDesktopCatalogViewport, scrollToInstant, scrollToTopInstant } from "@/lib/client/page-scroll";
@@ -57,6 +58,7 @@ const buildBootstrapState = (
       total: initial.total,
       page: initial.page || 1,
       status: "idle",
+      colorFacets: initial.colorFacets || [],
     };
   }
   return createInitialCatalogSessionState(catalogPage, query);
@@ -239,6 +241,7 @@ export function useCatalogSession({
       products: shell.products,
       total: shell.total,
       page: shell.page || 1,
+      colorFacets: shell.colorFacets || [],
     });
 
     if (pendingRestore) {
@@ -315,6 +318,13 @@ export function useCatalogSession({
               ...responseTotals,
               shell?.total ?? 0,
             );
+            const fromResponse = normalizeColorFacets(responses[0]);
+            const colorFacets =
+              fromResponse.length > 0
+                ? fromResponse
+                : hasInitialPage && shell
+                  ? shell.colorFacets || []
+                  : [];
 
             dispatch({
               type: "RESTORE_PAGES_LOADED",
@@ -322,6 +332,7 @@ export function useCatalogSession({
               total: bestTotal,
               page: wantPages,
               searchKey: query,
+              colorFacets,
             });
 
             lastFetchedRef.current = { query, page: wantPages };
@@ -347,6 +358,7 @@ export function useCatalogSession({
           products: items,
           total: Number(json?.total) || 0,
           append: page > 1,
+          colorFacets: normalizeColorFacets(json),
         });
         lastFetchedRef.current = { query, page };
       } catch (err) {
@@ -427,5 +439,6 @@ export function useCatalogSession({
     loadingMore: state.status === "loading_more",
     error: state.error,
     isRestoringReturn,
+    colorFacets: state.colorFacets,
   };
 }

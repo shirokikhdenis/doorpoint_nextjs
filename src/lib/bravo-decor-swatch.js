@@ -32,7 +32,32 @@ const applyBravoDecorSwatches = (entries, swatchByKey) => {
   });
 };
 
+/**
+ * Keep product photo in `image`, put coating pictogram into `swatch`
+ * (for catalog cards that switch the main photo).
+ */
+const withBravoSwatchField = (entries, swatchByKey) => {
+  if (!Array.isArray(entries) || entries.length === 0) return entries || [];
+  if (!swatchByKey) {
+    return entries.map((entry) => ({ ...entry, swatch: String(entry?.image || "") }));
+  }
+  const lookup =
+    swatchByKey instanceof Map
+      ? (key) => swatchByKey.get(key)
+      : (key) => swatchByKey[key];
+
+  return entries.map((entry) => {
+    const key = normalizeDecorKey(entry?.color);
+    const pictogram = key ? String(lookup(key) || "").trim() : "";
+    return {
+      ...entry,
+      swatch: pictogram || String(entry?.image || ""),
+    };
+  });
+};
+
 module.exports = {
   normalizeDecorKey,
   applyBravoDecorSwatches,
+  withBravoSwatchField,
 };
