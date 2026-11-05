@@ -55,6 +55,7 @@ const buildContractData = (lead) => {
     subtotalFormatted,
     discountFormatted,
     skidka: discountFormatted,
+    hasDiscount: totals.discountAmount > 0,
     itogo: totalPriceFormatted,
     itogoPropisju: itogoWords.full,
     itogoSlovami: itogoWords.inParentheses,

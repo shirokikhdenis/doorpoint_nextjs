@@ -86,6 +86,7 @@ test("buildContractData applies discount to itogo and exposes skidka", () => {
     items: [{ name: "Дверь", price: 10000, quantity: 1 }],
   });
 
+  assert.equal(data.hasDiscount, true);
   assert.match(data.subtotalFormatted, /10/);
   assert.match(data.skidka, /1/);
   assert.match(data.discountFormatted, /1/);
@@ -94,11 +95,12 @@ test("buildContractData applies discount to itogo and exposes skidka", () => {
   assert.match(data.itogoPropisju, /девять/i);
 });
 
-test("buildContractData shows dash for skidka when no discount", () => {
+test("buildContractData hides discount flag when no discount", () => {
   const data = buildContractData({
     id: 1,
     items: [{ name: "Дверь", price: 5000, quantity: 1 }],
   });
+  assert.equal(data.hasDiscount, false);
   assert.equal(data.skidka, "—");
   assert.match(data.itogo, /5/);
 });

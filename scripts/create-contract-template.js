@@ -69,14 +69,14 @@ const itemsTable = `
     ${tableRow([
       tableCell("", { widthTwips: 4500 }),
       tableCell("", { widthTwips: 1500 }),
-      tableCell("Сумма без скидки:", { widthTwips: 1800 }),
+      tableCell("{#hasDiscount}Сумма без скидки:", { widthTwips: 1800 }),
       tableCell("{subtotalFormatted}", { widthTwips: 1800 }),
     ])}
     ${tableRow([
       tableCell("", { widthTwips: 4500 }),
       tableCell("", { widthTwips: 1500 }),
       tableCell("Скидка:", { widthTwips: 1800 }),
-      tableCell("{skidka}", { widthTwips: 1800 }),
+      tableCell("{skidka}{/hasDiscount}", { widthTwips: 1800 }),
     ])}
     ${tableRow([
       tableCell("", { widthTwips: 4500 }),
