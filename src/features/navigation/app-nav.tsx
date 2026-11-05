@@ -59,6 +59,8 @@ export function AppNav() {
   const [menuPath, setMenuPath] = useState(pathname);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const showCatalogSearch = isCatalogPathname(pathname);
+  /** На карточке товара шапка не прилипает на мобиле — не перекрывает контент. */
+  const isProductPage = Boolean(pathname?.startsWith("/product/"));
 
   if (menuPath !== pathname) {
     setMenuPath(pathname);
@@ -93,7 +95,13 @@ export function AppNav() {
   );
 
   return (
-    <header className="sticky top-0 z-40 border-b border-zinc-200 bg-white/95 backdrop-blur print:hidden">
+    <header
+      className={
+        isProductPage
+          ? "relative z-40 border-b border-zinc-200 bg-white/95 backdrop-blur print:hidden lg:sticky lg:top-0"
+          : "sticky top-0 z-40 border-b border-zinc-200 bg-white/95 backdrop-blur print:hidden"
+      }
+    >
       {isMobileMenuOpen ? (
         <button
           type="button"

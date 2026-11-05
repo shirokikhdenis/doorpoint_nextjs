@@ -1,6 +1,5 @@
 "use client";
 
-import { useRef } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ProductAccessoriesTable } from "@/features/product/product-accessories-table";
@@ -32,7 +31,6 @@ import {
 } from "@/features/product/product-utils";
 import { useCatalogBackHref } from "@/features/product/use-catalog-back-href";
 import { ProductPricingBlock } from "@/features/product/product-pricing-block";
-import { ProductStickyCta } from "@/features/product/product-sticky-cta";
 import { applyDoorOfWeekPricing } from "@/lib/client/door-of-week-pricing";
 import { ProductManufacturerLogo } from "@/features/product/product-manufacturer-logo";
 import { ProductPageSkeleton } from "@/features/product/product-page-skeleton";
@@ -54,7 +52,6 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
   const page = useProductPage(params, initialProduct);
   const catalogBackHref = useCatalogBackHref();
   const admin = useProductPageAdmin();
-  const inlineCtaRef = useRef<HTMLDivElement>(null);
   const photos = useProductAdminPhotos(
     page.product,
     page.reloadProduct,
@@ -163,7 +160,7 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
 
   return (
     <>
-      <main className="mx-auto w-full max-w-[1400px] px-4 py-6 pb-[max(1.5rem,var(--storefront-sticky-cta-height,0px))] sm:px-6 lg:px-8">
+      <main className="mx-auto w-full max-w-[1400px] px-4 py-6 sm:px-6 lg:px-8">
         <div className="relative">
           {product.manufacturerLogo ? (
             <ProductManufacturerLogo
@@ -293,7 +290,7 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
                 onToggleService={page.toggleHardwareService}
               />
             ) : null}
-            <div ref={inlineCtaRef} className="flex flex-col gap-3 border-t border-zinc-100 pt-4">
+            <div className="flex flex-col gap-3 border-t border-zinc-100 pt-4">
               <ProductPricingBlock
                 price={price}
                 compareAtPrice={compareAtPrice}
@@ -413,14 +410,6 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
           page.setDisplayedImage(original);
         }}
         onClose={() => page.setImageLightboxOpen(false)}
-      />
-      <ProductStickyCta
-        targetRef={inlineCtaRef}
-        compareAtPrice={compareAtPrice}
-        isOnSale={isOnSale}
-        kitPrice={kitPrice}
-        kitPricing={product.kitPricing}
-        {...cartLineProps}
       />
       <MeasureLeadForm />
     </>

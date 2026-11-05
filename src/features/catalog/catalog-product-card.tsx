@@ -143,7 +143,7 @@ export function CatalogProductCard({
         {showColorSwatches ? (
           <div
             className={cn(
-              "pointer-events-none absolute right-1 top-1 z-20 flex max-h-[calc(100%-2.75rem)] flex-col items-center gap-1 overflow-y-auto rounded-md bg-white/90 p-1 shadow-sm transition-opacity duration-150",
+              "pointer-events-none absolute right-1 top-1 z-20 hidden max-h-[calc(100%-2.75rem)] flex-col items-center gap-1 overflow-y-auto rounded-md bg-white/90 p-1 shadow-sm transition-opacity duration-150 md:flex",
               swatchesVisible ? "pointer-events-auto opacity-100" : "opacity-0",
             )}
             role="listbox"
