@@ -22,6 +22,8 @@ const {
 } = require("../domain/salePricing");
 const saleSettingsRepository = require("./saleSettingsRepository");
 const { allocateUniqueSlug, findRedirectProductId } = require("../domain/productSlug");
+const { applyBravoDecorSwatches } = require("../../bravo-decor-swatch");
+const bravoDecorSwatches = require("../services/bravoDecorSwatches");
 const {
   ensureProductBadgesColumn,
   ensureProductSaleColumns,
@@ -1164,6 +1166,19 @@ const getProductById = async (id) => {
       colorVariants = dedupeColorVariantEntries(
         colorRes.rows.map((r) => mapColorVariantRow(r, numericId)),
       );
+    }
+
+    // Браво: пиктограммы цвета — текстуры покрытий с dveri.com, не уменьшенные фото дверей.
+    const manufacturerKey = String(productAttrs.manufacturer || "")
+      .trim()
+      .toLowerCase();
+    if (manufacturerKey === "браво" && colorVariants.length > 0) {
+      try {
+        const swatchMap = await bravoDecorSwatches.getBravoDecorSwatchMap();
+        colorVariants = applyBravoDecorSwatches(colorVariants, swatchMap);
+      } catch (error) {
+        console.warn("Bravo decor swatches unavailable:", error?.message || error);
+      }
     }
   }
 
