@@ -475,19 +475,19 @@ export const normalizeColorFacets = (value: unknown): CatalogColorFacet[] => {
     value && typeof value === "object" && !Array.isArray(value)
       ? (value as Record<string, unknown>).colorFacets
       : value;
-  return asArray<Record<string, unknown>>(source)
-    .map((entry) => {
-      const color = String(entry.color || "").trim();
-      if (!color) return null;
-      const subcategorySlug = String(entry.subcategorySlug || "").trim();
-      return {
-        color,
-        swatch: normalizeOptionalImage(entry.swatch) || "",
-        count: Number(entry.count) || 0,
-        subcategorySlug: subcategorySlug || undefined,
-      };
-    })
-    .filter((entry): entry is CatalogColorFacet => Boolean(entry));
+  const facets: CatalogColorFacet[] = [];
+  for (const entry of asArray<Record<string, unknown>>(source)) {
+    const color = String(entry.color || "").trim();
+    if (!color) continue;
+    const subcategorySlug = String(entry.subcategorySlug || "").trim();
+    facets.push({
+      color,
+      swatch: normalizeOptionalImage(entry.swatch) || "",
+      count: Number(entry.count) || 0,
+      ...(subcategorySlug ? { subcategorySlug } : {}),
+    });
+  }
+  return facets;
 };
 
 const normalizeRelatedFittingItem = (
