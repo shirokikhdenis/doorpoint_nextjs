@@ -141,3 +141,97 @@ export const serializeVariantAxes = (variant: Variant | null | undefined): strin
     .sort()
     .join("|");
 };
+
+/** Парсит размер полотна вида `200x60` / `200×60` / `200*60`. */
+export const parseLeafSizeValue = (
+  raw: string | null | undefined,
+): { height: string; width: string } | null => {
+  const text = String(raw || "").trim();
+  const match = text.match(/^(\d+(?:[.,]\d+)?)\s*[x×*]\s*(\d+(?:[.,]\d+)?)$/i);
+  if (!match) return null;
+  return { height: match[1].replace(",", "."), width: match[2].replace(",", ".") };
+};
+
+export const formatLeafSizeValue = (height: string, width: string): string =>
+  `${height}x${width}`;
+
+const variantSizeRaw = (variant: Variant): string => {
+  const sizeAttr = variant.attributes.find((attribute) => attribute.code === "size");
+  return String(sizeAttr?.rawValue ?? sizeAttr?.value ?? "").trim();
+};
+
+/** SKU варианта с высотой 200 (предпочтительно 200x60), иначе первый. */
+export const preferDefaultLeafSizeVariantSku = (variants: Variant[] | null | undefined): string => {
+  const list = Array.isArray(variants) ? variants : [];
+  if (list.length === 0) return "";
+
+  const scored = list
+    .map((variant) => {
+      const parts = parseLeafSizeValue(variantSizeRaw(variant));
+      const height = parts ? Number(parts.height) : NaN;
+      const width = parts ? Number(parts.width) : NaN;
+      let score = 0;
+      if (height === 200) score += 1000;
+      else if (Number.isFinite(height)) score += Math.max(0, 500 - Math.abs(height - 200));
+      if (width === 60) score += 50;
+      else if (Number.isFinite(width)) score += Math.max(0, 40 - Math.abs(width - 60));
+      return { sku: variant.sku, score };
+    })
+    .sort((a, b) => b.score - a.score);
+
+  return scored[0]?.sku || list[0]?.sku || "";
+};
+
+export type LeafSizeAxisState = {
+  heights: string[];
+  widthsByHeight: Record<string, string[]>;
+  selectedHeight: string | null;
+  selectedWidth: string | null;
+  currentSizeValue: string | null;
+};
+
+/** Состояние высоты/ширины из оси size; null если высот меньше двух. */
+export const buildLeafSizeAxisState = (
+  variants: Variant[],
+  currentSizeValue: string | null | undefined,
+): LeafSizeAxisState | null => {
+  const widthsByHeight: Record<string, string[]> = {};
+  const sizeValues = new Set<string>();
+
+  for (const variant of variants) {
+    const raw = variantSizeRaw(variant);
+    const parts = parseLeafSizeValue(raw);
+    if (!parts) continue;
+    sizeValues.add(raw);
+    const list = widthsByHeight[parts.height] || [];
+    if (!list.includes(parts.width)) list.push(parts.width);
+    widthsByHeight[parts.height] = list;
+  }
+
+  const heights = Object.keys(widthsByHeight).sort((a, b) => Number(a) - Number(b));
+  if (heights.length < 2) return null;
+
+  for (const height of heights) {
+    widthsByHeight[height] = [...widthsByHeight[height]].sort((a, b) => Number(a) - Number(b));
+  }
+
+  const currentParts = parseLeafSizeValue(currentSizeValue);
+  const selectedHeight =
+    (currentParts && heights.includes(currentParts.height) && currentParts.height) ||
+    (heights.includes("200") ? "200" : heights[0]);
+  const widths = widthsByHeight[selectedHeight] || [];
+  const selectedWidth =
+    (currentParts &&
+      currentParts.height === selectedHeight &&
+      widths.includes(currentParts.width) &&
+      currentParts.width) ||
+    (widths.includes("60") ? "60" : widths[0] || null);
+
+  return {
+    heights,
+    widthsByHeight,
+    selectedHeight,
+    selectedWidth,
+    currentSizeValue: currentSizeValue ? String(currentSizeValue) : null,
+  };
+};

@@ -20,6 +20,7 @@
     "configurator:import": "node scripts/import-dorston-configurator.js",
     "db:backup": "bash scripts/backup-db.sh",
     "db:restore": "bash scripts/restore-db.sh",
+    "db:sync:bravo-size-prices": "node scripts/sync-bravo-interior-size-prices-from-dveri.js",
     "favicons": "node scripts/generate-favicons.mjs",
     "uploads:optimize": "node scripts/optimize-uploads.mjs",
     "uploads:card-thumbs": "node scripts/optimize-uploads.mjs --card-thumbs",

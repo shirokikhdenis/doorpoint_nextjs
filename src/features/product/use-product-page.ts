@@ -3,7 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { productHref } from "@/lib/client/product-url";
 import { suppressNextProductScrollReset } from "@/lib/client/page-scroll";
-import { serializeVariantAxes } from "@/features/product/product-utils";
+import {
+  preferDefaultLeafSizeVariantSku,
+  serializeVariantAxes,
+} from "@/features/product/product-utils";
 import { ProductData, Variant, normalizeProductData } from "@/lib/client/normalizers";
 import type { DoorFinishItem, DoorGlassUpgradeItem } from "@/lib/client/normalizers";
 import { resolveProductVariantLabels } from "@/lib/client/product-variant-labels";
@@ -28,7 +31,7 @@ export function useProductPage(
   const [selectedRef, setSelectedRef] = useState<string | null>(initialRef);
   const [product, setProduct] = useState<ProductData | null>(initialProduct ?? null);
   const [variantSku, setVariantSku] = useState(
-    () => initialProduct?.variants[0]?.sku || "",
+    () => preferDefaultLeafSizeVariantSku(initialProduct?.variants) || "",
   );
   const [loading, setLoading] = useState(!initialProduct);
   const [error, setError] = useState("");
@@ -72,7 +75,7 @@ export function useProductPage(
   const applyProduct = useCallback((data: ProductData) => {
     const prev = productRef.current;
     const prevSku = variantSkuRef.current;
-    let nextSku = data.variants[0]?.sku || "";
+    let nextSku = preferDefaultLeafSizeVariantSku(data.variants) || "";
     if (prev && prevSku) {
       const prevAxes = serializeVariantAxes(prev.variants.find((v) => v.sku === prevSku));
       if (prevAxes) {
@@ -102,7 +105,7 @@ export function useProductPage(
     setProduct(data);
     const prevSku = variantSkuRef.current;
     if (!data.variants.some((item) => item.sku === prevSku)) {
-      setVariantSku(data.variants[0]?.sku || "");
+      setVariantSku(preferDefaultLeafSizeVariantSku(data.variants) || "");
     }
     setIsManualImageSelection(false);
     const nextImage = data.images[0] || data.image || "";

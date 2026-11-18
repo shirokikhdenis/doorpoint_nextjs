@@ -1,7 +1,13 @@
 "use client";
 
+import { useMemo } from "react";
 import { ProductDoorOptionSection } from "@/features/product/product-door-option-section";
-import { resolveProductDisplayPrice, variantAxesLabel } from "@/features/product/product-utils";
+import {
+  buildLeafSizeAxisState,
+  formatLeafSizeValue,
+  resolveProductDisplayPrice,
+  variantAxesLabel,
+} from "@/features/product/product-utils";
 import { VariantChip } from "@/features/product/variant-chip";
 import { formatPrice } from "@/lib/client/format";
 import type { ProductData, Variant } from "@/lib/client/normalizers";
@@ -34,9 +40,34 @@ export function ProductVariantSelectors({
   const hasAxes = variantAxes.length > 0;
   const hasVariantSelect = !hasAxes && product.variants.length > 1;
 
+  const leafSize = useMemo(
+    () => buildLeafSizeAxisState(product.variants, currentAxisValues.size),
+    [product.variants, currentAxisValues.size],
+  );
+
+  const axesForRender = useMemo(() => {
+    if (!leafSize) return variantAxes;
+    return variantAxes.filter((axis) => axis.code !== "size");
+  }, [variantAxes, leafSize]);
+
   if (!hasColor && !hasGlass && !hasAxes && !hasVariantSelect) {
     return null;
   }
+
+  const selectLeafHeight = (height: string) => {
+    if (!leafSize) return;
+    const widths = leafSize.widthsByHeight[height] || [];
+    const width =
+      (leafSize.selectedWidth && widths.includes(leafSize.selectedWidth) && leafSize.selectedWidth) ||
+      (widths.includes("60") ? "60" : widths[0]);
+    if (!width) return;
+    onSelectAxisValue("size", formatLeafSizeValue(height, width));
+  };
+
+  const selectLeafWidth = (width: string) => {
+    if (!leafSize?.selectedHeight) return;
+    onSelectAxisValue("size", formatLeafSizeValue(leafSize.selectedHeight, width));
+  };
 
   return (
     <div className="space-y-3">
@@ -68,8 +99,38 @@ export function ProductVariantSelectors({
           ))}
         </ProductDoorOptionSection>
       ) : null}
+      {leafSize ? (
+        <>
+          <ProductDoorOptionSection label="Высота полотна">
+            {leafSize.heights.map((height) => (
+              <VariantChip
+                key={height}
+                label={height}
+                image=""
+                isCurrent={leafSize.selectedHeight === height}
+                onSelect={() => selectLeafHeight(height)}
+                onHoverPrefetch={() => {}}
+              />
+            ))}
+          </ProductDoorOptionSection>
+          {(leafSize.widthsByHeight[leafSize.selectedHeight || ""] || []).length > 1 ? (
+            <ProductDoorOptionSection label="Ширина">
+              {(leafSize.widthsByHeight[leafSize.selectedHeight || ""] || []).map((width) => (
+                <VariantChip
+                  key={width}
+                  label={width}
+                  image=""
+                  isCurrent={leafSize.selectedWidth === width}
+                  onSelect={() => selectLeafWidth(width)}
+                  onHoverPrefetch={() => {}}
+                />
+              ))}
+            </ProductDoorOptionSection>
+          ) : null}
+        </>
+      ) : null}
       {hasAxes
-        ? variantAxes.map((axis) => (
+        ? axesForRender.map((axis) => (
             <ProductDoorOptionSection key={axis.code} label={axis.name}>
               {axis.options.map((value) => (
                 <VariantChip
