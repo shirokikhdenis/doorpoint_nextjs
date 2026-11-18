@@ -225,6 +225,11 @@ export type KitPricing = {
   nalichnikQty: number;
   korobka: KitPart | null;
   nalichnik: KitPart | null;
+  leafHeightCm?: number | null;
+};
+export type KitPricingByLeafHeight = {
+  200?: KitPricing | null;
+  230?: KitPricing | null;
 };
 export type ProductData = {
   id: number;
@@ -259,6 +264,7 @@ export type ProductData = {
   flagLabel?: string;
   flagColor?: string;
   kitPricing?: KitPricing | null;
+  kitPricingByLeafHeight?: KitPricingByLeafHeight | null;
   kitPrice?: number | null;
   relatedFittingsCardsPerRow?: number;
   collectionDoorsCardsPerRow?: number;
@@ -642,12 +648,27 @@ const normalizeKitPart = (value: unknown): KitPart | null => {
 const normalizeKitPricing = (value: unknown): KitPricing | null => {
   if (!value || typeof value !== "object") return null;
   const source = value as Record<string, unknown>;
+  const leafHeightRaw = source.leafHeightCm;
+  const leafHeightCm =
+    leafHeightRaw === null || leafHeightRaw === undefined
+      ? null
+      : Number(leafHeightRaw);
   return {
     available: source.available === true,
     korobkaQty: Number(source.korobkaQty) || 2.5,
     nalichnikQty: Number(source.nalichnikQty) || 5,
     korobka: normalizeKitPart(source.korobka),
     nalichnik: normalizeKitPart(source.nalichnik),
+    leafHeightCm: Number.isFinite(leafHeightCm) ? leafHeightCm : null,
+  };
+};
+
+const normalizeKitPricingByLeafHeight = (value: unknown): KitPricingByLeafHeight | null => {
+  if (!value || typeof value !== "object") return null;
+  const source = value as Record<string, unknown>;
+  return {
+    200: normalizeKitPricing(source["200"] ?? source[200 as unknown as string]),
+    230: normalizeKitPricing(source["230"] ?? source[230 as unknown as string]),
   };
 };
 
@@ -722,6 +743,7 @@ export const normalizeProductData = (value: unknown): ProductData => {
     badges: parseProductBadges(source.badges),
     ...parseProductFlag(source.flagLabel, source.flagColor),
     kitPricing: normalizeKitPricing(source.kitPricing),
+    kitPricingByLeafHeight: normalizeKitPricingByLeafHeight(source.kitPricingByLeafHeight),
     kitPrice:
       source.kitPrice === null || source.kitPrice === undefined
         ? null

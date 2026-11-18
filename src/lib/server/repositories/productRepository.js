@@ -8,6 +8,7 @@ const {
   INTERIOR_DOORS_CATEGORY_SLUG,
   computeInteriorKitPrice,
   loadInteriorKitParts,
+  loadInteriorKitPartsByLeafHeight,
   buildPogonazhAccessoriesOrderSql,
   KIT_PART_TRUTHY,
 } = require("../domain/interiorKitPrice");
@@ -950,6 +951,7 @@ const attachInteriorKitPricesToListItems = async (items) => {
               await loadInteriorKitParts({
                 pogonazhIds,
                 excludeRootCategoryId: item._rootCategoryId,
+                leafHeightCm: 200,
               }),
             );
           }
@@ -1671,12 +1673,14 @@ const getProductById = async (id) => {
   });
 
   let kitPricing = null;
+  let kitPricingByLeafHeight = null;
   let kitPrice = null;
   if (taxonomy.categorySlug === INTERIOR_DOORS_CATEGORY_SLUG && pogonazhIds.length > 0) {
-    kitPricing = await loadInteriorKitParts({
+    kitPricingByLeafHeight = await loadInteriorKitPartsByLeafHeight({
       pogonazhIds,
       excludeRootCategoryId: currentRootCategoryId,
     });
+    kitPricing = kitPricingByLeafHeight?.[200] || null;
     kitPrice = computeInteriorKitPrice(Number(row.price), kitPricing);
   }
 
@@ -1706,6 +1710,7 @@ const getProductById = async (id) => {
     relatedFittings,
     pogonazhIds,
     kitPricing,
+    kitPricingByLeafHeight,
     kitPrice,
     badges: resolveProductBadges(row.badges),
     ...normalizeProductFlag({

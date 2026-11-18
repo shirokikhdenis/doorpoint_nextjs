@@ -27,6 +27,21 @@ export const computeInteriorKitPrice = (
   );
 };
 
+/** Комплект под высоту полотна: 230 → tall, иначе 200. */
+export const resolveKitPricingForLeafHeight = (
+  product: {
+    kitPricing?: KitPricing | null;
+    kitPricingByLeafHeight?: { 200?: KitPricing | null; 230?: KitPricing | null } | null;
+  } | null | undefined,
+  leafHeightCm: string | number | null | undefined,
+): KitPricing | null => {
+  const height = Number(leafHeightCm);
+  const bucket = Number.isFinite(height) && height >= 225 ? 230 : 200;
+  const byHeight = product?.kitPricingByLeafHeight?.[bucket];
+  if (byHeight?.available) return byHeight;
+  return product?.kitPricing ?? null;
+};
+
 export const variantAxesLabel = (variant: Variant): string => {
   const axes = variant.attributes.filter((attribute) => attribute.isVariantAxis);
   const source = axes.length > 0 ? axes : variant.attributes;

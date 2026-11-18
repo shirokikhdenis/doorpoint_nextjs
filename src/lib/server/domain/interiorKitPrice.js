@@ -10,9 +10,63 @@ const NALICHNIK_QTY = 5;
 
 const KIT_PART_TRUTHY = new Set(["да", "yes", "1", "true"]);
 
+/** Маркеры длины в названии погонажа для высоты полотна (см). */
+const LEAF_HEIGHT_KIT_MARKERS = {
+  200: { korobka: ["2070"], nalichnik: ["2150"] },
+  230: { korobka: ["2370"], nalichnik: ["2450"] },
+};
+
 const isKitPartAttrValue = (raw) => KIT_PART_TRUTHY.has(String(raw ?? "").trim().toLowerCase());
 
 const isKitPartAttrs = (attrs) => isKitPartAttrValue(attrs?.[KIT_PART_ATTR_CODE]);
+
+/** Нормализует высоту полотна к 200 или 230 для подбора комплекта. */
+const normalizeKitLeafHeightCm = (raw) => {
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value <= 0) return 200;
+  if (value >= 225) return 230;
+  return 200;
+};
+
+const nameHasMarker = (name, markers) => {
+  const text = String(name || "");
+  return (markers || []).some((marker) => text.includes(String(marker)));
+};
+
+/**
+ * Выбор коробки/наличника под высоту полотна.
+ * Если есть позиция с нужной длиной в названии (2070/2150 или 2370/2450) — берём её
+ * (среди них приоритет у «часть комплекта»). Иначе — как раньше, по флагу комплекта.
+ */
+const pickKitPartForLeafHeight = (rows, { subcategorySlug, leafHeightCm }) => {
+  const height = normalizeKitLeafHeightCm(leafHeightCm);
+  const markers = LEAF_HEIGHT_KIT_MARKERS[height] || LEAF_HEIGHT_KIT_MARKERS[200];
+  const needed =
+    subcategorySlug === POGONAZH_KOROBKA_SUBCATEGORY_SLUG
+      ? markers.korobka
+      : markers.nalichnik;
+
+  const inSubcategory = (rows || []).filter(
+    (row) => String(row.subcategorySlug || "") === subcategorySlug,
+  );
+  if (inSubcategory.length === 0) return null;
+
+  const withHeightMarker = inSubcategory.filter((row) => nameHasMarker(row.name, needed));
+  const kitOnly = inSubcategory.filter((row) => row.isKitPart);
+  const pool =
+    withHeightMarker.length > 0
+      ? withHeightMarker
+      : kitOnly.length > 0
+        ? kitOnly
+        : inSubcategory;
+
+  const ranked = [...pool].sort((a, b) => {
+    const kitDiff = Number(Boolean(b.isKitPart)) - Number(Boolean(a.isKitPart));
+    if (kitDiff !== 0) return kitDiff;
+    return Number(a.id) - Number(b.id);
+  });
+  return ranked[0] || null;
+};
 
 /** Порядок строк в таблице «Погонаж» на карточке двери (0 — выше). */
 const getPogonazhAccessorySortRank = (categorySlug, pogonazhKomplektRaw) => {
@@ -62,36 +116,59 @@ const mapKitPartRow = (row) => ({
   price: Number(row.price),
 });
 
-/**
- * Коробка и наличник для расчёта комплекта: подкатегория + pogonazh_komplekt + общий pogonazh_id.
- */
-const loadInteriorKitParts = async ({ pogonazhIds, excludeRootCategoryId }) => {
-  const empty = {
-    available: false,
+const emptyKitPricing = () => ({
+  available: false,
+  korobkaQty: KOROBKA_QTY,
+  nalichnikQty: NALICHNIK_QTY,
+  korobka: null,
+  nalichnik: null,
+  leafHeightCm: null,
+});
+
+const buildKitPricingFromRows = (rows, leafHeightCm) => {
+  const height = normalizeKitLeafHeightCm(leafHeightCm);
+  const korobkaRow = pickKitPartForLeafHeight(rows, {
+    subcategorySlug: POGONAZH_KOROBKA_SUBCATEGORY_SLUG,
+    leafHeightCm: height,
+  });
+  const nalichnikRow = pickKitPartForLeafHeight(rows, {
+    subcategorySlug: POGONAZH_NALICHNIK_SUBCATEGORY_SLUG,
+    leafHeightCm: height,
+  });
+
+  if (!korobkaRow || !nalichnikRow) {
+    return { ...emptyKitPricing(), leafHeightCm: height };
+  }
+
+  return {
+    available: true,
     korobkaQty: KOROBKA_QTY,
     nalichnikQty: NALICHNIK_QTY,
-    korobka: null,
-    nalichnik: null,
+    korobka: mapKitPartRow(korobkaRow),
+    nalichnik: mapKitPartRow(nalichnikRow),
+    leafHeightCm: height,
   };
+};
 
+const loadKitPartCandidateRows = async ({ pogonazhIds, excludeRootCategoryId }) => {
   if (!Array.isArray(pogonazhIds) || pogonazhIds.length === 0) {
-    return empty;
+    return [];
   }
 
   const res = await query(
     `
-    SELECT DISTINCT ON (c.slug)
+    SELECT
       p.id,
       p.sku,
       p.name,
       p.price,
-      c.slug AS "subcategorySlug"
+      c.slug AS "subcategorySlug",
+      lower(trim(COALESCE(p.attrs->>'pogonazh_komplekt', ''))) = ANY($3::text[]) AS "isKitPart"
     FROM products p
     JOIN categories c ON c.id = p.category_id
     LEFT JOIN categories parent ON parent.id = c.parent_id
     WHERE p.is_active = TRUE
       AND c.slug = ANY($2::text[])
-      AND lower(trim(COALESCE(p.attrs->>'pogonazh_komplekt', ''))) = ANY($3::text[])
       AND EXISTS (
         SELECT 1
         FROM regexp_split_to_table(
@@ -103,23 +180,44 @@ const loadInteriorKitParts = async ({ pogonazhIds, excludeRootCategoryId }) => {
       AND ($4::bigint IS NULL OR COALESCE(parent.id, c.id) <> $4::bigint)
     ORDER BY c.slug, p.id
     `,
-    [pogonazhIds, [POGONAZH_KOROBKA_SUBCATEGORY_SLUG, POGONAZH_NALICHNIK_SUBCATEGORY_SLUG], Array.from(KIT_PART_TRUTHY), excludeRootCategoryId],
+    [
+      pogonazhIds,
+      [POGONAZH_KOROBKA_SUBCATEGORY_SLUG, POGONAZH_NALICHNIK_SUBCATEGORY_SLUG],
+      Array.from(KIT_PART_TRUTHY),
+      excludeRootCategoryId,
+    ],
   );
 
-  const korobkaRow = res.rows.find((row) => row.subcategorySlug === POGONAZH_KOROBKA_SUBCATEGORY_SLUG);
-  const nalichnikRow = res.rows.find((row) => row.subcategorySlug === POGONAZH_NALICHNIK_SUBCATEGORY_SLUG);
+  return res.rows;
+};
 
-  if (!korobkaRow || !nalichnikRow) {
-    return empty;
+/**
+ * Коробка и наличник для расчёта комплекта.
+ * Учитывает высоту полотна: 200 → 2070/2150, 230 → 2370/2450.
+ * Предпочитает позиции с флагом «часть комплекта».
+ */
+const loadInteriorKitParts = async ({
+  pogonazhIds,
+  excludeRootCategoryId,
+  leafHeightCm = 200,
+} = {}) => {
+  const rows = await loadKitPartCandidateRows({ pogonazhIds, excludeRootCategoryId });
+  if (rows.length === 0) {
+    return emptyKitPricing();
   }
+  return buildKitPricingFromRows(rows, leafHeightCm);
+};
 
-  return {
-    available: true,
-    korobkaQty: KOROBKA_QTY,
-    nalichnikQty: NALICHNIK_QTY,
-    korobka: mapKitPartRow(korobkaRow),
-    nalichnik: mapKitPartRow(nalichnikRow),
+/**
+ * Комплекты для высот 200 и 230 (если есть подходящий погонаж).
+ */
+const loadInteriorKitPartsByLeafHeight = async ({ pogonazhIds, excludeRootCategoryId } = {}) => {
+  const rows = await loadKitPartCandidateRows({ pogonazhIds, excludeRootCategoryId });
+  const byHeight = {
+    200: buildKitPricingFromRows(rows, 200),
+    230: buildKitPricingFromRows(rows, 230),
   };
+  return byHeight;
 };
 
 module.exports = {
@@ -131,10 +229,14 @@ module.exports = {
   KIT_PART_TRUTHY,
   KOROBKA_QTY,
   NALICHNIK_QTY,
+  LEAF_HEIGHT_KIT_MARKERS,
   isKitPartAttrValue,
   isKitPartAttrs,
+  normalizeKitLeafHeightCm,
+  pickKitPartForLeafHeight,
   getPogonazhAccessorySortRank,
   buildPogonazhAccessoriesOrderSql,
   computeInteriorKitPrice,
   loadInteriorKitParts,
+  loadInteriorKitPartsByLeafHeight,
 };

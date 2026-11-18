@@ -26,7 +26,9 @@ import {
   productCategoryCatalogHref,
   productManufacturerColorCatalogHref,
   productSubcategoryCatalogHref,
+  resolveKitPricingForLeafHeight,
   resolveProductDisplayPrice,
+  parseLeafSizeValue,
   variantCartSuffix,
 } from "@/features/product/product-utils";
 import { useCatalogBackHref } from "@/features/product/use-catalog-back-href";
@@ -93,7 +95,13 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
     ? doorOfWeekPricing.compareAtPrice
     : product.compareAtPrice;
   const isOnSale = doorOfWeekPricing.isOnSale || product.isOnSale === true;
-  const kitPrice = computeInteriorKitPrice(price, product.kitPricing);
+  const selectedLeafHeight = (() => {
+    const sizeAttr = page.selectedVariant?.attributes.find((entry) => entry.code === "size");
+    const raw = sizeAttr?.rawValue ?? sizeAttr?.value;
+    return parseLeafSizeValue(raw)?.height ?? null;
+  })();
+  const activeKitPricing = resolveKitPricingForLeafHeight(product, selectedLeafHeight);
+  const kitPrice = computeInteriorKitPrice(price, activeKitPricing);
   const relatedFittings = product.relatedFittings ?? { items: [] };
   const cartVariantSuffix = page.selectedVariant
     ? variantCartSuffix(page.selectedVariant)
@@ -296,7 +304,7 @@ export function ProductPageClient({ params, initialProduct }: ProductPageClientP
                 compareAtPrice={compareAtPrice}
                 isOnSale={isOnSale}
                 kitPrice={kitPrice}
-                kitPricing={product.kitPricing}
+                kitPricing={activeKitPricing}
               />
               <ProductAddToCart {...cartLineProps} className="w-full" />
             </div>
