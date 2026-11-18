@@ -205,19 +205,20 @@ export type LeafSizeAxisState = {
   currentSizeValue: string | null;
 };
 
-/** Состояние высоты/ширины из оси size; null если высот меньше двух. */
+/**
+ * Раздельный выбор высоты/ширины только если есть «высокая» полотна (230+).
+ * Для наборов вроде 190/200 оставляем один ряд чипов размера (190x55, 200x60…).
+ */
 export const buildLeafSizeAxisState = (
   variants: Variant[],
   currentSizeValue: string | null | undefined,
 ): LeafSizeAxisState | null => {
   const widthsByHeight: Record<string, string[]> = {};
-  const sizeValues = new Set<string>();
 
   for (const variant of variants) {
     const raw = variantSizeRaw(variant);
     const parts = parseLeafSizeValue(raw);
     if (!parts) continue;
-    sizeValues.add(raw);
     const list = widthsByHeight[parts.height] || [];
     if (!list.includes(parts.width)) list.push(parts.width);
     widthsByHeight[parts.height] = list;
@@ -225,6 +226,9 @@ export const buildLeafSizeAxisState = (
 
   const heights = Object.keys(widthsByHeight).sort((a, b) => Number(a) - Number(b));
   if (heights.length < 2) return null;
+
+  const hasTallLeaf = heights.some((height) => Number(height) >= 225);
+  if (!hasTallLeaf) return null;
 
   for (const height of heights) {
     widthsByHeight[height] = [...widthsByHeight[height]].sort((a, b) => Number(a) - Number(b));
